@@ -22,7 +22,7 @@ type QuotationCartApiRow = {
   price_at_added: string | number;
   moq?: number | null;
   quotation_enabled?: boolean | null;
-  quotation_min_qty?: number | null;
+  quotation_limit?: number | null;
   quantity: number;
   vendor_id: string;
   vendor_name?: string | null;
@@ -70,7 +70,7 @@ export const useQuotationCartStore = create<QuotationCartState>((set, get) => ({
         price: Number(row.price_at_added) || 0,
         moq: row.moq || 1,
         quotationEnabled: Boolean(row.quotation_enabled),
-        quotationMinQty: row.quotation_min_qty ?? null,
+        quotationMinQty: row.quotation_limit ?? null,
         quantity: row.quantity,
         vendorId: row.vendor_id,
         vendorName: row.vendor_name || "Unknown Vendor",

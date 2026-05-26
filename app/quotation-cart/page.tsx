@@ -162,8 +162,9 @@ export default function QuotationCartPage() {
                       <div className="text-sm font-bold text-blue-700">₹{item.price}</div>
                       <div className="text-xs text-zinc-500">MOQ: {item.moq}</div>
                       {item.quotationMinQty ? (
-                        <div className="text-xs text-amber-700">Quote min: {item.quotationMinQty}</div>
+                        <div className="text-xs text-amber-700">Quotation limit: {item.quotationMinQty}+ units</div>
                       ) : null}
+                      <div className="text-xs text-blue-600">⚡ Sent to all eligible vendors</div>
                       <div className="flex items-center gap-2">
                         <input
                           type="number"

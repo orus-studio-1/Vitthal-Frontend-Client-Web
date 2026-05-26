@@ -35,7 +35,6 @@ type Vendor = {
   moq: number;
   stock_quantity: number;
   quotation_enabled?: boolean;
-  quotation_min_qty?: number | null;
   rating: number;
   review_count: number;
   latitude: number | null;
@@ -71,6 +70,7 @@ type ProductDetail = {
   standard?: string;
   rating: number;
   review_count: number;
+  quotation_limit?: number | null;
   specifications: Record<string, string | number>;
   images: ProductImage[];
   vendors: Vendor[];
@@ -265,8 +265,8 @@ export default function ProductDetailPage() {
   const handleAddToCart = async (vendor: Vendor) => {
     if (!product) return;
     const quantity = quantities[vendor.vendor_id] || vendor.moq || 1;
-    const quotationMinQty = vendor.quotation_min_qty ? Number(vendor.quotation_min_qty) : null;
-    const requiresQuotation = Boolean(vendor.quotation_enabled) && quotationMinQty !== null && quantity >= quotationMinQty;
+    const quotationLimit = product.quotation_limit ? Number(product.quotation_limit) : null;
+    const requiresQuotation = quotationLimit !== null && quantity >= quotationLimit;
 
     setAddingVendorId(vendor.vendor_id);
     
@@ -277,8 +277,8 @@ export default function ProductDetailPage() {
         image: product.images?.[0]?.image_url || "",
         price: Number(vendor.price) || 0,
         moq: vendor.moq,
-        quotationMinQty: quotationMinQty,
-        quotationEnabled: vendor.quotation_enabled,
+        quotationMinQty: quotationLimit,
+        quotationEnabled: true,
         quantity,
         vendorId: vendor.vendor_id,
         vendorName: "",
@@ -443,6 +443,19 @@ export default function ProductDetailPage() {
                   <p className="text-sm text-zinc-500 mb-1">Price Range (per unit)</p>
                   <p className="text-2xl font-bold text-[#1d4ed8]">{priceRange}</p>
                   <p className="text-xs text-zinc-400 mt-1">* Prices vary by supplier. MOQ applies.</p>
+                </div>
+              )}
+
+              {/* Quotation Limit Info */}
+              {product.quotation_limit && (
+                <div className="mb-4 flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                  <Info size={18} className="text-amber-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-900">Quotation Required for Bulk Orders</p>
+                    <p className="text-xs text-amber-700 mt-0.5">
+                      Orders of <strong>{product.quotation_limit}+</strong> units require a quotation. Your request will be sent to all eligible suppliers for competitive pricing.
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -682,8 +695,8 @@ export default function ProductDetailPage() {
                       const qty = quantities[v.vendor_id] || v.moq || 1;
                       const price = typeof v.price === "string" ? parseFloat(v.price) || 0 : v.price || 0;
                       const totalPrice = price * qty;
-                      const quotationMinQty = v.quotation_min_qty ? Number(v.quotation_min_qty) : null;
-                      const requiresQuotation = Boolean(v.quotation_enabled) && quotationMinQty !== null && qty >= quotationMinQty;
+                      const quotationLimit = product.quotation_limit ? Number(product.quotation_limit) : null;
+                      const requiresQuotation = quotationLimit !== null && qty >= quotationLimit;
                       const isRanked = rankedVendors.length > 0 && "rank" in v;
                       const ranked = v as RankedVendor;
                       
@@ -745,9 +758,10 @@ export default function ProductDetailPage() {
                                 )}
                               </div>
 
-                              {v.quotation_enabled && quotationMinQty !== null && (
+                              {/* Product-level quotation info */}
+                              {product.quotation_limit && qty >= product.quotation_limit && (
                                 <div className="mb-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-                                  Quotation required for {quotationMinQty}+ units
+                                  ⚡ Quotation mode — your request will be sent to all eligible suppliers
                                 </div>
                               )}
 
