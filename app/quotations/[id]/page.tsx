@@ -267,16 +267,14 @@ export default function QuotationDetailPage() {
           </div>
 
           {/* Main card */}
-          <div className={`rounded-2xl overflow-hidden border ${
-            isClient
+          <div className={`rounded-2xl overflow-hidden border ${isClient
               ? "bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500 text-white"
               : "bg-white border-zinc-200 text-zinc-900 shadow-sm"
-          }`}>
+            }`}>
 
             {/* Action Badge */}
-            <div className={`px-4 py-2 text-xs font-bold uppercase tracking-widest border-b ${
-              isClient ? "border-blue-500/30 text-blue-100 bg-blue-700/50" : "border-zinc-100 text-zinc-500 bg-zinc-50"
-            }`}>
+            <div className={`px-4 py-2 text-xs font-bold uppercase tracking-widest border-b ${isClient ? "border-blue-500/30 text-blue-100 bg-blue-700/50" : "border-zinc-100 text-zinc-500 bg-zinc-50"
+              }`}>
               {msg.action === "request" && "📋 Quotation Request"}
               {msg.action === "offer" && "💰 Vendor Offer"}
               {msg.action === "counter" && (isClient ? "↩️ Your Counter Offer" : "↩️ Vendor Counter Offer")}
@@ -387,7 +385,7 @@ export default function QuotationDetailPage() {
         </div>
         {vq.vendor_document_url && (
           <a
-            href={vq.vendor_document_url}
+            href={vq.vendor_document_url.includes('?') ? vq.vendor_document_url : `${vq.vendor_document_url}?t=${new Date(vq.updated_at).getTime()}`}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-3 flex items-center gap-2 text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors"
@@ -422,7 +420,7 @@ export default function QuotationDetailPage() {
     <div className="min-h-screen bg-zinc-50/50">
       {/* ─── Header ─── */}
       <div className="bg-white border-b border-zinc-200 px-4 py-5 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-[1720px]">
+        <div className="mx-auto max-w-7xl">
           <Link href="/quotations" className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-700 mb-4 transition-colors">
             <ArrowLeft size={16} /> Back to Quotations
           </Link>
@@ -453,9 +451,9 @@ export default function QuotationDetailPage() {
             </div>
 
             {/* Document Link */}
-            {groupData.document && (
+            {(selectedQuotation?.vendor_document_url || groupData.document?.document_url) && (
               <a
-                href={groupData.document.document_url}
+                href={selectedQuotation?.vendor_document_url ? (selectedQuotation.vendor_document_url.includes('?') ? selectedQuotation.vendor_document_url : `${selectedQuotation.vendor_document_url}?t=${new Date(selectedQuotation.updated_at).getTime()}`) : (groupData.document?.document_url || "#")}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 transition-colors shrink-0"
@@ -476,7 +474,7 @@ export default function QuotationDetailPage() {
       </div>
 
       {/* ─── Main 2-Panel Layout ─── */}
-      <div className="mx-auto max-w-[1720px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 items-start">
 
           {/* LEFT COLUMN: Stack of Documents Card + Vendor List Card */}
@@ -486,7 +484,7 @@ export default function QuotationDetailPage() {
             <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden p-5 shrink-0 bg-gradient-to-br from-zinc-50 to-white">
               <h2 className="text-sm font-bold text-zinc-950 flex items-center gap-2 mb-3">
                 <FileText size={16} className="text-emerald-600" />
-                Official S3 Agreements
+                Official Agreements
               </h2>
               <div className="space-y-2">
                 {/* 1. Base Request Agreement */}
@@ -512,7 +510,7 @@ export default function QuotationDetailPage() {
                 {/* 2. Vendor Specific Filled Agreement */}
                 {selectedQuotation?.vendor_document_url ? (
                   <a
-                    href={selectedQuotation.vendor_document_url}
+                    href={selectedQuotation.vendor_document_url.includes('?') ? selectedQuotation.vendor_document_url : `${selectedQuotation.vendor_document_url}?t=${new Date(selectedQuotation.updated_at).getTime()}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-between p-2.5 rounded-xl border border-blue-200 bg-blue-50/50 hover:bg-blue-50 transition-colors text-xs font-semibold text-blue-800 animate-pulse"
@@ -550,9 +548,8 @@ export default function QuotationDetailPage() {
                     <button
                       key={vq.id}
                       onClick={() => setSelectedVendorId(vq.vendor_id)}
-                      className={`w-full text-left px-5 py-4 transition-all hover:bg-zinc-50 ${
-                        isSelected ? "bg-blue-50/60 border-l-4 border-l-blue-500" : "border-l-4 border-l-transparent"
-                      }`}
+                      className={`w-full text-left px-5 py-4 transition-all hover:bg-zinc-50 ${isSelected ? "bg-blue-50/60 border-l-4 border-l-blue-500" : "border-l-4 border-l-transparent"
+                        }`}
                     >
                       {/* Vendor Name + Status */}
                       <div className="flex items-center justify-between mb-2">
@@ -623,7 +620,7 @@ export default function QuotationDetailPage() {
                       </p>
                     </div>
                     {selectedQuotation.vendor_document_url && (
-                      <a href={selectedQuotation.vendor_document_url} target="_blank" rel="noopener noreferrer"
+                      <a href={selectedQuotation.vendor_document_url.includes('?') ? selectedQuotation.vendor_document_url : `${selectedQuotation.vendor_document_url}?t=${new Date(selectedQuotation.updated_at).getTime()}`} target="_blank" rel="noopener noreferrer"
                         className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium">
                         <FileText size={14} /> Vendor Doc <ExternalLink size={10} />
                       </a>
@@ -653,51 +650,53 @@ export default function QuotationDetailPage() {
                 {activeTab === "vendor" && renderVendorTermsSummary(selectedQuotation)}
 
                 {/* Messages Area */}
-                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5 bg-gradient-to-b from-zinc-50/50 to-white" style={{ minHeight: 200 }}>
-                  {activeTab === "vendor" ? (
-                    <>
-                      {messages.filter(m => m.action !== "admin_confirm" && m.action !== "admin_reject" && m.sender_role !== "admin").length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 text-zinc-400">
-                          <Clock size={32} className="mb-3 text-zinc-300" />
-                          <p className="text-sm font-medium">Waiting for vendor to respond...</p>
-                          <p className="text-xs mt-1">The vendor will send their offer with pricing, delivery timeline, and terms.</p>
-                        </div>
-                      ) : (
-                        messages
-                          .filter(m => m.action !== "admin_confirm" && m.action !== "admin_reject" && m.sender_role !== "admin")
-                          .map(renderMessageCard)
-                      )}
-                    </>
-                  ) : (
-                    <div className="space-y-4">
-                      {selectedQuotation.admin_confirmation_message && (
-                        <div className="flex justify-start">
-                          <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-white border border-zinc-200 shadow-sm rounded-bl-sm">
-                            <div className="flex items-center gap-2 mb-1">
-                              <ShieldCheck size={12} className="text-zinc-500" />
-                              <span className="text-xs font-semibold text-zinc-600">Admin</span>
+                <div className="flex-1 overflow-y-auto px-5 py-4 bg-gradient-to-b from-zinc-50/50 to-white" style={{ minHeight: 200 }}>
+                  <div className="max-w-4xl mx-auto w-full space-y-5">
+                    {activeTab === "vendor" ? (
+                      <>
+                        {messages.filter(m => m.action !== "admin_confirm" && m.action !== "admin_reject" && m.sender_role !== "admin").length === 0 ? (
+                          <div className="flex flex-col items-center justify-center py-16 text-zinc-400">
+                            <Clock size={32} className="mb-3 text-zinc-300" />
+                            <p className="text-sm font-medium">Waiting for vendor to respond...</p>
+                            <p className="text-xs mt-1">The vendor will send their offer with pricing, delivery timeline, and terms.</p>
+                          </div>
+                        ) : (
+                          messages
+                            .filter(m => m.action !== "admin_confirm" && m.action !== "admin_reject" && m.sender_role !== "admin")
+                            .map(renderMessageCard)
+                        )}
+                      </>
+                    ) : (
+                      <div className="space-y-4">
+                        {selectedQuotation.admin_confirmation_message && (
+                          <div className="flex justify-start">
+                            <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-white border border-zinc-200 shadow-sm rounded-bl-sm">
+                              <div className="flex items-center gap-2 mb-1">
+                                <ShieldCheck size={12} className="text-zinc-500" />
+                                <span className="text-xs font-semibold text-zinc-600">Admin</span>
+                              </div>
+                              <p className="text-sm">{selectedQuotation.admin_confirmation_message}</p>
                             </div>
-                            <p className="text-sm">{selectedQuotation.admin_confirmation_message}</p>
                           </div>
-                        </div>
-                      )}
-                      {selectedQuotation.admin_confirmation_status === "accepted" && (
-                        <div className="flex justify-end">
-                          <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-emerald-600 text-white rounded-br-sm">
-                            <p className="text-sm flex items-center gap-1"><CheckCircle2 size={14} /> Admin confirmation accepted</p>
+                        )}
+                        {selectedQuotation.admin_confirmation_status === "accepted" && (
+                          <div className="flex justify-end">
+                            <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-emerald-600 text-white rounded-br-sm">
+                              <p className="text-sm flex items-center gap-1"><CheckCircle2 size={14} /> Admin confirmation accepted</p>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                      {selectedQuotation.admin_confirmation_status === "rejected" && (
-                        <div className="flex justify-end">
-                          <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-rose-600 text-white rounded-br-sm">
-                            <p className="text-sm flex items-center gap-1"><XCircle size={14} /> Admin confirmation rejected</p>
+                        )}
+                        {selectedQuotation.admin_confirmation_status === "rejected" && (
+                          <div className="flex justify-end">
+                            <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-rose-600 text-white rounded-br-sm">
+                              <p className="text-sm flex items-center gap-1"><XCircle size={14} /> Admin confirmation rejected</p>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <div ref={messagesEndRef} />
+                        )}
+                      </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
                 </div>
 
                 {/* Action Area */}

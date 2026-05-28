@@ -18,7 +18,7 @@ export function Header() {
   const notifRef = useRef<HTMLLIElement>(null);
   const { user, isAuthenticated, isLoading, fetchUser, logout } = useAuthStore();
   const totalItems = useCartStore((s) => s.items.length);
-  const { notifications, unreadCount, isLoading: notificationsLoading, fetchNotifications, fetchUnreadCount, markRead, markAllRead } = useNotificationStore();
+  const { notifications, unreadCount, isLoading: notificationsLoading, fetchNotifications, fetchUnreadCount, markRead, markAllRead, initSocket, disconnectSocket } = useNotificationStore();
   const router = useRouter();
 
   useLayoutEffect(() => {
@@ -39,12 +39,12 @@ export function Header() {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && user?.userId) {
       fetchUnreadCount();
-      const interval = setInterval(fetchUnreadCount, 30000);
-      return () => clearInterval(interval);
+      initSocket(user.userId);
+      return () => disconnectSocket();
     }
-  }, [isAuthenticated, fetchUnreadCount]);
+  }, [isAuthenticated, user?.userId, fetchUnreadCount, initSocket, disconnectSocket]);
 
   function handleOpenNotifications() {
     setNotifDropdown(!notifDropdown);
