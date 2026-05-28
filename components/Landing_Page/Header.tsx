@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useLayoutEffect } from "react";
+import { useEffect, useState, useRef, useLayoutEffect, useCallback } from "react";
 import { Menu, X, ShoppingCart, User, LogOut, ChevronDown, Bell } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -18,7 +18,7 @@ export function Header() {
   const notifRef = useRef<HTMLLIElement>(null);
   const { user, isAuthenticated, isLoading, fetchUser, logout } = useAuthStore();
   const totalItems = useCartStore((s) => s.items.length);
-  const { notifications, unreadCount, isLoading: notificationsLoading, fetchNotifications, fetchUnreadCount, markRead, markAllRead, initSocket, disconnectSocket } = useNotificationStore();
+  const { notifications, unreadCount, isLoading: notificationsLoading, isLoadingMore, hasMore, fetchNotifications, fetchMore, fetchUnreadCount, markRead, markAllRead, initSocket, disconnectSocket } = useNotificationStore();
   const router = useRouter();
 
   useLayoutEffect(() => {
@@ -50,6 +50,18 @@ export function Header() {
     setNotifDropdown(!notifDropdown);
     if (!notifDropdown) void fetchNotifications();
   }
+
+  // Infinite scroll handler for dropdown
+  const handleDropdownScroll = useCallback(
+    (e: React.UIEvent<HTMLDivElement>) => {
+      const target = e.currentTarget;
+      const nearBottom = target.scrollHeight - target.scrollTop - target.clientHeight < 80;
+      if (nearBottom && hasMore && !isLoadingMore) {
+        fetchMore();
+      }
+    },
+    [hasMore, isLoadingMore, fetchMore]
+  );
 
   function timeAgo(dateStr: string) {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -152,20 +164,29 @@ export function Header() {
                   {notifDropdown && (
                     <div className="absolute right-0 top-full mt-3 w-88 max-h-120 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl shadow-zinc-900/10 z-50 flex flex-col backdrop-blur-sm">
                       <div className="flex items-center justify-between border-b border-zinc-100 bg-linear-to-r from-zinc-50 via-white to-emerald-50/60 px-4 py-3.5">
-                        <div>
-                          <p className="text-sm font-semibold text-zinc-900">Notifications</p>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-zinc-900">Notifications</p>
                           <p className="text-[11px] text-zinc-500">Recent updates and alerts</p>
                         </div>
-                        {unreadCount > 0 && (
-                          <button
-                            onClick={() => markAllRead()}
-                            className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100"
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href="/notifications"
+                            onClick={() => setNotifDropdown(false)}
+                            className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
                           >
-                            Mark all read
-                          </button>
-                        )}
+                            See all
+                          </Link>
+                          {unreadCount > 0 && (
+                            <button
+                              onClick={() => markAllRead()}
+                              className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100"
+                            >
+                              Mark all read
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div className="overflow-y-auto max-h-96 divide-y divide-zinc-50">
+                      <div className="overflow-y-auto max-h-96 divide-y divide-zinc-50" onScroll={handleDropdownScroll}>
                         {notificationsLoading ? (
                           <div className="space-y-3 p-4">
                             {[...Array(4)].map((_, index) => (
@@ -213,6 +234,11 @@ export function Header() {
                               </div>
                             </button>
                           ))
+                        )}
+                        {isLoadingMore && (
+                          <div className="flex items-center justify-center py-3 border-t border-zinc-50">
+                            <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-200 border-t-emerald-500" />
+                          </div>
                         )}
                       </div>
                     </div>

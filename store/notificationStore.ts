@@ -20,8 +20,12 @@ type NotificationState = {
   unreadCount: number;
   total: number;
   isLoading: boolean;
+  isLoadingMore: boolean;
+  hasMore: boolean;
+  nextCursor: string | null;
   socket: Socket | null;
   fetchNotifications: () => Promise<void>;
+  fetchMore: () => Promise<void>;
   fetchUnreadCount: () => Promise<void>;
   markRead: (id: string) => Promise<void>;
   markAllRead: () => Promise<void>;
@@ -29,17 +33,22 @@ type NotificationState = {
   disconnectSocket: () => void;
 };
 
+const PAGE_SIZE = 20;
+
 export const useNotificationStore = create<NotificationState>((set, get) => ({
   notifications: [],
   unreadCount: 0,
   total: 0,
   isLoading: false,
+  isLoadingMore: false,
+  hasMore: false,
+  nextCursor: null,
   socket: null,
 
   fetchNotifications: async () => {
     set({ isLoading: true });
     try {
-      const res = await fetch(`${API_BASE}/api/notifications?limit=50`, {
+      const res = await fetch(`${API_BASE}/api/notifications?limit=${PAGE_SIZE}`, {
         credentials: "include",
         headers: { "Content-Type": "application/json", "x-request-from": "client" },
       });
@@ -49,6 +58,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
           notifications: data.data?.notifications || [],
           unreadCount: data.data?.unread || 0,
           total: data.data?.total || 0,
+          hasMore: data.data?.hasMore || false,
+          nextCursor: data.data?.nextCursor || null,
           isLoading: false,
         });
       } else {
@@ -56,6 +67,43 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       }
     } catch {
       set({ isLoading: false });
+    }
+  },
+
+  fetchMore: async () => {
+    const { nextCursor, hasMore, isLoadingMore } = get();
+    if (!hasMore || isLoadingMore || !nextCursor) return;
+
+    set({ isLoadingMore: true });
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/notifications?limit=${PAGE_SIZE}&cursor=${encodeURIComponent(nextCursor)}`,
+        {
+          credentials: "include",
+          headers: { "Content-Type": "application/json", "x-request-from": "client" },
+        }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const newNotifs: Notification[] = data.data?.notifications || [];
+
+        set((state) => {
+          // Deduplicate
+          const existingIds = new Set(state.notifications.map((n) => n.id));
+          const unique = newNotifs.filter((n) => !existingIds.has(n.id));
+
+          return {
+            notifications: [...state.notifications, ...unique],
+            hasMore: data.data?.hasMore || false,
+            nextCursor: data.data?.nextCursor || null,
+            isLoadingMore: false,
+          };
+        });
+      } else {
+        set({ isLoadingMore: false });
+      }
+    } catch {
+      set({ isLoadingMore: false });
     }
   },
 
