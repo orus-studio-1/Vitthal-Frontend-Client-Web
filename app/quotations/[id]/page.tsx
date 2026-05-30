@@ -285,7 +285,7 @@ export default function QuotationDetailPage() {
 
             <div className="p-4 space-y-3">
               {/* Pricing Breakdown — only for offer/counter/request actions */}
-              {msg.offer_price != null && msg.offer_quantity != null && (
+              {msg.offer_price != null && msg.offer_quantity != null && msg.action !== "request" && (
                 <div className={`rounded-xl p-3 space-y-2 ${isClient ? "bg-blue-700/40" : "bg-zinc-50 border border-zinc-100"}`}>
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div>
@@ -307,6 +307,15 @@ export default function QuotationDetailPage() {
                       <span className="text-sm font-extrabold">{formatINR(total)}</span>
                     </div>
                   )}
+                </div>
+              )}
+
+              {msg.action === "request" && msg.offer_quantity != null && (
+                <div className="rounded-xl p-3 bg-zinc-50 border border-zinc-100">
+                  <div className="text-center">
+                    <p className="text-[10px] uppercase tracking-wider text-zinc-400">Requested Quantity</p>
+                    <p className="text-base font-bold text-zinc-950 mt-1">{msg.offer_quantity?.toLocaleString("en-IN")} units</p>
+                  </div>
                 </div>
               )}
 
