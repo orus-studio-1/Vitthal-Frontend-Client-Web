@@ -42,6 +42,7 @@ export default function CheckoutPage() {
         state: "",
         country: "India",
         pincode: "",
+        phone: "",
         latitude: null as number | null,
         longitude: null as number | null
     });
@@ -96,9 +97,14 @@ export default function CheckoutPage() {
                         country: mappedDetails.country || "India",
                         pincode: mappedDetails.pincode || "",
                         latitude: mappedDetails.latitude,
-                        longitude: mappedDetails.longitude
+                        longitude: mappedDetails.longitude,
+                        phone: mappedDetails.phone || ""
                     });
                 } else {
+                    setAddressForm(prev => ({
+                        ...prev,
+                        phone: mappedDetails.phone || ""
+                    }));
                     setShowAddressForm(true);
                 }
             } else {
@@ -116,15 +122,6 @@ export default function CheckoutPage() {
         if (isAuthenticated) {
             const timer = window.setTimeout(() => {
                 void (async () => {
-                    const setupComplete = await checkClientSetupStatus();
-
-                    if (!setupComplete) {
-                        toast.error("Please set up your account first");
-                        router.replace("/profile/setup");
-                        setFetchingClient(false);
-                        return;
-                    }
-
                     setIsSetupVerified(true);
                     await loadClientDetails();
                 })();
@@ -132,7 +129,7 @@ export default function CheckoutPage() {
 
             return () => window.clearTimeout(timer);
         }
-    }, [checkClientSetupStatus, isAuthenticated, router]);
+    }, [isAuthenticated]);
 
     const getCurrentLocation = () => {
         if (!navigator.geolocation) {
@@ -160,8 +157,8 @@ export default function CheckoutPage() {
 
     const handleSaveAddress = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!addressForm.address || !addressForm.city || !addressForm.state || !addressForm.country || !addressForm.pincode) {
-            toast.error("All address fields are required");
+        if (!addressForm.address || !addressForm.city || !addressForm.state || !addressForm.country || !addressForm.pincode || !addressForm.phone) {
+            toast.error("All address fields and mobile number are required");
             return;
         }
         if (addressForm.latitude === null || addressForm.longitude === null) {
@@ -170,11 +167,30 @@ export default function CheckoutPage() {
         }
         setSavingAddress(true);
         try {
-            const res = await fetch(`${API_BASE}/api/client/upsertAddress`, {
+            const useSetupEndpoint = !clientDetails?.phone;
+            const endpoint = useSetupEndpoint 
+                ? `${API_BASE}/api/client/addClientDetails`
+                : `${API_BASE}/api/client/upsertAddress`;
+
+            const payload = useSetupEndpoint
+                ? {
+                    phone: addressForm.phone,
+                    address: addressForm.address,
+                    addressPhone: addressForm.phone,
+                    city: addressForm.city,
+                    state: addressForm.state,
+                    country: addressForm.country,
+                    pincode: addressForm.pincode,
+                    latitude: addressForm.latitude,
+                    longitude: addressForm.longitude
+                  }
+                : addressForm;
+
+            const res = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "x-request-from": "client" },
                 credentials: "include",
-                body: JSON.stringify(addressForm)
+                body: JSON.stringify(payload)
             });
 
             if (res.ok) {
@@ -313,6 +329,18 @@ export default function CheckoutPage() {
                                             <div>
                                                 <label className="block text-sm font-medium text-zinc-700 mb-1">Country</label>
                                                 <input required type="text" value={addressForm.country} onChange={e => setAddressForm({...addressForm, country: e.target.value})} className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none" />
+                                            </div>
+                                            <div className="md:col-span-2">
+                                                <label className="block text-sm font-medium text-zinc-700 mb-1">Mobile Phone Number</label>
+                                                <input 
+                                                    required 
+                                                    type="tel" 
+                                                    pattern="[0-9]{10}"
+                                                    value={addressForm.phone || ""} 
+                                                    onChange={e => setAddressForm({...addressForm, phone: e.target.value.replace(/\D/g, "")})} 
+                                                    className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none" 
+                                                    placeholder="10-digit mobile number" 
+                                                />
                                             </div>
                                         </div>
                                         <div>

@@ -130,8 +130,14 @@ async function fetchClientAddress(): Promise<{ latitude: number; longitude: numb
     if (!res.ok) return null;
     const json = await res.json();
     const data = json.data;
-    if (data?.latitude != null && data?.longitude != null) {
-      return { latitude: Number(data.latitude), longitude: Number(data.longitude), address: data.address || "", city: data.city || "" };
+    const primaryAddr = data?.primary_address || data?.addresses?.[0] || null;
+    if (primaryAddr?.latitude != null && primaryAddr?.longitude != null) {
+      return { 
+        latitude: Number(primaryAddr.latitude), 
+        longitude: Number(primaryAddr.longitude), 
+        address: primaryAddr.address || "", 
+        city: primaryAddr.city || "" 
+      };
     }
     return null;
   } catch {
@@ -156,6 +162,8 @@ export default function ProductDetailPage() {
 
   // Location & Ranking state
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; label: string } | null>(null);
+  const [savedAddress, setSavedAddress] = useState<{ latitude: number; longitude: number; address: string; city: string } | null>(null);
+  const [isAddressConfirmed, setIsAddressConfirmed] = useState<boolean>(false);
   const [rankedVendors, setRankedVendors] = useState<RankedVendor[]>([]);
   const [isLocating, setIsLocating] = useState(false);
   const [isRanking, setIsRanking] = useState(false);
@@ -183,7 +191,12 @@ export default function ProductDetailPage() {
     async function loadAddress() {
       const addr = await fetchClientAddress();
       if (addr) {
-        setUserLocation({ lat: addr.latitude, lng: addr.longitude, label: `${addr.address}, ${addr.city}` });
+        setSavedAddress(addr);
+        setUserLocation({
+          lat: addr.latitude,
+          lng: addr.longitude,
+          label: `${addr.address}, ${addr.city}`
+        });
       }
     }
     loadAddress();
@@ -629,27 +642,49 @@ export default function ProductDetailPage() {
                 </div>
                 <div className="p-5">
                   {userLocation ? (
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                       <div className="flex items-start gap-3">
-                        <div className="mt-0.5 p-2 bg-blue-50 rounded-lg">
-                          <Navigation size={18} className="text-blue-600" />
+                        <div className="mt-0.5 p-2 bg-blue-50 text-blue-600 rounded-lg">
+                          <Navigation size={18} />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-zinc-900">You want to order at this location</p>
+                          <p className="text-sm font-semibold text-zinc-900">
+                            {savedAddress && userLocation.lat === savedAddress.latitude && userLocation.lng === savedAddress.longitude
+                              ? "Deliver to your saved profile address"
+                              : "Deliver to captured location"
+                            }
+                          </p>
                           <p className="text-sm text-zinc-500 mt-0.5">{userLocation.label}</p>
                           <p className="text-xs text-zinc-400 mt-1">
                             {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
                           </p>
                         </div>
                       </div>
-                      <button
-                        onClick={handleUseCurrentLocation}
-                        disabled={isLocating}
-                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors disabled:opacity-60"
-                      >
-                        {isLocating ? <Loader2 size={14} className="animate-spin" /> : <Crosshair size={14} />}
-                        {isLocating ? "Detecting..." : "Update Location"}
-                      </button>
+                      <div className="flex items-center gap-3 self-stretch sm:self-auto justify-end">
+                        {savedAddress && (userLocation.lat !== savedAddress.latitude || userLocation.lng !== savedAddress.longitude) && (
+                          <button
+                            onClick={() => {
+                              setUserLocation({
+                                lat: savedAddress.latitude,
+                                lng: savedAddress.longitude,
+                                label: `${savedAddress.address}, ${savedAddress.city}`
+                              });
+                              toast.success("Switched to saved delivery address");
+                            }}
+                            className="text-xs font-bold text-blue-600 hover:underline transition-colors mr-2"
+                          >
+                            Use Saved Address
+                          </button>
+                        )}
+                        <button
+                          onClick={handleUseCurrentLocation}
+                          disabled={isLocating}
+                          className="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors disabled:opacity-60 bg-white shadow-sm"
+                        >
+                          {isLocating ? <Loader2 size={14} className="animate-spin" /> : <Crosshair size={14} />}
+                          {isLocating ? "Detecting..." : "Use Current Location"}
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center text-center py-4">
@@ -661,7 +696,7 @@ export default function ProductDetailPage() {
                       <button
                         onClick={handleUseCurrentLocation}
                         disabled={isLocating}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-[#1d4ed8] text-white text-sm font-semibold rounded-lg hover:bg-blue-800 transition-colors disabled:opacity-60"
+                        className="flex items-center gap-2 px-5 py-2.5 bg-[#1d4ed8] text-white text-sm font-semibold rounded-lg hover:bg-blue-800 transition-colors disabled:opacity-60 shadow-md shadow-blue-100"
                       >
                         {isLocating ? <Loader2 size={16} className="animate-spin" /> : <Crosshair size={16} />}
                         {isLocating ? "Detecting Location..." : "Use Current Location"}

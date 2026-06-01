@@ -59,6 +59,7 @@ export default function LoginPage() {
           .getState()
           .checkClientSetupStatus();
 
+
         if (!isSetupComplete) {
           toast.error("Please set up your account first");
           router.replace("/profile/setup");
