@@ -459,15 +459,15 @@ export default function QuotationDetailPage() {
               </div>
             </div>
 
-            {/* Document Link */}
-            {(selectedQuotation?.vendor_document_url || groupData.document?.document_url) && (
+            {/* Document Link — vendor-specific only */}
+            {selectedQuotation?.vendor_document_url && (
               <a
-                href={selectedQuotation?.vendor_document_url ? (selectedQuotation.vendor_document_url.includes('?') ? selectedQuotation.vendor_document_url : `${selectedQuotation.vendor_document_url}?t=${new Date(selectedQuotation.updated_at).getTime()}`) : (groupData.document?.document_url || "#")}
+                href={selectedQuotation.vendor_document_url.includes('?') ? selectedQuotation.vendor_document_url : `${selectedQuotation.vendor_document_url}?t=${new Date(selectedQuotation.updated_at).getTime()}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 transition-colors shrink-0"
               >
-                <FileText size={16} /> View Agreement <ExternalLink size={14} />
+                <FileText size={16} /> {selectedQuotation.vendor_name}&apos;s Latest Quotation <ExternalLink size={14} />
               </a>
             )}
           </div>
@@ -522,11 +522,11 @@ export default function QuotationDetailPage() {
                     href={selectedQuotation.vendor_document_url.includes('?') ? selectedQuotation.vendor_document_url : `${selectedQuotation.vendor_document_url}?t=${new Date(selectedQuotation.updated_at).getTime()}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-between p-2.5 rounded-xl border border-blue-200 bg-blue-50/50 hover:bg-blue-50 transition-colors text-xs font-semibold text-blue-800 animate-pulse"
+                    className="flex items-center justify-between p-2.5 rounded-xl border border-blue-200 bg-blue-50/50 hover:bg-blue-50 transition-colors text-xs font-semibold text-blue-800"
                   >
                     <span className="flex items-center gap-2 truncate">
                       <ShieldCheck size={16} className="text-blue-600 shrink-0" />
-                      View Signed Vendor Quote
+                      Latest Quotation — {selectedQuotation.vendor_name}
                     </span>
                     <ExternalLink size={12} className="shrink-0" />
                   </a>

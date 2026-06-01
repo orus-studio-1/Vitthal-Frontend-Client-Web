@@ -70,16 +70,33 @@ export default function CheckoutPage() {
             });
             if (res.ok) {
                 const data = await res.json();
-                setClientDetails(data.data);
-                if (data.data?.address) {
+                const profile = data.data;
+                const primaryAddress = profile?.primary_address || null;
+
+                const mappedDetails: ClientDetails = {
+                    user_name: profile?.user_name || "",
+                    email: profile?.email || "",
+                    phone: profile?.phone || null,
+                    address: primaryAddress?.address || null,
+                    city: primaryAddress?.city || null,
+                    state: primaryAddress?.state || null,
+                    country: primaryAddress?.country || null,
+                    pincode: primaryAddress?.pincode || null,
+                    latitude: primaryAddress?.latitude ? Number(primaryAddress.latitude) : null,
+                    longitude: primaryAddress?.longitude ? Number(primaryAddress.longitude) : null,
+                };
+
+                setClientDetails(mappedDetails);
+                
+                if (mappedDetails.address) {
                     setAddressForm({
-                        address: data.data.address,
-                        city: data.data.city || "",
-                        state: data.data.state || "",
-                        country: data.data.country || "India",
-                        pincode: data.data.pincode || "",
-                        latitude: data.data.latitude || null,
-                        longitude: data.data.longitude || null
+                        address: mappedDetails.address,
+                        city: mappedDetails.city || "",
+                        state: mappedDetails.state || "",
+                        country: mappedDetails.country || "India",
+                        pincode: mappedDetails.pincode || "",
+                        latitude: mappedDetails.latitude,
+                        longitude: mappedDetails.longitude
                     });
                 } else {
                     setShowAddressForm(true);

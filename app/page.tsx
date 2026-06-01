@@ -58,16 +58,60 @@ async function fetchProducts(url: string): Promise<Product[]> {
   }
 }
 
+type Category = {
+  id: string;
+  code: string;
+  label: string;
+  description: string;
+  image: string;
+  min_commision_percentage: number;
+  max_commision_percentage: number;
+  sort_order: number;
+};
+
+// Fetch categories helper
+async function fetchCategories(url: string): Promise<Category[]> {
+  try {
+    const res = await fetch(url, {
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      console.error(`Failed to fetch categories: ${res.statusText}`);
+      return [];
+    }
+    const json = await res.json();
+    if (json.data && Array.isArray(json.data)) {
+      return json.data;
+    }
+    return [];
+  } catch (error) {
+    console.error("Fetch categories error:", error);
+    return [];
+  }
+}
+
 export default async function Home() {
   const BASE_URL = process.env.NEXT_PUBLIC_API_URL
     ? `${process.env.NEXT_PUBLIC_API_URL}/api/products`
     : "http://localhost:9000/api/products";
 
-  // Fetch concurrently
-  const [featuredProducts, plasticProducts, metalProducts] = await Promise.all([
+  // Fetch categories first to determine which ones we are showing
+  const categories = await fetchCategories(`${BASE_URL}/getCategories`);
+
+  // Pick any two categories. We prefer 'metal_fabrication_parts' and 'plastic_polymer_components'
+  // because we have populated products for them. If not found, fall back to the first two.
+  const cat1 = categories.find((c) => c.code === "metal_fabrication_parts") || categories[0];
+  const cat2 = categories.find((c) => c.code === "plastic_polymer_components") || categories[1];
+
+  // Fetch products concurrently
+  const [featuredProducts, cat1Products, cat2Products] = await Promise.all([
     fetchProducts(`${BASE_URL}/getAllProducts?offset=0&limit=4`),
-    fetchProducts(`${BASE_URL}/getProductsByCategory/plastic?offset=0&limit=4`),
-    fetchProducts(`${BASE_URL}/getProductsByCategory/metal?offset=0&limit=4`),
+    cat1
+      ? fetchProducts(`${BASE_URL}/getProductsByCategory/${cat1.code}?offset=0&limit=4`)
+      : Promise.resolve([]),
+    cat2
+      ? fetchProducts(`${BASE_URL}/getProductsByCategory/${cat2.code}?offset=0&limit=4`)
+      : Promise.resolve([]),
   ]);
 
   return (
@@ -88,23 +132,27 @@ export default async function Home() {
           bg="white"
         />
 
-        <ProductSection
-          title="Plastic Products"
-          subtitle="Resins and compounds for packaging, molding, and extrusion"
-          products={plasticProducts.length > 0 ? plasticProducts : []}
-          showViewAll
-          viewAllHref="/products/plastic"
-          bg="zinc"
-        />
+        {cat1 && (
+          <ProductSection
+            title={cat1.label}
+            subtitle={cat1.description || "High-quality inputs and fabricated components"}
+            products={cat1Products.length > 0 ? cat1Products : []}
+            showViewAll
+            viewAllHref={`/products/${cat1.code}`}
+            bg="zinc"
+          />
+        )}
 
-        <ProductSection
-          title="Metal Products"
-          subtitle="Industrial-grade metal inputs for fabrication and manufacturing"
-          products={metalProducts.length > 0 ? metalProducts : []}
-          showViewAll
-          viewAllHref="/products/metal"
-          bg="white"
-        />
+        {cat2 && (
+          <ProductSection
+            title={cat2.label}
+            subtitle={cat2.description || "Resins, compounds, and industrial plastic components"}
+            products={cat2Products.length > 0 ? cat2Products : []}
+            showViewAll
+            viewAllHref={`/products/${cat2.code}`}
+            bg="white"
+          />
+        )}
 
         <WhyChooseUs />
         <CTASection />

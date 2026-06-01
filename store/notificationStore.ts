@@ -160,7 +160,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     const state = get();
     if (state.socket) return; // Already connected
 
-    console.log(`[Socket.io] Connecting client to /notifications namespace for user: ${userId}`);
     const socket = io(`${API_BASE}/notifications`, {
       withCredentials: true,
       transports: ["websocket", "polling"],
@@ -169,12 +168,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     socket.emit("join", userId);
 
     socket.on("notification", (notif: Notification) => {
-      console.log("[Socket.io] Client received new real-time notification:", notif);
-      
+
       set((prev) => {
         // Prevent duplicate entries
         if (prev.notifications.some((n) => n.id === notif.id)) return {};
-        
+
         return {
           notifications: [notif, ...prev.notifications].slice(0, 50),
           unreadCount: prev.unreadCount + 1,
@@ -194,7 +192,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   disconnectSocket: () => {
     const { socket } = get();
     if (socket) {
-      console.log("[Socket.io] Disconnecting client socket from /notifications namespace");
       socket.disconnect();
       set({ socket: null });
     }
