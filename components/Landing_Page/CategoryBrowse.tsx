@@ -66,7 +66,7 @@ export function CategoryBrowse() {
                 slug: c.code,
               };
             });
-            setCategories(mapped.slice(0, 2));
+            setCategories(mapped.slice(0, 10));
           }
         }
       } catch (err) {
@@ -109,37 +109,36 @@ export function CategoryBrowse() {
             View All Categories &rarr;
           </Link>
         </div>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {categories.map((category) => (
-            <article
+            <Link
               key={category.title}
-              className="group overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm hover:shadow-md transition-shadow"
+              href={`/products/${category.slug}`}
+              className="group flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white hover:border-[#1d4ed8] hover:shadow-md transition-all duration-300"
             >
-              <div className="relative h-64 w-full bg-zinc-100 overflow-hidden">
+              <div className="relative h-32 w-full bg-zinc-100 overflow-hidden">
                 <Image
                   src={category.image}
                   alt={category.alt}
                   fill
-                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
                   className="object-cover group-hover:scale-105 transition-transform duration-500"
                 />
               </div>
-              <div className="space-y-3 p-6">
-                <h3 className="text-lg font-semibold text-zinc-900">{category.title}</h3>
-                <p className="text-sm text-zinc-600">{category.description}</p>
-                <div className="flex gap-4 text-xs text-zinc-500 py-2 border-t border-zinc-100">
+              <div className="flex flex-col flex-1 p-3.5 space-y-2">
+                <h3 className="text-sm font-semibold text-zinc-900 line-clamp-1 group-hover:text-[#1d4ed8] transition-colors leading-tight">
+                  {category.title}
+                </h3>
+                <p className="text-xs text-zinc-500 line-clamp-2 flex-1 leading-relaxed">
+                  {category.description}
+                </p>
+                <div className="flex gap-2 text-[10px] text-zinc-400 py-1.5 border-t border-zinc-100 mt-1">
                   <span>{category.suppliers}</span>
                   <span>•</span>
                   <span>{category.products}</span>
                 </div>
-                <Link
-                  href={`/products/${category.slug}`}
-                  className="inline-block mt-1 rounded-lg bg-[#1d4ed8] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#1e40af] transition-colors"
-                >
-                  Explore {category.title}
-                </Link>
               </div>
-            </article>
+            </Link>
           ))}
         </div>
       </div>

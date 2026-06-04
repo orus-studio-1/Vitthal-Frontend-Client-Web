@@ -5,10 +5,24 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useCartStore } from "@/store/cartStore";
 import { toast } from "sonner";
-import { MapPin, CreditCard, Package, CheckCircle, ChevronLeft, Loader2, ShieldCheck, Edit2, X } from "lucide-react";
+import { MapPin, CreditCard, Package, CheckCircle, ChevronLeft, Loader2, ShieldCheck, Edit2, X, Smartphone, Building, Wallet, QrCode, Lock, Check, AlertCircle } from "lucide-react";
 import Link from "next/link";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
+
+const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+        if ((window as any).Razorpay) {
+            resolve(true);
+            return;
+        }
+        const script = document.createElement("script");
+        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.body.appendChild(script);
+    });
+};
 
 interface ClientDetails {
     user_name: string;
@@ -31,7 +45,7 @@ export default function CheckoutPage() {
     const [clientDetails, setClientDetails] = useState<ClientDetails | null>(null);
     const [fetchingClient, setFetchingClient] = useState(true);
     const [placingOrder, setPlacingOrder] = useState(false);
-    const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
+    const [paymentMethod, setPaymentMethod] = useState("razorpay");
     const [isSetupVerified, setIsSetupVerified] = useState(false);
 
     // Address form state
@@ -215,28 +229,128 @@ export default function CheckoutPage() {
         }
 
         setPlacingOrder(true);
-        try {
-            const res = await fetch(`${API_BASE}/api/checkout/placeOrder`, {
-                method: "POST",
-                credentials: "include",
-                headers : {
-                    "Content-Type": "application/json",
-                    "x-request-from": "client"
-                }
-            });
 
-            if (res.ok) {
-                toast.success("Order placed successfully!");
-                await clearCart();
-                router.push("/orders?success=true"); // Redirect to orders page or a success page
-            } else {
+        if (paymentMethod === "razorpay") {
+            try {
+                // 1. Load Razorpay script
+                const loaded = await loadRazorpayScript();
+                if (!loaded) {
+                    toast.error("Failed to load payment gateway script. Please try again.");
+                    setPlacingOrder(false);
+                    return;
+                }
+
+                // 2. Create payment order on backend
+                const res = await fetch(`${API_BASE}/api/checkout/create-payment-order`, {
+                    method: "POST",
+                    credentials: "include",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "x-request-from": "client"
+                    },
+                    body: JSON.stringify({
+                        address_id: null
+                    })
+                });
+
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    toast.error(errorData.message || "Failed to initiate payment.");
+                    setPlacingOrder(false);
+                    return;
+                }
+
                 const data = await res.json();
-                toast.error(data.message || "Failed to place order");
+
+
+                // 3. Configure and open Razorpay checkout
+                const options = {
+                    key: data.keyId,
+                    amount: data.amount,
+                    currency: data.currency,
+                    name: "Vitthal B2B Marketplace",
+                    description: "Industrial Materials Purchase",
+                    order_id: data.razorpayOrderId,
+                    handler: async function (response: any) {
+                        try {
+                            setPlacingOrder(true);
+                            const verifyRes = await fetch(`${API_BASE}/api/checkout/verify-payment`, {
+                                method: "POST",
+                                credentials: "include",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                    "x-request-from": "client"
+                                },
+                                body: JSON.stringify({
+                                    razorpay_order_id: response.razorpay_order_id,
+                                    razorpay_payment_id: response.razorpay_payment_id,
+                                    razorpay_signature: response.razorpay_signature,
+                                })
+                            });
+
+                            if (verifyRes.ok) {
+                                toast.success("Payment verified and order placed successfully!");
+                                await clearCart();
+                                router.push("/orders?success=true");
+                            } else {
+                                const verifyData = await verifyRes.json();
+                                toast.error(verifyData.message || "Payment verification failed.");
+                            }
+                        } catch (err) {
+                            toast.error("An error occurred during payment verification.");
+                        } finally {
+                            setPlacingOrder(false);
+                        }
+                    },
+                    prefill: {
+                        name: data.userProfile.name,
+                        email: data.userProfile.email,
+                        contact: data.userProfile.phone || "",
+                    },
+                    theme: {
+                        color: "#2563EB",
+                    },
+                    modal: {
+                        ondismiss: function () {
+                            toast.error("Payment was not successful. Transaction cancelled.");
+                            setPlacingOrder(false);
+                        }
+                    }
+                };
+
+                const rzp = new (window as any).Razorpay(options);
+                rzp.open();
+
+            } catch (err) {
+                console.error("Payment error:", err);
+                toast.error("An error occurred while launching payment gateway.");
+                setPlacingOrder(false);
             }
-        } catch (err) {
-            toast.error("An error occurred while placing your order.");
-        } finally {
-            setPlacingOrder(false);
+        } else {
+            // Direct Order placement logic (Bank Transfer / Credit Line)
+            try {
+                const res = await fetch(`${API_BASE}/api/checkout/placeOrder`, {
+                    method: "POST",
+                    credentials: "include",
+                    headers : {
+                        "Content-Type": "application/json",
+                        "x-request-from": "client"
+                    }
+                });
+
+                if (res.ok) {
+                    toast.success("Order placed successfully!");
+                    await clearCart();
+                    router.push("/orders?success=true");
+                } else {
+                    const data = await res.json();
+                    toast.error(data.message || "Failed to place order");
+                }
+            } catch (err) {
+                toast.error("An error occurred while placing your order.");
+            } finally {
+                setPlacingOrder(false);
+            }
         }
     };
 
@@ -384,6 +498,14 @@ export default function CheckoutPage() {
                                 <h2 className="text-lg font-semibold text-zinc-900">Payment Method</h2>
                             </div>
                             <div className="p-6 space-y-4">
+                                <label className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'razorpay' ? 'border-blue-600 bg-blue-50/30' : 'border-zinc-200 hover:border-zinc-300'}`}>
+                                    <input type="radio" name="payment" value="razorpay" checked={paymentMethod === 'razorpay'} onChange={(e) => setPaymentMethod(e.target.value)} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                                    <div className="flex-1">
+                                        <p className="font-medium text-zinc-900">Online Payment (UPI, Card, NetBanking)</p>
+                                        <p className="text-sm text-zinc-500">Pay securely using Razorpay gateway.</p>
+                                    </div>
+                                </label>
+
                                 <label className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'bank_transfer' ? 'border-blue-600 bg-blue-50/30' : 'border-zinc-200 hover:border-zinc-300'}`}>
                                     <input type="radio" name="payment" value="bank_transfer" checked={paymentMethod === 'bank_transfer'} onChange={(e) => setPaymentMethod(e.target.value)} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
                                     <div className="flex-1">
@@ -446,8 +568,7 @@ export default function CheckoutPage() {
                                         <span>Shipping</span>
                                         <span className="font-medium text-green-600">Calculated after order</span>
                                     </div>
-                                    
-                                    <div className="pt-4 border-t border-zinc-100 flex justify-between items-center">
+                                                                 <div className="pt-4 border-t border-zinc-100 flex justify-between items-center">
                                         <span className="text-base font-semibold text-zinc-900">Total</span>
                                         <span className="text-xl font-bold text-blue-600">₹{finalTotal.toLocaleString()}</span>
                                     </div>

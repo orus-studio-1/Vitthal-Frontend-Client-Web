@@ -6,7 +6,7 @@ import {
   Loader2, Send, CheckCircle2, XCircle, FileText, ArrowLeft,
   Package, User, ShieldCheck, Clock, Users, ChevronRight,
   ExternalLink, Truck, IndianRupee, Receipt, Calendar, Percent,
-  AlertTriangle, Info
+  AlertTriangle, Info, CreditCard
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -223,8 +223,121 @@ export default function QuotationDetailPage() {
     }
   };
 
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if ((window as any).Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handleAdminAcceptWithPayment = async () => {
+    if (!selectedQuotation) return;
+    setSubmitting(true);
+    try {
+      // 1. Load Razorpay script
+      const loaded = await loadRazorpayScript();
+      if (!loaded) {
+        toast.error("Failed to load payment gateway script. Please try again.");
+        setSubmitting(false);
+        return;
+      }
+
+      // 2. Create token payment order on backend
+      const res = await fetch(`${API_BASE}/api/quotations/${selectedQuotation.id}/create-token-payment`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "x-request-from": "client"
+        }
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to initiate token payment.");
+      }
+
+      const data = await res.json();
+
+      // 3. Configure and open Razorpay checkout
+      const options = {
+        key: data.keyId,
+        amount: data.amount,
+        currency: data.currency,
+        name: "Vitthal B2B Marketplace",
+        description: `Token Money Payment (${selectedQuotation.token_percentage || 10}%)`,
+        order_id: data.razorpayOrderId,
+        handler: async function (response: any) {
+          try {
+            setSubmitting(true);
+            const verifyRes = await fetch(`${API_BASE}/api/quotations/${selectedQuotation.id}/verify-token-payment`, {
+              method: "POST",
+              credentials: "include",
+              headers: {
+                "Content-Type": "application/json",
+                "x-request-from": "client"
+              },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                note: note || undefined,
+              })
+            });
+
+            if (verifyRes.ok) {
+              toast.success("Token payment successful! Quotation confirmed.");
+              setNote("");
+              await fetchData();
+            } else {
+              const verifyData = await verifyRes.json();
+              toast.error(verifyData.message || "Payment verification failed.");
+            }
+          } catch (err) {
+            toast.error("An error occurred during payment verification.");
+          } finally {
+            setSubmitting(false);
+          }
+        },
+        prefill: {
+          name: data.userProfile.name,
+          email: data.userProfile.email,
+          contact: data.userProfile.phone || "",
+        },
+        theme: {
+          color: "#2563EB",
+        },
+        modal: {
+          ondismiss: function () {
+            toast.error("Payment was not successful. Transaction cancelled.");
+            setSubmitting(false);
+          }
+        }
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to initiate payment";
+      toast.error(message);
+      setSubmitting(false);
+    }
+  };
+
   const handleAdminResponse = async (action: "accept" | "reject") => {
     if (!selectedQuotation) return;
+    if (action === "accept") {
+      void handleAdminAcceptWithPayment();
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch(`${API_BASE}/api/quotations/${selectedQuotation.id}/admin-response`, {
@@ -235,7 +348,7 @@ export default function QuotationDetailPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to respond");
-      toast.success(action === "accept" ? "Admin confirmation accepted!" : "Admin confirmation rejected");
+      toast.success("Admin confirmation rejected");
       setNote("");
       await fetchData();
     } catch (error) {
@@ -268,8 +381,8 @@ export default function QuotationDetailPage() {
 
           {/* Main card */}
           <div className={`rounded-2xl overflow-hidden border ${isClient
-              ? "bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500 text-white"
-              : "bg-white border-zinc-200 text-zinc-900 shadow-sm"
+            ? "bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500 text-white"
+            : "bg-white border-zinc-200 text-zinc-900 shadow-sm"
             }`}>
 
             {/* Action Badge */}
@@ -795,24 +908,43 @@ export default function QuotationDetailPage() {
                   )}
 
                   {activeTab === "admin" && isAdminPending && (
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3 rounded-xl bg-orange-50 border border-orange-200 p-4 text-orange-800">
-                        <ShieldCheck className="text-orange-500 shrink-0" />
-                        <p className="text-sm font-medium">Admin has confirmed this deal. Please review and respond.</p>
+                    <div className="space-y-4 animate-fade-in">
+                      <div className="flex flex-col gap-3 rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 p-5 text-orange-900 shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <ShieldCheck className="text-orange-600 shrink-0" size={20} />
+                          <p className="text-sm font-bold">Admin Review Approved — Awaiting Token Payment</p>
+                        </div>
+                        {selectedQuotation.admin_confirmation_message && (
+                          <div className="bg-white/60 rounded-lg p-3 text-xs italic text-zinc-700 border border-orange-100">
+                            <strong>Admin Message:</strong> "{selectedQuotation.admin_confirmation_message}"
+                          </div>
+                        )}
+                        {selectedQuotation.token_percentage != null && (
+                          <div className="bg-orange-100/50 rounded-lg p-3.5 border border-orange-200">
+                            <p className="text-xs text-orange-800 font-semibold mb-1">Payment Required to Finalize Deal:</p>
+                            <p className="text-lg font-black text-orange-950">
+                              {selectedQuotation.token_percentage}% Token Money: {formatINR(selectedQuotation.token_amount)}
+                            </p>
+                            <p className="text-[10px] text-orange-700 mt-1">
+                              Paying the token money generates your official order and locks vendor resources.
+                            </p>
+                          </div>
+                        )}
                       </div>
                       <div>
-                        <label className="text-xs text-zinc-500 mb-1 block">Note (optional)</label>
+                        <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-1">Acceptance Note (optional)</label>
                         <input type="text" value={note} onChange={(e) => setNote(e.target.value)}
-                          className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                          className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+                          placeholder="e.g. Paid token money, looking forward to delivery..." />
                       </div>
                       <div className="flex gap-3">
                         <button onClick={() => handleAdminResponse("accept")} disabled={submitting}
-                          className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 shadow-sm">
-                          <CheckCircle2 size={16} /> Accept
+                          className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-orange-600 py-3 text-sm font-bold text-white hover:bg-orange-700 disabled:opacity-50 shadow-sm transition-colors">
+                          <CreditCard size={16} /> Pay Token Money & Confirm
                         </button>
                         <button onClick={() => handleAdminResponse("reject")} disabled={submitting}
-                          className="flex-1 flex items-center justify-center gap-2 rounded-xl border-2 border-rose-200 py-3 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50">
-                          <XCircle size={16} /> Reject
+                          className="flex-1 flex items-center justify-center gap-2 rounded-xl border-2 border-rose-200 py-3 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 transition-colors">
+                          <XCircle size={16} /> Reject Deal
                         </button>
                       </div>
                     </div>
