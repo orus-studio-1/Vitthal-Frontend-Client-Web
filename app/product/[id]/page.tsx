@@ -27,6 +27,11 @@ import {
   MapPin,
   Navigation,
   Crosshair,
+  ThumbsUp,
+  MessageSquare,
+  Camera,
+  Calendar,
+  X,
 } from "lucide-react";
 
 type Vendor = {
@@ -52,6 +57,26 @@ type RankedVendor = Vendor & {
   rank: number;
 };
 
+type ProductReview = {
+  review_id: string;
+  rating: number;
+  review_title: string;
+  review_text: string;
+  images: string[];
+  verified_purchase: boolean;
+  helpful_count: number;
+  review_date: string;
+  customer_name: string;
+  vendor_id: string;
+  rating_label: string;
+};
+
+type ReviewStats = {
+  total_reviews: number;
+  avg_rating: string;
+  rating_distribution: Record<number, number>;
+};
+
 type ProductImage = {
   image_url: string;
   is_primary: boolean;
@@ -72,6 +97,7 @@ type ProductDetail = {
   review_count: number;
   quotation_limit?: number | null;
   specifications: Record<string, string | number>;
+  attributes?: Record<string, string | number>;
   images: ProductImage[];
   vendors: Vendor[];
 };
@@ -118,6 +144,19 @@ async function fetchRelatedProducts(productId: string): Promise<any[]> {
   } catch (err) {
     console.error("Error fetching related products:", err);
     return [];
+  }
+}
+
+async function fetchProductReviews(productId: string, page: number = 0, limit: number = 5): Promise<{ reviews: ProductReview[]; stats: ReviewStats | null; pagination: { has_more: boolean } } | null> {
+  const url = `${PRODUCTS_BASE_URL}/getProductReviews/${productId}?page=${page}&limit=${limit}`;
+  try {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data || null;
+  } catch (err) {
+    console.error("Error fetching product reviews:", err);
+    return null;
   }
 }
 
@@ -169,6 +208,49 @@ export default function ProductDetailPage() {
   const [isRanking, setIsRanking] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
   const [isLoadingRelated, setIsLoadingRelated] = useState(false);
+
+  // Reviews state
+  const [reviews, setReviews] = useState<ProductReview[]>([]);
+  const [reviewsStats, setReviewsStats] = useState<ReviewStats | null>(null);
+  const [reviewsPage, setReviewsPage] = useState<number>(0);
+  const [hasMoreReviews, setHasMoreReviews] = useState<boolean>(false);
+  const [loadingReviews, setLoadingReviews] = useState<boolean>(false);
+  const [loadingMoreReviews, setLoadingMoreReviews] = useState<boolean>(false);
+  const [activeReviewImage, setActiveReviewImage] = useState<string | null>(null);
+
+  // Fetch reviews (page 0)
+  useEffect(() => {
+    if (!id) return;
+    async function loadReviews() {
+      setLoadingReviews(true);
+      const data = await fetchProductReviews(id, 0, 5);
+      if (data) {
+        setReviews(data.reviews || []);
+        setReviewsStats(data.stats || null);
+        setHasMoreReviews(data.pagination?.has_more || false);
+      } else {
+        setReviews([]);
+        setReviewsStats(null);
+        setHasMoreReviews(false);
+      }
+      setReviewsPage(0);
+      setLoadingReviews(false);
+    }
+    loadReviews();
+  }, [id]);
+
+  const handleLoadMoreReviews = async () => {
+    if (loadingMoreReviews || !hasMoreReviews) return;
+    setLoadingMoreReviews(true);
+    const nextPage = reviewsPage + 1;
+    const data = await fetchProductReviews(id, nextPage, 5);
+    if (data) {
+      setReviews((prev) => [...prev, ...(data.reviews || [])]);
+      setHasMoreReviews(data.pagination?.has_more || false);
+      setReviewsPage(nextPage);
+    }
+    setLoadingMoreReviews(false);
+  };
 
   useEffect(() => {
     async function loadProduct() {
@@ -399,6 +481,12 @@ export default function ProductDetailPage() {
 
   const priceRange = getPriceRange();
 
+  const material = product.material || (product.attributes?.material as string | undefined) || (product.attributes?.Material as string | undefined);
+  const grade = product.grade || (product.attributes?.grade as string | undefined) || (product.attributes?.Grade as string | undefined);
+  const application = product.application || (product.attributes?.application as string | undefined) || (product.attributes?.Application as string | undefined);
+  const standard = product.standard || (product.attributes?.standard as string | undefined) || (product.attributes?.Standard as string | undefined);
+
+
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 flex flex-col">
       <main className="flex-1">
@@ -487,32 +575,32 @@ export default function ProductDetailPage() {
                       <span className="font-semibold text-zinc-900 capitalize">{product.product_type}</span>
                     </div>
                   )}
-                  {product.material && (
+                  {material && (
                     <div className="flex items-center gap-2">
                       <ShieldCheck className="text-blue-600" size={16} />
                       <span className="text-zinc-500">Material:</span>
-                      <span className="font-semibold text-zinc-900">{product.material}</span>
+                      <span className="font-semibold text-zinc-900">{material}</span>
                     </div>
                   )}
-                  {product.grade && (
+                  {grade && (
                     <div className="flex items-center gap-2">
                       <BadgeCheck className="text-blue-600" size={16} />
                       <span className="text-zinc-500">Grade:</span>
-                      <span className="font-semibold text-zinc-900">{product.grade}</span>
+                      <span className="font-semibold text-zinc-900">{grade}</span>
                     </div>
                   )}
-                  {product.application && (
+                  {application && (
                     <div className="flex items-center gap-2">
                       <Truck className="text-blue-600" size={16} />
                       <span className="text-zinc-500">Application:</span>
-                      <span className="font-semibold text-zinc-900">{product.application}</span>
+                      <span className="font-semibold text-zinc-900">{application}</span>
                     </div>
                   )}
-                  {product.standard && (
+                  {standard && (
                     <div className="flex items-center gap-2">
                       <Info className="text-blue-600" size={16} />
                       <span className="text-zinc-500">Standard:</span>
-                      <span className="font-semibold text-zinc-900">{product.standard}</span>
+                      <span className="font-semibold text-zinc-900">{standard}</span>
                     </div>
                   )}
                 </div>
@@ -579,6 +667,52 @@ export default function ProductDetailPage() {
         <section className="max-w-7xl mx-auto px-4 pb-16 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-3 gap-8">
 
+            {/* Product Properties (Attributes) */}
+            {(grade || material || application || standard || (product.attributes && Object.keys(product.attributes).filter(k => !["material", "grade", "application", "standard"].includes(k.toLowerCase())).length > 0)) && (
+              <div className="lg:col-span-1 border border-zinc-200 bg-white rounded-2xl shadow-sm h-max overflow-hidden mb-6">
+                <div className="px-6 py-5 border-b border-zinc-100 bg-zinc-50/50 flex items-center gap-2">
+                  <ShieldCheck size={18} className="text-blue-600" />
+                  <h3 className="text-lg font-semibold text-zinc-900">Key Properties</h3>
+                </div>
+                <div className="p-6">
+                  <ul className="space-y-3">
+                    {grade && (
+                      <li className="flex justify-between items-start py-2 border-b border-zinc-50">
+                        <span className="text-sm text-zinc-500">Grade</span>
+                        <span className="text-sm font-semibold text-zinc-900">{grade}</span>
+                      </li>
+                    )}
+                    {material && (
+                      <li className="flex justify-between items-start py-2 border-b border-zinc-50">
+                        <span className="text-sm text-zinc-500">Material</span>
+                        <span className="text-sm font-semibold text-zinc-900">{material}</span>
+                      </li>
+                    )}
+                    {application && (
+                      <li className="flex justify-between items-start py-2 border-b border-zinc-50">
+                        <span className="text-sm text-zinc-500">Application</span>
+                        <span className="text-sm font-semibold text-zinc-900">{application}</span>
+                      </li>
+                    )}
+                    {standard && (
+                      <li className="flex justify-between items-start py-2 border-b border-zinc-50">
+                        <span className="text-sm text-zinc-500">Standard</span>
+                        <span className="text-sm font-semibold text-zinc-900">{standard}</span>
+                      </li>
+                    )}
+                    {product.attributes && Object.entries(product.attributes)
+                      .filter(([key]) => !["material", "grade", "application", "standard"].includes(key.toLowerCase()))
+                      .map(([key, value]) => (
+                        <li key={key} className="flex justify-between items-start py-2 border-b border-zinc-50 last:border-0">
+                          <span className="text-sm text-zinc-500 capitalize">{key.replace(/_/g, ' ')}</span>
+                          <span className="text-sm font-semibold text-zinc-900 text-right max-w-[60%] whitespace-pre-wrap">{String(value)}</span>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+
             {/* Technical Specifications */}
             <div className="lg:col-span-1 border border-zinc-200 bg-white rounded-2xl shadow-sm h-max overflow-hidden">
               <div className="px-6 py-5 border-b border-zinc-100 bg-zinc-50/50 flex items-center gap-2">
@@ -586,34 +720,6 @@ export default function ProductDetailPage() {
                 <h3 className="text-lg font-semibold text-zinc-900">Technical Specifications</h3>
               </div>
               <div className="p-6">
-                {(product.grade || product.material || product.application || product.standard) && (
-                  <ul className="space-y-3 mb-6">
-                    {product.grade && (
-                      <li className="flex justify-between items-start py-2 border-b border-zinc-50">
-                        <span className="text-sm text-zinc-500">Grade</span>
-                        <span className="text-sm font-semibold text-zinc-900">{product.grade}</span>
-                      </li>
-                    )}
-                    {product.material && (
-                      <li className="flex justify-between items-start py-2 border-b border-zinc-50">
-                        <span className="text-sm text-zinc-500">Material</span>
-                        <span className="text-sm font-semibold text-zinc-900">{product.material}</span>
-                      </li>
-                    )}
-                    {product.application && (
-                      <li className="flex justify-between items-start py-2 border-b border-zinc-50">
-                        <span className="text-sm text-zinc-500">Application</span>
-                        <span className="text-sm font-semibold text-zinc-900">{product.application}</span>
-                      </li>
-                    )}
-                    {product.standard && (
-                      <li className="flex justify-between items-start py-2 border-b border-zinc-50">
-                        <span className="text-sm text-zinc-500">Standard</span>
-                        <span className="text-sm font-semibold text-zinc-900">{product.standard}</span>
-                      </li>
-                    )}
-                  </ul>
-                )}
                 {product.specifications && Object.keys(product.specifications).length > 0 ? (
                   <ul className="space-y-3">
                     {Object.entries(product.specifications).map(([key, value]) => (
@@ -623,7 +729,7 @@ export default function ProductDetailPage() {
                       </li>
                     ))}
                   </ul>
-                ) : !product.grade && !product.material && !product.application && !product.standard && (
+                ) : (
                   <div className="py-8 text-center text-zinc-500 flex flex-col items-center">
                     <Info size={24} className="mb-2 opacity-20" />
                     <p className="text-sm">Specifications available on request</p>
@@ -917,38 +1023,252 @@ export default function ProductDetailPage() {
                 </p>
                 
                 {/* Additional details if available */}
-                {(product.grade || product.material || product.application || product.standard) && (
+                {(grade || material || application || standard || (product.attributes && Object.keys(product.attributes).filter(k => !["material", "grade", "application", "standard"].includes(k.toLowerCase())).length > 0)) && (
                   <div className="mt-6 p-4 bg-zinc-50 rounded-lg">
-                    <h4 className="font-semibold text-zinc-900 mb-3">Product Specifications</h4>
+                    <h4 className="font-semibold text-zinc-900 mb-3">Product Properties</h4>
                     <ul className="space-y-2 text-sm">
-                      {product.grade && (
+                      {grade && (
                         <li className="flex items-start gap-2">
                           <ChevronRight size={14} className="text-zinc-400 mt-0.5" />
-                          <span><strong>Grade:</strong> {product.grade}</span>
+                          <span><strong>Grade:</strong> {grade}</span>
                         </li>
                       )}
-                      {product.material && (
+                      {material && (
                         <li className="flex items-start gap-2">
                           <ChevronRight size={14} className="text-zinc-400 mt-0.5" />
-                          <span><strong>Material:</strong> {product.material}</span>
+                          <span><strong>Material:</strong> {material}</span>
                         </li>
                       )}
-                      {product.application && (
+                      {application && (
                         <li className="flex items-start gap-2">
                           <ChevronRight size={14} className="text-zinc-400 mt-0.5" />
-                          <span><strong>Application:</strong> {product.application}</span>
+                          <span><strong>Application:</strong> {application}</span>
                         </li>
                       )}
-                      {product.standard && (
+                      {standard && (
                         <li className="flex items-start gap-2">
                           <ChevronRight size={14} className="text-zinc-400 mt-0.5" />
-                          <span><strong>Standard:</strong> {product.standard}</span>
+                          <span><strong>Standard:</strong> {standard}</span>
                         </li>
                       )}
+                      {product.attributes && Object.entries(product.attributes)
+                        .filter(([key]) => !["material", "grade", "application", "standard"].includes(key.toLowerCase()))
+                        .map(([key, value]) => (
+                          <li key={key} className="flex items-start gap-2">
+                            <ChevronRight size={14} className="text-zinc-400 mt-0.5" />
+                            <span className="whitespace-pre-wrap"><strong>{key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}:</strong> {String(value)}</span>
+                          </li>
+                        ))}
                     </ul>
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Reviews Section */}
+        <section id="reviews" className="max-w-7xl mx-auto px-4 pb-16 sm:px-6 lg:px-8">
+          <div className="mb-8 flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-zinc-900 mb-2">Customer Reviews</h2>
+              <p className="text-zinc-600">Feedback from verified buyers and suppliers</p>
+            </div>
+            <Link 
+              href="/orders" 
+              className="text-sm font-semibold text-[#1d4ed8] hover:underline flex items-center gap-1.5"
+            >
+              Write a Review
+              <ArrowRight size={14} />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+            {/* Left Column: Ratings Summary & Distribution */}
+            <div className="lg:col-span-1 bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm">
+              <h3 className="text-lg font-bold text-zinc-900 mb-4">Rating Breakdown</h3>
+              
+              <div className="flex items-center gap-4 mb-6">
+                <div className="text-center p-3 bg-blue-50/50 rounded-2xl border border-blue-100/30 min-w-[90px]">
+                  <span className="text-4xl font-extrabold text-zinc-900">
+                    {reviewsStats ? Number(reviewsStats.avg_rating).toFixed(1) : Number(product.rating || 0).toFixed(1)}
+                  </span>
+                  <p className="text-[11px] text-zinc-500 font-medium mt-1">out of 5</p>
+                </div>
+                <div>
+                  <div className="flex items-center gap-0.5 mb-1.5">
+                    {[...Array(5)].map((_, i) => {
+                      const avgVal = reviewsStats ? Number(reviewsStats.avg_rating) : Number(product.rating || 0);
+                      return (
+                        <Star 
+                          key={i} 
+                          className={`${i < Math.round(avgVal) ? 'fill-amber-400 text-amber-400' : 'text-zinc-200'} shrink-0`} 
+                          size={18} 
+                        />
+                      );
+                    })}
+                  </div>
+                  <p className="text-sm text-zinc-500 font-medium">
+                    {reviewsStats ? reviewsStats.total_reviews : (product.review_count || 0)} customer reviews
+                  </p>
+                </div>
+              </div>
+
+              {/* Bar Chart Breakdown */}
+              <div className="space-y-3 pt-4 border-t border-zinc-100">
+                {[5, 4, 3, 2, 1].map((stars) => {
+                  const count = reviewsStats?.rating_distribution?.[stars] || 0;
+                  const totalReviews = reviewsStats?.total_reviews || 0;
+                  const percentage = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
+                  return (
+                    <div key={stars} className="flex items-center gap-3 text-sm">
+                      <span className="w-3 text-zinc-600 font-semibold text-xs">{stars}</span>
+                      <Star className="fill-amber-400 text-amber-400 shrink-0" size={13} />
+                      <div className="flex-1 h-2 bg-zinc-100 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-blue-600 rounded-full transition-all duration-500" 
+                          style={{ width: `${percentage}%` }}
+                        ></div>
+                      </div>
+                      <span className="w-8 text-right text-zinc-400 text-xs font-medium">{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Right Column: Reviews List */}
+            <div className="lg:col-span-2">
+              {loadingReviews && reviews.length === 0 ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="p-6 border border-zinc-200 rounded-2xl bg-white animate-pulse space-y-3">
+                      <div className="h-4 bg-zinc-200 rounded w-1/4"></div>
+                      <div className="h-4 bg-zinc-200 rounded w-1/2"></div>
+                      <div className="h-16 bg-zinc-100 rounded w-full"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : reviews.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 px-4 border border-dashed border-zinc-200 rounded-2xl bg-white text-center">
+                  <div className="p-4 bg-zinc-50 rounded-full text-zinc-400 mb-4">
+                    <MessageSquare size={32} />
+                  </div>
+                  <h4 className="text-lg font-semibold text-zinc-900 mb-1">No reviews yet</h4>
+                  <p className="text-zinc-500 text-sm max-w-sm mb-6">
+                    Be the first to share your thoughts on this product! Submit reviews for your recent purchases to help other buyers.
+                  </p>
+                  <Link
+                    href="/orders"
+                    className="px-5 py-2.5 bg-[#1d4ed8] text-white text-sm font-semibold rounded-lg hover:bg-blue-800 shadow-md transition-colors"
+                  >
+                    View My Orders
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {reviews.map((rev) => (
+                    <div key={rev.review_id} className="p-6 border border-zinc-200 rounded-2xl bg-white shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                        {/* Customer Name & Verified Badge */}
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-zinc-900">{rev.customer_name}</span>
+                            {rev.verified_purchase && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full border border-emerald-100">
+                                <BadgeCheck size={12} className="text-emerald-600" />
+                                Verified Buyer
+                              </span>
+                            )}
+                          </div>
+                          {rev.vendor_id && (
+                            <p className="text-[11px] text-zinc-400 mt-0.5">Purchased from Supplier #{rev.vendor_id.slice(0, 8)}</p>
+                          )}
+                        </div>
+
+                        {/* Date */}
+                        <div className="flex items-center gap-1.5 text-xs text-zinc-400 sm:self-start">
+                          <Calendar size={12} />
+                          <span>{new Date(rev.review_date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                        </div>
+                      </div>
+
+                      {/* Rating Stars & Title */}
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="flex items-center gap-0.5">
+                          {[...Array(5)].map((_, i) => (
+                            <Star 
+                              key={i} 
+                              className={`${i < rev.rating ? 'fill-amber-400 text-amber-400' : 'text-zinc-200'} shrink-0`} 
+                              size={16} 
+                            />
+                          ))}
+                        </div>
+                        {rev.review_title && (
+                          <h4 className="font-bold text-zinc-900 text-sm leading-snug">{rev.review_title}</h4>
+                        )}
+                      </div>
+
+                      {/* Review Text */}
+                      {rev.review_text && (
+                        <p className="text-zinc-700 text-sm leading-relaxed mb-4 whitespace-pre-wrap">{rev.review_text}</p>
+                      )}
+
+                      {/* Attached photo gallery */}
+                      {rev.images && rev.images.length > 0 && (
+                        <div className="mb-4">
+                          <div className="flex flex-wrap gap-2">
+                            {rev.images.map((imgUrl, idx) => (
+                              <button 
+                                key={idx}
+                                onClick={() => setActiveReviewImage(imgUrl)}
+                                className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden border border-zinc-200 bg-zinc-50 hover:opacity-90 hover:border-blue-500 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0"
+                              >
+                                <img 
+                                  src={imgUrl} 
+                                  alt={`Review Photo ${idx + 1}`} 
+                                  className="w-full h-full object-cover" 
+                                />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Helpful CTA */}
+                      <div className="flex items-center justify-between pt-3 border-t border-zinc-50 text-xs text-zinc-400">
+                        <div className="flex items-center gap-2">
+                          <span>Was this review helpful?</span>
+                          <button 
+                            onClick={() => {
+                              toast.success("Thanks for your feedback!");
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-800 transition-colors"
+                          >
+                            <ThumbsUp size={12} />
+                            <span>Helpful</span>
+                          </button>
+                        </div>
+                        <span>Rating: {rev.rating_label || "Verified"}</span>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Load More Button */}
+                  {hasMoreReviews && (
+                    <div className="pt-4 flex justify-center">
+                      <button
+                        onClick={handleLoadMoreReviews}
+                        disabled={loadingMoreReviews}
+                        className="flex items-center gap-2 px-6 py-3 border border-zinc-200 bg-white text-zinc-700 text-sm font-semibold rounded-xl hover:bg-zinc-50 shadow-sm transition-all disabled:opacity-60"
+                      >
+                        {loadingMoreReviews && <Loader2 size={16} className="animate-spin text-blue-600" />}
+                        {loadingMoreReviews ? "Loading reviews..." : "Load More Reviews"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -1080,6 +1400,24 @@ export default function ProductDetailPage() {
           )}
         </section>
       </main>
+
+      {/* Lightbox dialog modal */}
+      {activeReviewImage && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4" 
+          onClick={() => setActiveReviewImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <img src={activeReviewImage} alt="Review attachment" className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-200" />
+            <button 
+              className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/85 text-white rounded-full transition-colors focus:outline-none"
+              onClick={() => setActiveReviewImage(null)}
+            >
+              <X size={20} />
+            </button>
+          </div>
+        </div>
+      )}
       
     </div>
   );

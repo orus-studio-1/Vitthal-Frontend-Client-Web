@@ -11,6 +11,9 @@ import {
   Loader2,
   Package,
   Star,
+  Camera,
+  X,
+  Image as ImageIcon,
 } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
@@ -29,6 +32,7 @@ type ReviewItem = {
   product_rating: number | null;
   product_review_title: string | null;
   product_review_text: string | null;
+  product_review_images: string[] | null;
   vendor_review_id: string | null;
   vendor_rating: number | null;
   vendor_review_title: string | null;
@@ -64,6 +68,7 @@ type DraftState = {
   rating: number;
   reviewTitle: string;
   reviewText: string;
+  images: string[];
 };
 
 function StarRating({
@@ -116,6 +121,69 @@ export default function Page() {
   const [reviewData, setReviewData] = useState<ReviewResponse | null>(null);
   const [productDrafts, setProductDrafts] = useState<Record<string, DraftState>>({});
   const [vendorDrafts, setVendorDrafts] = useState<Record<string, DraftState>>({});
+  const [uploadingState, setUploadingState] = useState<Record<string, boolean>>({});
+  const [imgPreviewCache, setImgPreviewCache] = useState<Record<string, string>>({});
+
+  const handleImageUpload = async (orderItemId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadingState((prev) => ({ ...prev, [orderItemId]: true }));
+    const currentImages = productDrafts[orderItemId]?.images ?? [];
+    const newImages = [...currentImages];
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        if (!file.type.startsWith("image/")) {
+          toast.error("Please upload images only.");
+          continue;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error("Images must be 5MB or smaller.");
+          continue;
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await fetch(`${API_BASE}/api/upload`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          throw new Error("Upload failed");
+        }
+
+        const data = await res.json();
+        if (data.fileName) {
+          const signedUrlRes = await fetch(`${API_BASE}/api/upload/file?fileName=${encodeURIComponent(data.fileName)}`);
+          if (signedUrlRes.ok) {
+             const signedUrlData = await signedUrlRes.json();
+             setImgPreviewCache((prev) => ({ ...prev, [data.fileName]: signedUrlData.url }));
+          }
+          newImages.push(data.fileName);
+        }
+      }
+
+      handleProductDraftChange(orderItemId, "images", newImages);
+      toast.success("Images uploaded successfully");
+    } catch (err) {
+      console.error("Image upload error:", err);
+      toast.error("Failed to upload one or more images");
+    } finally {
+      setUploadingState((prev) => ({ ...prev, [orderItemId]: false }));
+      e.target.value = "";
+    }
+  };
+
+  const handleRemoveImage = (orderItemId: string, imgKeyToRemove: string) => {
+    const currentImages = productDrafts[orderItemId]?.images ?? [];
+    const nextImages = currentImages.filter((img) => img !== imgKeyToRemove);
+    handleProductDraftChange(orderItemId, "images", nextImages);
+  };
 
   useEffect(() => {
     fetchUser();
@@ -159,25 +227,36 @@ export default function Page() {
 
         const nextProductDrafts: Record<string, DraftState> = {};
         const nextVendorDrafts: Record<string, DraftState> = {};
+        const initialCache: Record<string, string> = {};
 
         for (const item of response.items) {
+          const productReviewImages = item.product_review_images ?? [];
           nextProductDrafts[item.order_item_id] = {
             rating: item.product_rating ?? 0,
             reviewTitle: item.product_review_title ?? "",
             reviewText: item.product_review_text ?? "",
+            images: productReviewImages,
           };
+
+          if (Array.isArray(productReviewImages)) {
+            for (const img of productReviewImages) {
+              initialCache[img] = img;
+            }
+          }
 
           if (!nextVendorDrafts[item.vendor_id]) {
             nextVendorDrafts[item.vendor_id] = {
               rating: item.vendor_rating ?? 0,
               reviewTitle: item.vendor_review_title ?? "",
               reviewText: item.vendor_review_text ?? "",
+              images: [],
             };
           }
         }
 
         setProductDrafts(nextProductDrafts);
         setVendorDrafts(nextVendorDrafts);
+        setImgPreviewCache((prev) => ({ ...prev, ...initialCache }));
       } catch (error) {
         console.error("Failed to fetch review data:", error);
         toast.error(error instanceof Error ? error.message : "Failed to load review page");
@@ -225,7 +304,7 @@ export default function Page() {
       const existing = map.get(item.vendor_id);
       const vendorSummary = {
         vendorId: item.vendor_id,
-        vendorName: `Vendor #${item.vendor_id?.slice(0, 8)}`,
+        vendorName: item.vendor_name || `Vendor #${item.vendor_id?.slice(0, 8)}`,
         items: [item],
         reviewId: item.vendor_review_id,
         rating: item.vendor_rating,
@@ -263,7 +342,7 @@ export default function Page() {
   const handleProductDraftChange = (
     orderItemId: string,
     field: keyof DraftState,
-    value: string | number,
+    value: string | number | string[],
   ) => {
     setProductDrafts((current) => ({
       ...current,
@@ -271,8 +350,9 @@ export default function Page() {
         rating: current[orderItemId]?.rating ?? 0,
         reviewTitle: current[orderItemId]?.reviewTitle ?? "",
         reviewText: current[orderItemId]?.reviewText ?? "",
+        images: current[orderItemId]?.images ?? [],
         [field]: value,
-      },
+      } as DraftState,
     }));
   };
 
@@ -287,8 +367,9 @@ export default function Page() {
         rating: current[vendorId]?.rating ?? 0,
         reviewTitle: current[vendorId]?.reviewTitle ?? "",
         reviewText: current[vendorId]?.reviewText ?? "",
+        images: current[vendorId]?.images ?? [],
         [field]: value,
-      },
+      } as DraftState,
     }));
   };
 
@@ -305,6 +386,7 @@ export default function Page() {
         rating: productDrafts[item.order_item_id]?.rating ?? 0,
         reviewTitle: productDrafts[item.order_item_id]?.reviewTitle ?? "",
         reviewText: productDrafts[item.order_item_id]?.reviewText ?? "",
+        images: productDrafts[item.order_item_id]?.images ?? [],
       }));
 
     const vendorReviews = vendorGroups
@@ -553,6 +635,64 @@ export default function Page() {
                                   placeholder="Share your thoughts about this product (optional)"
                                   className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:opacity-60 resize-none"
                                 />
+
+                                <div className="mt-4">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <label className="text-xs font-semibold text-gray-700 flex items-center gap-1">
+                                      <Camera className="h-3.5 w-3.5 text-gray-500" />
+                                      Add photos (optional)
+                                    </label>
+                                    {uploadingState[item.order_item_id] && (
+                                      <span className="text-xs text-blue-600 flex items-center gap-1 animate-pulse font-medium">
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                        Uploading...
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="flex flex-wrap gap-2 items-center">
+                                    {(!reviewData.canReview || item.product_review_id) ? null : (
+                                      <label className="flex h-16 w-16 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white hover:bg-gray-50 hover:border-blue-400 transition-colors">
+                                        <ImageIcon className="h-5 w-5 text-gray-400" />
+                                        <span className="text-[10px] text-gray-500 font-medium mt-1">Upload</span>
+                                        <input
+                                          type="file"
+                                          accept="image/*"
+                                          multiple
+                                          disabled={uploadingState[item.order_item_id]}
+                                          onChange={(e) => handleImageUpload(item.order_item_id, e)}
+                                          className="hidden"
+                                        />
+                                      </label>
+                                    )}
+
+                                    {productDraft.images?.map((imgKey) => {
+                                      const displayUrl = imgKey.startsWith("http")
+                                        ? imgKey
+                                        : imgPreviewCache[imgKey] || imgKey;
+
+                                      return (
+                                        <div key={imgKey} className="relative h-16 w-16 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 group shadow-sm">
+                                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                                          <img
+                                            src={displayUrl}
+                                            alt="Review Attachment"
+                                            className="h-full w-full object-cover"
+                                          />
+                                          {(!reviewData.canReview || item.product_review_id) ? null : (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleRemoveImage(item.order_item_id, imgKey)}
+                                              className="absolute top-1 right-1 p-0.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                                            >
+                                              <X className="h-3 w-3" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </article>
