@@ -2,18 +2,40 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Package, ArrowLeft, Send, Loader2, FileSignature } from "lucide-react";
+import { Package, ArrowLeft, Send, Loader2, FileSignature, Share2 } from "lucide-react";
 import { useQuotationCartStore } from "@/store/quotationCartStore";
+import { useCartStore } from "@/store/cartStore";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
+import ShareCartModal from "@/components/ShareCartModal";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
 
 export default function QuotationCartPage() {
   const { items, fetchCart, updateQuantity, removeItem, clearCart, isLoading } = useQuotationCartStore();
   const { fetchUser, user } = useAuthStore();
+  const shareCart = useCartStore((s) => s.shareCart);
+
   const [requestNote, setRequestNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareId, setShareId] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
+
+  const handleShareCart = async () => {
+    setIsSharing(true);
+    setShareId(null);
+    setShareModalOpen(true);
+    const id = await shareCart("quotation");
+    if (id) {
+      setShareId(id);
+    } else {
+      toast.error("Failed to generate share link");
+      setShareModalOpen(false);
+    }
+    setIsSharing(false);
+  };
 
   useEffect(() => {
     fetchUser();
@@ -123,12 +145,27 @@ export default function QuotationCartPage() {
 
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-semibold text-zinc-900">Quotation Cart</h1>
-          <button
-            onClick={() => void clearCart()}
-            className="text-sm text-red-600 hover:text-red-700 font-medium"
-          >
-            Clear all
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleShareCart}
+              disabled={isLoading || isSharing}
+              className="text-sm text-[#d97706] hover:text-[#b45309] font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {isSharing ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Share2 size={14} />
+              )}
+              Share Cart
+            </button>
+            <span className="text-zinc-300">|</span>
+            <button
+              onClick={() => void clearCart()}
+              className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors disabled:opacity-50"
+            >
+              Clear all
+            </button>
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
@@ -207,6 +244,13 @@ export default function QuotationCartPage() {
           </div>
         </div>
       </div>
+
+      <ShareCartModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        shareId={shareId}
+        cartType="quotation"
+      />
     </main>
   );
 }

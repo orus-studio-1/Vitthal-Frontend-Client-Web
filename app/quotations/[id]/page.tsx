@@ -271,7 +271,7 @@ export default function QuotationDetailPage() {
         key: data.keyId,
         amount: data.amount,
         currency: data.currency,
-        name: "Vitthal B2B Marketplace",
+        name: "MTWO Groups",
         description: `Token Money Payment (${selectedQuotation.token_percentage || 10}%)`,
         order_id: data.razorpayOrderId,
         handler: async function (response: any) {

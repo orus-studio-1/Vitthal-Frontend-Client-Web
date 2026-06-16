@@ -4,6 +4,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
 
 export type QuotationCartItem = {
   productId: string;
+  productVariantId?: string;
+  variantProperties?: any;
   productName: string;
   image: string;
   price: number;
@@ -17,6 +19,8 @@ export type QuotationCartItem = {
 
 type QuotationCartApiRow = {
   product_id: string;
+  product_variant_id?: string | null;
+  variant_properties?: any;
   product_name?: string | null;
   image_url?: string | null;
   price_at_added: string | number;
@@ -34,8 +38,8 @@ type QuotationCartState = {
   error: string | null;
   fetchCart: (silent?: boolean) => Promise<void>;
   addItem: (item: QuotationCartItem) => Promise<boolean>;
-  removeItem: (productId: string, vendorId: string) => Promise<boolean>;
-  updateQuantity: (productId: string, vendorId: string, quantity: number) => Promise<boolean>;
+  removeItem: (productId: string, vendorId: string, productVariantId?: string) => Promise<boolean>;
+  updateQuantity: (productId: string, vendorId: string, quantity: number, productVariantId?: string) => Promise<boolean>;
   clearCart: () => Promise<boolean>;
   totalItems: () => number;
 };
@@ -65,6 +69,8 @@ export const useQuotationCartStore = create<QuotationCartState>((set, get) => ({
       const data = await res.json();
       const items: QuotationCartItem[] = ((data.data as QuotationCartApiRow[] | undefined) || []).map((row) => ({
         productId: row.product_id,
+        productVariantId: row.product_variant_id || undefined,
+        variantProperties: row.variant_properties || undefined,
         productName: row.product_name || "Unknown Product",
         image: row.image_url || "",
         price: Number(row.price_at_added) || 0,
@@ -93,6 +99,7 @@ export const useQuotationCartStore = create<QuotationCartState>((set, get) => ({
         credentials: "include",
         body: JSON.stringify({
           product_id: item.productId,
+          product_variant_id: item.productVariantId || null,
           vendor_id: item.vendorId,
           quantity: item.quantity,
           cart_type: "quotation",
@@ -111,7 +118,7 @@ export const useQuotationCartStore = create<QuotationCartState>((set, get) => ({
     }
   },
 
-  removeItem: async (productId, vendorId) => {
+  removeItem: async (productId, vendorId, productVariantId) => {
     try {
       const res = await fetch(`${API_BASE}/api/cart/item`, {
         method: "DELETE",
@@ -120,7 +127,7 @@ export const useQuotationCartStore = create<QuotationCartState>((set, get) => ({
           "x-request-from": "client",
         },
         credentials: "include",
-        body: JSON.stringify({ product_id: productId, vendor_id: vendorId, cart_type: "quotation" }),
+        body: JSON.stringify({ product_id: productId, product_variant_id: productVariantId || null, vendor_id: vendorId, cart_type: "quotation" }),
       });
       if (!res.ok) throw new Error("Failed to remove item");
       await get().fetchCart(true);
@@ -132,7 +139,7 @@ export const useQuotationCartStore = create<QuotationCartState>((set, get) => ({
     }
   },
 
-  updateQuantity: async (productId, vendorId, quantity) => {
+  updateQuantity: async (productId, vendorId, quantity, productVariantId) => {
     if (quantity < 1) return false;
     try {
       const res = await fetch(`${API_BASE}/api/cart/item`, {
@@ -142,7 +149,7 @@ export const useQuotationCartStore = create<QuotationCartState>((set, get) => ({
           "x-request-from": "client",
         },
         credentials: "include",
-        body: JSON.stringify({ product_id: productId, vendor_id: vendorId, quantity, cart_type: "quotation" }),
+        body: JSON.stringify({ product_id: productId, product_variant_id: productVariantId || null, vendor_id: vendorId, quantity, cart_type: "quotation" }),
       });
       if (!res.ok) {
         const data = await res.json();

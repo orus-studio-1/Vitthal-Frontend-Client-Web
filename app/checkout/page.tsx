@@ -78,7 +78,7 @@ export default function CheckoutPage() {
         try {
             const res = await fetch(`${API_BASE}/api/client/clientDetails`, {
                 credentials: "include",
-                headers : {
+                headers: {
                     "Content-Type": "application/json",
                     "x-request-from": "client"
                 }
@@ -102,7 +102,7 @@ export default function CheckoutPage() {
                 };
 
                 setClientDetails(mappedDetails);
-                
+
                 if (mappedDetails.address) {
                     setAddressForm({
                         address: mappedDetails.address,
@@ -182,7 +182,7 @@ export default function CheckoutPage() {
         setSavingAddress(true);
         try {
             const useSetupEndpoint = !clientDetails?.phone;
-            const endpoint = useSetupEndpoint 
+            const endpoint = useSetupEndpoint
                 ? `${API_BASE}/api/client/addClientDetails`
                 : `${API_BASE}/api/client/upsertAddress`;
 
@@ -197,7 +197,7 @@ export default function CheckoutPage() {
                     pincode: addressForm.pincode,
                     latitude: addressForm.latitude,
                     longitude: addressForm.longitude
-                  }
+                }
                 : addressForm;
 
             const res = await fetch(endpoint, {
@@ -268,7 +268,7 @@ export default function CheckoutPage() {
                     key: data.keyId,
                     amount: data.amount,
                     currency: data.currency,
-                    name: "Vitthal B2B Marketplace",
+                    name: "MTWO Groups",
                     description: "Industrial Materials Purchase",
                     order_id: data.razorpayOrderId,
                     handler: async function (response: any) {
@@ -332,7 +332,7 @@ export default function CheckoutPage() {
                 const res = await fetch(`${API_BASE}/api/checkout/placeOrder`, {
                     method: "POST",
                     credentials: "include",
-                    headers : {
+                    headers: {
                         "Content-Type": "application/json",
                         "x-request-from": "client"
                     }
@@ -395,14 +395,14 @@ export default function CheckoutPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     {/* Left Column: Forms and Selections */}
                     <div className="lg:col-span-8 space-y-6">
-                        
+
                         {/* 1. Address Section */}
                         <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
                             <div className="border-b border-zinc-100 bg-zinc-50/50 px-6 py-4 flex items-center gap-3">
                                 <MapPin className="w-5 h-5 text-blue-600" />
                                 <h2 className="text-lg font-semibold text-zinc-900">Delivery Address</h2>
                             </div>
-                            
+
                             <div className="p-6">
                                 {clientDetails?.address && !showAddressForm ? (
                                     <div className="flex items-start justify-between">
@@ -426,34 +426,34 @@ export default function CheckoutPage() {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="md:col-span-2">
                                                 <label className="block text-sm font-medium text-zinc-700 mb-1">Street Address</label>
-                                                <input required type="text" value={addressForm.address} onChange={e => setAddressForm({...addressForm, address: e.target.value})} className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none" placeholder="123 Industrial Estate" />
+                                                <input required type="text" value={addressForm.address} onChange={e => setAddressForm({ ...addressForm, address: e.target.value })} className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none" placeholder="123 Industrial Estate" />
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-zinc-700 mb-1">City</label>
-                                                <input required type="text" value={addressForm.city} onChange={e => setAddressForm({...addressForm, city: e.target.value})} className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none" />
+                                                <input required type="text" value={addressForm.city} onChange={e => setAddressForm({ ...addressForm, city: e.target.value })} className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none" />
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-zinc-700 mb-1">State</label>
-                                                <input required type="text" value={addressForm.state} onChange={e => setAddressForm({...addressForm, state: e.target.value})} className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none" />
+                                                <input required type="text" value={addressForm.state} onChange={e => setAddressForm({ ...addressForm, state: e.target.value })} className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none" />
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-zinc-700 mb-1">PIN Code</label>
-                                                <input required type="text" value={addressForm.pincode} onChange={e => setAddressForm({...addressForm, pincode: e.target.value})} className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none" />
+                                                <input required type="text" value={addressForm.pincode} onChange={e => setAddressForm({ ...addressForm, pincode: e.target.value })} className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none" />
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-zinc-700 mb-1">Country</label>
-                                                <input required type="text" value={addressForm.country} onChange={e => setAddressForm({...addressForm, country: e.target.value})} className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none" />
+                                                <input required type="text" value={addressForm.country} onChange={e => setAddressForm({ ...addressForm, country: e.target.value })} className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none" />
                                             </div>
                                             <div className="md:col-span-2">
                                                 <label className="block text-sm font-medium text-zinc-700 mb-1">Mobile Phone Number</label>
-                                                <input 
-                                                    required 
-                                                    type="tel" 
+                                                <input
+                                                    required
+                                                    type="tel"
                                                     pattern="[0-9]{10}"
-                                                    value={addressForm.phone || ""} 
-                                                    onChange={e => setAddressForm({...addressForm, phone: e.target.value.replace(/\D/g, "")})} 
-                                                    className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none" 
-                                                    placeholder="10-digit mobile number" 
+                                                    value={addressForm.phone || ""}
+                                                    onChange={e => setAddressForm({ ...addressForm, phone: e.target.value.replace(/\D/g, "") })}
+                                                    className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none"
+                                                    placeholder="10-digit mobile number"
                                                 />
                                             </div>
                                         </div>
@@ -531,7 +531,7 @@ export default function CheckoutPage() {
                             <div className="border-b border-zinc-100 px-6 py-4 bg-zinc-50/50">
                                 <h2 className="text-lg font-semibold text-zinc-900">Order Summary</h2>
                             </div>
-                            
+
                             <div className="p-6">
                                 <div className="space-y-4 max-h-64 overflow-y-auto pr-2 mb-6 scrollbar-thin scrollbar-thumb-zinc-200">
                                     {items.map((item) => (
@@ -568,21 +568,21 @@ export default function CheckoutPage() {
                                         <span>Shipping</span>
                                         <span className="font-medium text-green-600">Calculated after order</span>
                                     </div>
-                                                                 <div className="pt-4 border-t border-zinc-100 flex justify-between items-center">
+                                    <div className="pt-4 border-t border-zinc-100 flex justify-between items-center">
                                         <span className="text-base font-semibold text-zinc-900">Total</span>
                                         <span className="text-xl font-bold text-blue-600">₹{finalTotal.toLocaleString()}</span>
                                     </div>
                                 </div>
 
-                                <button 
-                                    onClick={handlePlaceOrder} 
+                                <button
+                                    onClick={handlePlaceOrder}
                                     disabled={placingOrder || !clientDetails?.address || showAddressForm}
                                     className="w-full mt-8 bg-blue-600 text-white py-3.5 rounded-xl font-semibold text-sm hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 >
                                     {placingOrder ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldCheck className="w-5 h-5" />}
                                     {placingOrder ? "Processing..." : "Place Order Securely"}
                                 </button>
-                                
+
                                 {(!clientDetails?.address || showAddressForm) && (
                                     <p className="text-xs text-red-500 text-center mt-3">
                                         Please save your delivery address to continue.

@@ -120,7 +120,6 @@ export default async function Home() {
       <main>
         <Hero />
         <MarketStats />
-        <CategoryBrowse />
 
         <ProductSection
           id="featured-products"
@@ -153,6 +152,7 @@ export default async function Home() {
             bg="white"
           />
         )}
+        <CategoryBrowse />
 
         <WhyChooseUs />
         <CTASection />

@@ -26,6 +26,19 @@ export function ProductFilters({ hideCategory = false }: ProductFiltersProps) {
   const [category, setCategory] = useState(searchParams.get("category") || "");
   const [productType, setProductType] = useState(searchParams.get("productType") || "");
   const [categories, setCategories] = useState<Category[]>([]);
+  const [productTypes, setProductTypes] = useState<string[]>([]);
+
+  // Fetch product types dynamically
+  useEffect(() => {
+    fetch(`${BASE_URL}/getProductTypes`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.data && Array.isArray(json.data)) {
+          setProductTypes(json.data as string[]);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Fetch categories dynamically from the API
   useEffect(() => {
@@ -112,13 +125,14 @@ export function ProductFilters({ hideCategory = false }: ProductFiltersProps) {
         <select
           value={productType}
           onChange={(e) => handleTypeChange(e.target.value)}
-          className="border border-zinc-200 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900 text-zinc-700 min-w-[140px] transition-colors text-sm"
+          className="border border-zinc-200 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900 text-zinc-700 min-w-[140px] transition-colors text-sm capitalize"
         >
           <option value="">All Types</option>
-          <option value="hdpe">HDPE</option>
-          <option value="pet">PET</option>
-          <option value="aluminum">Aluminum</option>
-          <option value="steel">Steel</option>
+          {productTypes.map((type) => (
+            <option key={type} value={type}>
+              {type}
+            </option>
+          ))}
         </select>
       </div>
     </div>

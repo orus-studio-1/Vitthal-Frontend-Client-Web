@@ -4,6 +4,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
 
 export type WishlistItem = {
   productId: string;
+  productVariantId?: string;
+  variantProperties?: any;
   productName: string;
   description?: string;
   image: string;
@@ -16,6 +18,8 @@ export type WishlistItem = {
 
 type WishlistApiRow = {
   product_id: string;
+  product_variant_id?: string | null;
+  variant_properties?: any;
   product_name?: string | null;
   description?: string | null;
   image_url?: string | null;
@@ -32,7 +36,7 @@ type WishlistState = {
   error: string | null;
   fetchWishlist: (silent?: boolean) => Promise<void>;
   addItem: (item: WishlistItem) => Promise<boolean>;
-  removeItem: (productId: string) => Promise<boolean>;
+  removeItem: (productId: string, productVariantId?: string) => Promise<boolean>;
   clearWishlist: () => Promise<boolean>;
   totalItems: () => number;
 };
@@ -65,6 +69,8 @@ export const useWishlistStore = create<WishlistState>((set, get) => ({
       const data = await res.json();
       const items: WishlistItem[] = ((data.data as WishlistApiRow[] | undefined) || []).map((row) => ({
         productId: row.product_id,
+        productVariantId: row.product_variant_id || undefined,
+        variantProperties: row.variant_properties || undefined,
         productName: row.product_name || "Unknown Product",
         description: row.description || "",
         image: row.image_url || "",
@@ -93,6 +99,7 @@ export const useWishlistStore = create<WishlistState>((set, get) => ({
         credentials: "include",
         body: JSON.stringify({
           product_id: item.productId,
+          product_variant_id: item.productVariantId || null,
           vendor_id: item.vendorId,
         }),
       });
@@ -113,7 +120,7 @@ export const useWishlistStore = create<WishlistState>((set, get) => ({
     }
   },
 
-  removeItem: async (productId) => {
+  removeItem: async (productId, productVariantId) => {
     try {
       const res = await fetch(`${API_BASE}/api/wishlist/item`, {
         method: "DELETE",
@@ -122,7 +129,7 @@ export const useWishlistStore = create<WishlistState>((set, get) => ({
           "x-request-from": "client",
         },
         credentials: "include",
-        body: JSON.stringify({ product_id: productId }),
+        body: JSON.stringify({ product_id: productId, product_variant_id: productVariantId || null }),
       });
 
       if (!res.ok) {

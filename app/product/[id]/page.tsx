@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -29,7 +31,6 @@ import {
   Crosshair,
   ThumbsUp,
   MessageSquare,
-  Camera,
   Calendar,
   X,
 } from "lucide-react";
@@ -46,6 +47,7 @@ type Vendor = {
   longitude: number | null;
   city: string | null;
   state: string | null;
+  gst_percentage?: number | string;
 };
 
 type RankedVendor = Vendor & {
@@ -81,6 +83,7 @@ type ProductImage = {
   image_url: string;
   is_primary: boolean;
   display_order: number;
+  media_type?: 'image' | 'video' | null;
 };
 
 type ProductDetail = {
@@ -100,6 +103,25 @@ type ProductDetail = {
   attributes?: Record<string, string | number>;
   images: ProductImage[];
   vendors: Vendor[];
+  variants?: Array<{
+    variant_id: string;
+    sku: string | null;
+    properties: Record<string, string>;
+    approval_status: string;
+    vendors: Vendor[];
+  }>;
+};
+
+type RelatedProduct = {
+  product_id: string;
+  product_name: string;
+  primary_image?: string | null;
+  seller_count: number;
+  rating: number;
+  review_count?: number;
+  min_price?: number;
+  max_price?: number;
+  min_moq?: number;
 };
 
 const PRODUCTS_BASE_URL = process.env.NEXT_PUBLIC_API_URL
@@ -121,8 +143,11 @@ async function fetchProduct(id: string): Promise<ProductDetail | null> {
   }
 }
 
-async function fetchRankedVendors(productId: string, lat: number, lng: number): Promise<RankedVendor[]> {
-  const url = `${PRODUCTS_BASE_URL}/getRankedVendors/${productId}?userLat=${lat}&userLng=${lng}`;
+async function fetchRankedVendors(productId: string, lat: number, lng: number, variantId?: string): Promise<RankedVendor[]> {
+  let url = `${PRODUCTS_BASE_URL}/getRankedVendors/${productId}?userLat=${lat}&userLng=${lng}`;
+  if (variantId) {
+    url += `&variantId=${variantId}`;
+  }
   try {
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return [];
@@ -134,7 +159,7 @@ async function fetchRankedVendors(productId: string, lat: number, lng: number): 
   }
 }
 
-async function fetchRelatedProducts(productId: string): Promise<any[]> {
+async function fetchRelatedProducts(productId: string): Promise<RelatedProduct[]> {
   const url = `${PRODUCTS_BASE_URL}/getRelatedProducts/${productId}`;
   try {
     const res = await fetch(url, { cache: "no-store" });
@@ -171,11 +196,11 @@ async function fetchClientAddress(): Promise<{ latitude: number; longitude: numb
     const data = json.data;
     const primaryAddr = data?.primary_address || data?.addresses?.[0] || null;
     if (primaryAddr?.latitude != null && primaryAddr?.longitude != null) {
-      return { 
-        latitude: Number(primaryAddr.latitude), 
-        longitude: Number(primaryAddr.longitude), 
-        address: primaryAddr.address || "", 
-        city: primaryAddr.city || "" 
+      return {
+        latitude: Number(primaryAddr.latitude),
+        longitude: Number(primaryAddr.longitude),
+        address: primaryAddr.address || "",
+        city: primaryAddr.city || ""
       };
     }
     return null;
@@ -188,6 +213,7 @@ export default function ProductDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const [product, setProduct] = useState<ProductDetail | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const addItem = useCartStore((s) => s.addItem);
@@ -202,11 +228,10 @@ export default function ProductDetailPage() {
   // Location & Ranking state
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; label: string } | null>(null);
   const [savedAddress, setSavedAddress] = useState<{ latitude: number; longitude: number; address: string; city: string } | null>(null);
-  const [isAddressConfirmed, setIsAddressConfirmed] = useState<boolean>(false);
   const [rankedVendors, setRankedVendors] = useState<RankedVendor[]>([]);
   const [isLocating, setIsLocating] = useState(false);
   const [isRanking, setIsRanking] = useState(false);
-  const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
+  const [relatedProducts, setRelatedProducts] = useState<RelatedProduct[]>([]);
   const [isLoadingRelated, setIsLoadingRelated] = useState(false);
 
   // Reviews state
@@ -256,7 +281,14 @@ export default function ProductDetailPage() {
     async function loadProduct() {
       const data = await fetchProduct(id);
       setProduct(data);
-      if (data?.vendors) {
+      if (data?.variants && data.variants.length > 0) {
+        setSelectedVariant(data.variants[0]);
+        const initialQuantities: Record<string, number> = {};
+        data.variants[0].vendors.forEach((v: any) => {
+          initialQuantities[v.vendor_id] = v.moq || 1;
+        });
+        setQuantities(initialQuantities);
+      } else if (data?.vendors) {
         const initialQuantities: Record<string, number> = {};
         data.vendors.forEach((v) => {
           initialQuantities[v.vendor_id] = v.moq || 1;
@@ -284,18 +316,19 @@ export default function ProductDetailPage() {
     loadAddress();
   }, []);
 
-  // When user location is available, fetch ranked vendors
+  // When user location or selected variant is available, fetch ranked vendors
   useEffect(() => {
     if (!userLocation || !id) return;
     const { lat, lng } = userLocation;
+    const variantId = selectedVariant?.variant_id;
     async function loadRanking() {
       setIsRanking(true);
-      const ranked = await fetchRankedVendors(id, lat, lng);
+      const ranked = await fetchRankedVendors(id, lat, lng, variantId);
       setRankedVendors(ranked);
       setIsRanking(false);
     }
     loadRanking();
-  }, [userLocation, id]);
+  }, [userLocation, id, selectedVariant]);
 
   // Fetch related products
   useEffect(() => {
@@ -308,6 +341,15 @@ export default function ProductDetailPage() {
     }
     loadRelated();
   }, [id]);
+
+  const handleSelectVariant = (variant: any) => {
+    setSelectedVariant(variant);
+    const initialQuantities: Record<string, number> = {};
+    variant.vendors.forEach((v: any) => {
+      initialQuantities[v.vendor_id] = v.moq || 1;
+    });
+    setQuantities(initialQuantities);
+  };
 
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -364,10 +406,11 @@ export default function ProductDetailPage() {
     const requiresQuotation = quotationLimit !== null && quantity >= quotationLimit;
 
     setAddingVendorId(vendor.vendor_id);
-    
+
     if (requiresQuotation) {
       const quoteSuccess = await addQuotationItem({
         productId: product.product_id,
+        productVariantId: selectedVariant?.variant_id,
         productName: product.product_name,
         image: product.images?.[0]?.image_url || "",
         price: Number(vendor.price) || 0,
@@ -387,9 +430,10 @@ export default function ProductDetailPage() {
       setAddingVendorId(null);
       return;
     }
-    
+
     const success = await addItem({
       productId: product.product_id,
+      productVariantId: selectedVariant?.variant_id,
       productName: product.product_name,
       image: product.images?.find((img) => img.is_primary)?.image_url || product.images?.[0]?.image_url || "",
       price: typeof vendor.price === "string" ? parseFloat(vendor.price) || 0 : vendor.price || 0,
@@ -398,9 +442,9 @@ export default function ProductDetailPage() {
       vendorId: vendor.vendor_id,
       vendorName: `Vendor #${vendor.vendor_id.slice(0, 8)}`,
     });
-    
+
     setAddingVendorId(null);
-    
+
     if (success) {
       toast.success(`Added ${quantity} units to cart from Vendor #${vendor.vendor_id.slice(0, 8)}`);
       await fetchCart();
@@ -412,11 +456,12 @@ export default function ProductDetailPage() {
   const handleSaveToWishlist = async () => {
     if (!product) return;
 
-    const preferredVendor = product.vendors?.[0];
+    const preferredVendor = (selectedVariant?.vendors || product.vendors)?.[0];
     setSavingWishlist(true);
 
     const success = await addToWishlist({
       productId: product.product_id,
+      productVariantId: selectedVariant?.variant_id,
       productName: product.product_name,
       description: product.description,
       image: product.images?.find((img) => img.is_primary)?.image_url || product.images?.[0]?.image_url || "",
@@ -437,10 +482,11 @@ export default function ProductDetailPage() {
   };
 
   const getPriceRange = () => {
-    if (!product?.vendors?.length) return null;
-    const prices = product.vendors
-      .map((v) => (typeof v.price === "string" ? parseFloat(v.price) : v.price))
-      .filter((p): p is number => !!p && !isNaN(p));
+    const vendors = selectedVariant?.vendors || product?.vendors;
+    if (!vendors?.length) return null;
+    const prices = vendors
+      .map((v: any) => (typeof v.price === "string" ? parseFloat(v.price) : v.price))
+      .filter((p: number | undefined | null): p is number => !!p && !isNaN(p));
     if (!prices.length) return null;
     const min = Math.min(...prices);
     const max = Math.max(...prices);
@@ -501,13 +547,6 @@ export default function ProductDetailPage() {
                 <ChevronRight size={14} className="text-zinc-400" />
                 <span className="text-zinc-800 font-medium truncate max-w-xs">{product.product_name}</span>
               </nav>
-              <Link 
-                href="/cart" 
-                className="flex items-center gap-2 px-4 py-2 bg-zinc-100 rounded-lg hover:bg-zinc-200 transition-colors"
-              >
-                <ShoppingCart size={18} className="text-zinc-600" />
-                <span className="text-sm font-medium text-zinc-700">Cart ({totalItems})</span>
-              </Link>
             </div>
           </div>
         </div>
@@ -543,7 +582,44 @@ export default function ProductDetailPage() {
                 <div className="mb-4">
                   <p className="text-sm text-zinc-500 mb-1">Price Range (per unit)</p>
                   <p className="text-2xl font-bold text-[#1d4ed8]">{priceRange}</p>
-                  <p className="text-xs text-zinc-400 mt-1">* Prices vary by supplier. MOQ applies.</p>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded bg-amber-50 text-amber-800 text-[10px] font-bold uppercase tracking-wider border border-amber-200 shadow-2xs">
+                      GST is excluded
+                    </span>
+                    <span className="text-[11px] text-zinc-400 font-medium">* Prices vary by supplier. MOQ applies.</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Variant Selection Bar */}
+              {product.variants && product.variants.length > 1 && (
+                <div className="mb-6 p-4 bg-zinc-50 rounded-xl border border-zinc-200 shadow-sm">
+                  <h3 className="text-sm font-bold text-zinc-700 mb-3 flex items-center gap-2">
+                    <Layers size={16} className="text-[#1d4ed8]" />
+                    Product Variations
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {product.variants.map((v: any) => {
+                      const isSelected = selectedVariant?.variant_id === v.variant_id;
+                      const label = Object.entries(v.properties || {})
+                        .map(([key, val]) => `${key}: ${val}`)
+                        .join(", ") || "Standard";
+
+                      return (
+                        <button
+                          key={v.variant_id}
+                          onClick={() => handleSelectVariant(v)}
+                          className={`px-4 py-2 text-xs font-bold rounded-lg border transition-all ${
+                            isSelected
+                              ? "bg-[#1d4ed8] text-white border-[#1d4ed8] shadow-md"
+                              : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
@@ -561,61 +637,82 @@ export default function ProductDetailPage() {
               )}
 
               {/* Detailed Product Information */}
-              <div className="mb-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Package className="text-blue-600" size={16} />
-                    <span className="text-zinc-500">Category:</span>
-                    <span className="font-semibold text-zinc-900 capitalize">{product.category}</span>
+              {(() => {
+                const featuresList: { label: string; value: string; icon: React.ReactNode }[] = [];
+
+                if (product.product_type) {
+                  featuresList.push({
+                    label: "Type",
+                    value: product.product_type,
+                    icon: <Layers className="text-blue-600" size={16} />
+                  });
+                }
+
+                const potentialProps = [
+                  { label: "Material", value: material, icon: <ShieldCheck className="text-blue-600" size={16} /> },
+                  { label: "Grade", value: grade, icon: <BadgeCheck className="text-blue-600" size={16} /> },
+                  { label: "Application", value: application, icon: <Truck className="text-blue-600" size={16} /> },
+                  { label: "Standard", value: standard, icon: <Info className="text-blue-600" size={16} /> }
+                ];
+
+                potentialProps.forEach(p => {
+                  if (p.value) {
+                    featuresList.push({
+                      label: p.label,
+                      value: p.value,
+                      icon: p.icon
+                    });
+                  }
+                });
+
+                if (featuresList.length < 6 && product.attributes) {
+                  const customAttrs = Object.entries(product.attributes)
+                    .filter(([key]) => !["material", "grade", "application", "standard"].includes(key.toLowerCase()));
+
+                  for (const [key, val] of customAttrs) {
+                    if (featuresList.length >= 6) break;
+                    if (val) {
+                      featuresList.push({
+                        label: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                        value: String(val),
+                        icon: <Package className="text-blue-600" size={16} />
+                      });
+                    }
+                  }
+                }
+
+                if (featuresList.length === 0) return null;
+
+                return (
+                  <div className="mb-6 bg-zinc-50 border border-zinc-200/80 rounded-2xl p-5 space-y-4">
+                    <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Product Features</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3.5 gap-x-6 text-sm">
+                      {featuresList.slice(0, 6).map((feat, idx) => (
+                        <div key={idx} className="flex items-center gap-2.5 py-1 border-b border-zinc-100 last:border-0 sm:border-0">
+                          <div className="shrink-0 p-1.5 bg-blue-50/50 text-blue-600 rounded-lg">
+                            {feat.icon}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[11px] text-zinc-400 font-semibold uppercase tracking-wider">{feat.label}</span>
+                            <span className="font-bold text-zinc-800 capitalize mt-0.5">{feat.value}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  {product.product_type && (
-                    <div className="flex items-center gap-2">
-                      <Layers className="text-blue-600" size={16} />
-                      <span className="text-zinc-500">Type:</span>
-                      <span className="font-semibold text-zinc-900 capitalize">{product.product_type}</span>
-                    </div>
-                  )}
-                  {material && (
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="text-blue-600" size={16} />
-                      <span className="text-zinc-500">Material:</span>
-                      <span className="font-semibold text-zinc-900">{material}</span>
-                    </div>
-                  )}
-                  {grade && (
-                    <div className="flex items-center gap-2">
-                      <BadgeCheck className="text-blue-600" size={16} />
-                      <span className="text-zinc-500">Grade:</span>
-                      <span className="font-semibold text-zinc-900">{grade}</span>
-                    </div>
-                  )}
-                  {application && (
-                    <div className="flex items-center gap-2">
-                      <Truck className="text-blue-600" size={16} />
-                      <span className="text-zinc-500">Application:</span>
-                      <span className="font-semibold text-zinc-900">{application}</span>
-                    </div>
-                  )}
-                  {standard && (
-                    <div className="flex items-center gap-2">
-                      <Info className="text-blue-600" size={16} />
-                      <span className="text-zinc-500">Standard:</span>
-                      <span className="font-semibold text-zinc-900">{standard}</span>
-                    </div>
-                  )}
+                );
+              })()}
+
+              {/* Product Rating */}
+              <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                <div className="flex items-center gap-1">
+                  <Star className="fill-amber-400 text-amber-400" size={16} />
+                  <span className="font-bold text-amber-900">{product.rating || 0}</span>
                 </div>
-                
-                {/* Product Rating */}
-                <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                  <div className="flex items-center gap-1">
-                    <Star className="fill-amber-400 text-amber-400" size={16} />
-                    <span className="font-bold text-amber-900">{product.rating || 0}</span>
-                  </div>
-                  <span className="text-sm text-amber-700">
-                    {product.review_count || 0} {product.review_count === 1 ? 'review' : 'reviews'}
-                  </span>
-                  <span className="text-xs text-amber-600">• Verified by our quality team</span>
-                </div>
+                <span className="text-sm text-amber-700">
+                  {product.review_count || 0} {product.review_count === 1 ? 'review' : 'reviews'}
+                </span>
+                <span className="text-xs text-amber-600">• Verified by our quality team</span>
               </div>
 
               {/* B2B Trust Indicators */}
@@ -644,14 +741,14 @@ export default function ProductDetailPage() {
                   {savingWishlist ? <Loader2 size={18} className="animate-spin" /> : <Heart size={18} />}
                   {savingWishlist ? "Saving..." : "Save to Wishlist"}
                 </button>
-                <a 
-                  href="#vendors-list" 
+                <a
+                  href="#vendors-list"
                   className="flex-1 px-6 py-3.5 bg-[#1d4ed8] text-white text-sm font-semibold rounded-xl hover:bg-blue-800 hover:shadow-lg transition-all text-center flex items-center justify-center gap-2"
                 >
                   <ShoppingCart size={18} />
                   View Suppliers & Add to Cart
                 </a>
-                <Link 
+                <Link
                   href="/cart"
                   className="px-6 py-3.5 border-2 border-zinc-200 text-zinc-700 text-sm font-semibold rounded-xl hover:border-zinc-300 hover:bg-zinc-50 transition-all text-center flex items-center justify-center gap-2"
                 >
@@ -824,15 +921,15 @@ export default function ProductDetailPage() {
                   <div className="flex items-center gap-2">
                     {isRanking && <Loader2 size={14} className="animate-spin text-blue-600" />}
                     <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
-                      {product.vendors?.length || 0} suppliers
+                      {(selectedVariant?.vendors || product.vendors || []).length} suppliers
                     </span>
                   </div>
                 </div>
 
 
                 <div className="divide-y divide-zinc-100">
-                  {(rankedVendors.length > 0 ? rankedVendors : product.vendors) && (rankedVendors.length > 0 ? rankedVendors : product.vendors).length > 0 ? (
-                    (rankedVendors.length > 0 ? rankedVendors : product.vendors).map((v) => {
+                  {(rankedVendors.length > 0 ? rankedVendors : (selectedVariant?.vendors || product.vendors || [])).length > 0 ? (
+                    (rankedVendors.length > 0 ? rankedVendors : (selectedVariant?.vendors || product.vendors || [])).map((v: any) => {
                       const qty = quantities[v.vendor_id] || v.moq || 1;
                       const price = typeof v.price === "string" ? parseFloat(v.price) || 0 : v.price || 0;
                       const totalPrice = price * qty;
@@ -840,7 +937,7 @@ export default function ProductDetailPage() {
                       const requiresQuotation = quotationLimit !== null && qty >= quotationLimit;
                       const isRanked = rankedVendors.length > 0 && "rank" in v;
                       const ranked = v as RankedVendor;
-                      
+
                       return (
                         <div key={v.vendor_id} className="p-5 hover:bg-zinc-50/50 transition-colors">
                           <div className="flex flex-col lg:flex-row gap-4">
@@ -848,12 +945,11 @@ export default function ProductDetailPage() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-2">
                                 {isRanked && (
-                                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
-                                    ranked.rank === 1 ? "bg-amber-100 text-amber-700" :
+                                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${ranked.rank === 1 ? "bg-amber-100 text-amber-700" :
                                     ranked.rank === 2 ? "bg-zinc-200 text-zinc-700" :
-                                    ranked.rank === 3 ? "bg-orange-100 text-orange-700" :
-                                    "bg-zinc-100 text-zinc-500"
-                                  }`}>
+                                      ranked.rank === 3 ? "bg-orange-100 text-orange-700" :
+                                        "bg-zinc-100 text-zinc-500"
+                                    }`}>
                                     {ranked.rank}
                                   </span>
                                 )}
@@ -875,11 +971,16 @@ export default function ProductDetailPage() {
                                   Verified
                                 </span>
                               </div>
-                              
+
                               <div className={`grid gap-3 mb-3 ${isRanked ? 'grid-cols-4' : 'grid-cols-3'}`}>
-                                <div className="bg-zinc-50 border border-zinc-200 px-3 py-2 rounded-lg">
+                                <div className="bg-zinc-50 border border-zinc-200 px-3 py-2 rounded-lg flex flex-col justify-between">
                                   <p className="text-xs text-zinc-500">Unit Price</p>
                                   <p className="text-sm font-bold text-[#1d4ed8]">₹{v.price || "Contact"}</p>
+                                  <p className="text-[9px] text-zinc-400 font-semibold mt-0.5">
+                                    {v.gst_percentage && Number(v.gst_percentage) > 0
+                                      ? `+ ${v.gst_percentage}% GST`
+                                      : "GST Excl."}
+                                  </p>
                                 </div>
                                 <div className="bg-zinc-50 border border-zinc-200 px-3 py-2 rounded-lg">
                                   <p className="text-xs text-zinc-500">MOQ</p>
@@ -961,7 +1062,7 @@ export default function ProductDetailPage() {
                                     Total: ₹{totalPrice.toLocaleString()}
                                   </p>
                                 )}
-                                <button 
+                                <button
                                   onClick={() => handleAddToCart(v)}
                                   disabled={addingVendorId === v.vendor_id}
                                   className={`px-5 py-2.5 text-white text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-70 disabled:cursor-not-allowed ${requiresQuotation ? "bg-amber-600 hover:bg-amber-700" : "bg-[#1d4ed8] hover:bg-blue-800"}`}
@@ -987,14 +1088,14 @@ export default function ProductDetailPage() {
                     </div>
                   )}
                 </div>
-                
+
                 {/* Cart CTA Footer */}
-                {product.vendors?.length > 0 && (
+                {(selectedVariant?.vendors || product.vendors || []).length > 0 && (
                   <div className="px-6 py-4 border-t border-zinc-100 bg-zinc-50/50 flex items-center justify-between">
                     <p className="text-sm text-zinc-500">
                       {totalItems > 0 ? `${totalItems} items in your cart` : "Add items to proceed"}
                     </p>
-                    <Link 
+                    <Link
                       href="/cart"
                       className="px-5 py-2 bg-zinc-900 text-white text-sm font-semibold rounded-lg hover:bg-zinc-800 transition-colors flex items-center gap-2"
                     >
@@ -1021,7 +1122,7 @@ export default function ProductDetailPage() {
                 <p className="text-zinc-700 leading-relaxed text-base">
                   {product.description || "This industrial-grade product meets stringent quality standards and is suitable for various commercial and industrial applications. Sourced from verified suppliers with competitive pricing and reliable delivery options."}
                 </p>
-                
+
                 {/* Additional details if available */}
                 {(grade || material || application || standard || (product.attributes && Object.keys(product.attributes).filter(k => !["material", "grade", "application", "standard"].includes(k.toLowerCase())).length > 0)) && (
                   <div className="mt-6 p-4 bg-zinc-50 rounded-lg">
@@ -1074,8 +1175,8 @@ export default function ProductDetailPage() {
               <h2 className="text-2xl font-bold text-zinc-900 mb-2">Customer Reviews</h2>
               <p className="text-zinc-600">Feedback from verified buyers and suppliers</p>
             </div>
-            <Link 
-              href="/orders" 
+            <Link
+              href="/orders"
               className="text-sm font-semibold text-[#1d4ed8] hover:underline flex items-center gap-1.5"
             >
               Write a Review
@@ -1087,7 +1188,7 @@ export default function ProductDetailPage() {
             {/* Left Column: Ratings Summary & Distribution */}
             <div className="lg:col-span-1 bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm">
               <h3 className="text-lg font-bold text-zinc-900 mb-4">Rating Breakdown</h3>
-              
+
               <div className="flex items-center gap-4 mb-6">
                 <div className="text-center p-3 bg-blue-50/50 rounded-2xl border border-blue-100/30 min-w-[90px]">
                   <span className="text-4xl font-extrabold text-zinc-900">
@@ -1100,10 +1201,10 @@ export default function ProductDetailPage() {
                     {[...Array(5)].map((_, i) => {
                       const avgVal = reviewsStats ? Number(reviewsStats.avg_rating) : Number(product.rating || 0);
                       return (
-                        <Star 
-                          key={i} 
-                          className={`${i < Math.round(avgVal) ? 'fill-amber-400 text-amber-400' : 'text-zinc-200'} shrink-0`} 
-                          size={18} 
+                        <Star
+                          key={i}
+                          className={`${i < Math.round(avgVal) ? 'fill-amber-400 text-amber-400' : 'text-zinc-200'} shrink-0`}
+                          size={18}
                         />
                       );
                     })}
@@ -1125,8 +1226,8 @@ export default function ProductDetailPage() {
                       <span className="w-3 text-zinc-600 font-semibold text-xs">{stars}</span>
                       <Star className="fill-amber-400 text-amber-400 shrink-0" size={13} />
                       <div className="flex-1 h-2 bg-zinc-100 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-blue-600 rounded-full transition-all duration-500" 
+                        <div
+                          className="h-full bg-blue-600 rounded-full transition-all duration-500"
                           style={{ width: `${percentage}%` }}
                         ></div>
                       </div>
@@ -1197,10 +1298,10 @@ export default function ProductDetailPage() {
                       <div className="flex items-center gap-3 mb-3">
                         <div className="flex items-center gap-0.5">
                           {[...Array(5)].map((_, i) => (
-                            <Star 
-                              key={i} 
-                              className={`${i < rev.rating ? 'fill-amber-400 text-amber-400' : 'text-zinc-200'} shrink-0`} 
-                              size={16} 
+                            <Star
+                              key={i}
+                              className={`${i < rev.rating ? 'fill-amber-400 text-amber-400' : 'text-zinc-200'} shrink-0`}
+                              size={16}
                             />
                           ))}
                         </div>
@@ -1219,15 +1320,15 @@ export default function ProductDetailPage() {
                         <div className="mb-4">
                           <div className="flex flex-wrap gap-2">
                             {rev.images.map((imgUrl, idx) => (
-                              <button 
+                              <button
                                 key={idx}
                                 onClick={() => setActiveReviewImage(imgUrl)}
                                 className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden border border-zinc-200 bg-zinc-50 hover:opacity-90 hover:border-blue-500 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0"
                               >
-                                <img 
-                                  src={imgUrl} 
-                                  alt={`Review Photo ${idx + 1}`} 
-                                  className="w-full h-full object-cover" 
+                                <img
+                                  src={imgUrl}
+                                  alt={`Review Photo ${idx + 1}`}
+                                  className="w-full h-full object-cover"
                                 />
                               </button>
                             ))}
@@ -1239,7 +1340,7 @@ export default function ProductDetailPage() {
                       <div className="flex items-center justify-between pt-3 border-t border-zinc-50 text-xs text-zinc-400">
                         <div className="flex items-center gap-2">
                           <span>Was this review helpful?</span>
-                          <button 
+                          <button
                             onClick={() => {
                               toast.success("Thanks for your feedback!");
                             }}
@@ -1279,7 +1380,7 @@ export default function ProductDetailPage() {
             <h2 className="text-2xl font-bold text-zinc-900 mb-2">Related Products</h2>
             <p className="text-zinc-600">Similar products in the {product.category} category</p>
           </div>
-          
+
           {isLoadingRelated ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {[...Array(4)].map((_, i) => (
@@ -1296,7 +1397,7 @@ export default function ProductDetailPage() {
                 const priceLabel = related.min_price === related.max_price
                   ? `₹${related.min_price?.toLocaleString() || "Contact"}`
                   : `₹${related.min_price?.toLocaleString() || 0} – ₹${related.max_price?.toLocaleString() || 0}`;
-                
+
                 return (
                   <div key={related.product_id} className="group relative flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition-all hover:border-zinc-300 hover:shadow-md h-full">
                     <Link href={`/product/${related.product_id}`} className="flex h-full flex-col">
@@ -1371,11 +1472,10 @@ export default function ProductDetailPage() {
                         </div>
 
                         {/* CTA */}
-                        <div className={`mt-auto pt-2 w-full rounded-lg px-3 py-2.5 text-center text-xs font-semibold transition-colors ${
-                          related.seller_count > 0
-                            ? "border border-[#1d4ed8] text-[#1d4ed8] group-hover:bg-[#1d4ed8] group-hover:text-white"
-                            : "border border-zinc-300 text-zinc-400 bg-zinc-50 cursor-not-allowed"
-                        }`}>
+                        <div className={`mt-auto pt-2 w-full rounded-lg px-3 py-2.5 text-center text-xs font-semibold transition-colors ${related.seller_count > 0
+                          ? "border border-[#1d4ed8] text-[#1d4ed8] group-hover:bg-[#1d4ed8] group-hover:text-white"
+                          : "border border-zinc-300 text-zinc-400 bg-zinc-50 cursor-not-allowed"
+                          }`}>
                           {related.seller_count > 0 ? "Order Now" : "No Vendors Yet"}
                         </div>
                       </div>
@@ -1403,13 +1503,13 @@ export default function ProductDetailPage() {
 
       {/* Lightbox dialog modal */}
       {activeReviewImage && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4" 
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4"
           onClick={() => setActiveReviewImage(null)}
         >
           <div className="relative max-w-4xl max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <img src={activeReviewImage} alt="Review attachment" className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-200" />
-            <button 
+            <button
               className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/85 text-white rounded-full transition-colors focus:outline-none"
               onClick={() => setActiveReviewImage(null)}
             >
@@ -1418,7 +1518,7 @@ export default function ProductDetailPage() {
           </div>
         </div>
       )}
-      
+
     </div>
   );
 }

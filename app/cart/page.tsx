@@ -1,17 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { Minus, Plus, Trash2, ShoppingCart, ArrowLeft, Package, Loader2, Heart } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingCart, ArrowLeft, Package, Loader2, Heart, Share2 } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 import { useAuthStore } from "@/store/authStore";
 import { useWishlistStore } from "@/store/wishlistStore";
 import { useEffect, useLayoutEffect, useRef, useCallback, useState } from "react";
 import { toast } from "sonner";
+import ShareCartModal from "@/components/ShareCartModal";
 
 export default function CartPage() {
-  const { items, removeItem, updateQuantity, clearCart, totalPrice, fetchCart, isLoading } = useCartStore();
+  const { items, removeItem, updateQuantity, clearCart, totalPrice, fetchCart, isLoading, shareCart } = useCartStore();
   const { fetchUser, user } = useAuthStore();
   const { addItem: addToWishlist } = useWishlistStore();
+
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareId, setShareId] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
 
   // Local optimistic quantities for instant UI response
   const [localQty, setLocalQty] = useState<Record<string, number>>({});
@@ -119,6 +124,20 @@ export default function CartPage() {
     }
 
     setMovingToWishlistKey(null);
+  };
+
+  const handleShareCart = async () => {
+    setIsSharing(true);
+    setShareId(null);
+    setShareModalOpen(true);
+    const id = await shareCart("direct");
+    if (id) {
+      setShareId(id);
+    } else {
+      toast.error("Failed to generate share link");
+      setShareModalOpen(false);
+    }
+    setIsSharing(false);
   };
 
   if (isLoading) {
@@ -259,13 +278,28 @@ export default function CartPage() {
           <>
             <div className="flex items-center justify-between mb-8">
               <h1 className="text-2xl font-semibold text-zinc-900">Shopping Cart</h1>
-              <button
-                onClick={handleClearCart}
-                disabled={isLoading}
-                className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors disabled:opacity-50"
-              >
-                Clear all
-              </button>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={handleShareCart}
+                  disabled={isLoading || isSharing}
+                  className="text-sm text-[#1d4ed8] hover:text-[#1e40af] font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isSharing ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Share2 size={14} />
+                  )}
+                  Share Cart
+                </button>
+                <span className="text-zinc-300">|</span>
+                <button
+                  onClick={handleClearCart}
+                  disabled={isLoading}
+                  className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors disabled:opacity-50"
+                >
+                  Clear all
+                </button>
+              </div>
             </div>
 
             <div className="grid lg:grid-cols-3 gap-8">
@@ -392,6 +426,13 @@ export default function CartPage() {
           </>
         )}
       </div>
+
+      <ShareCartModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        shareId={shareId}
+        cartType="direct"
+      />
     </main>
   );
 }
