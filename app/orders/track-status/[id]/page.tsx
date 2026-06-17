@@ -39,6 +39,7 @@ interface OrderItem {
   image_url: string | null;
   quantity: number;
   price: number;
+  variant_properties?: Record<string, string>;
 }
 
 interface StatusHistoryEntry {
@@ -899,6 +900,15 @@ export default function OrderTrackingPage() {
                       <p className="text-sm font-semibold text-zinc-900 truncate">
                         {item.product_name}
                       </p>
+                      {item.variant_properties && Object.keys(item.variant_properties).length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1.5 mb-1">
+                          {Object.entries(item.variant_properties).map(([key, val]) => (
+                            <span key={key} className="inline-flex items-center rounded-md bg-zinc-150 px-2 py-0.5 text-[11px] font-bold text-zinc-600 capitalize border border-zinc-200">
+                              {key}: {String(val)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       {item.product_description && (
                         <p className="text-xs text-zinc-500 mt-0.5 line-clamp-2">
                           {item.product_description}

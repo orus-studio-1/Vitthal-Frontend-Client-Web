@@ -15,6 +15,7 @@ export type QuotationCartItem = {
   quantity: number;
   vendorId: string;
   vendorName: string;
+  gstPercentage?: number;
 };
 
 type QuotationCartApiRow = {
@@ -30,6 +31,7 @@ type QuotationCartApiRow = {
   quantity: number;
   vendor_id: string;
   vendor_name?: string | null;
+  gst_percentage?: string | number | null;
 };
 
 type QuotationCartState = {
@@ -80,6 +82,7 @@ export const useQuotationCartStore = create<QuotationCartState>((set, get) => ({
         quantity: row.quantity,
         vendorId: row.vendor_id,
         vendorName: row.vendor_name || "Unknown Vendor",
+        gstPercentage: row.gst_percentage !== null && row.gst_percentage !== undefined ? Number(row.gst_percentage) : 0,
       }));
       set({ items, isLoading: false });
     } catch (err) {

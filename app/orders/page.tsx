@@ -24,6 +24,7 @@ interface OrderItem {
   image_url: string;
   quantity: number;
   price: number;
+  variant_properties?: Record<string, string>;
 }
 
 interface Order {
@@ -299,6 +300,15 @@ export default function OrdersPage() {
                             <p className="text-sm font-semibold text-zinc-900 hover:text-blue-600 cursor-pointer transition-colors truncate">
                               {item.product_name}
                             </p>
+                            {item.variant_properties && Object.keys(item.variant_properties).length > 0 && (
+                              <div className="mt-1 flex flex-wrap gap-1.5">
+                                {Object.entries(item.variant_properties).map(([key, val]) => (
+                                  <span key={key} className="inline-flex items-center rounded-md bg-zinc-150 px-2 py-0.5 text-[11px] font-bold text-zinc-600 capitalize border border-zinc-200">
+                                    {key}: {String(val)}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                             <div className="mt-1 flex items-center gap-4 text-sm text-zinc-500">
                               <span>Qty: {item.quantity}</span>
                               <span>

@@ -378,7 +378,10 @@ export default function CheckoutPage() {
     }
 
     const subtotal = totalPrice();
-    const taxes = subtotal * 0.18; // Mock 18% GST for industrial goods
+    const taxes = items.reduce((sum, item) => {
+        const itemGst = (item.price * item.quantity) * ((item.gstPercentage ?? 0) / 100);
+        return sum + itemGst;
+    }, 0);
     const finalTotal = subtotal + taxes;
 
     return (
@@ -535,7 +538,7 @@ export default function CheckoutPage() {
                             <div className="p-6">
                                 <div className="space-y-4 max-h-64 overflow-y-auto pr-2 mb-6 scrollbar-thin scrollbar-thumb-zinc-200">
                                     {items.map((item) => (
-                                        <div key={`${item.productId}-${item.vendorId}`} className="flex items-start gap-3">
+                                        <div key={`${item.productId}-${item.vendorId}-${item.productVariantId || ''}`} className="flex items-start gap-3">
                                             {item.image ? (
                                                 <img src={item.image} alt={item.productName} className="w-12 h-12 rounded-md object-cover border border-zinc-200" />
                                             ) : (
@@ -545,7 +548,16 @@ export default function CheckoutPage() {
                                             )}
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium text-zinc-900 truncate">{item.productName}</p>
-                                                <p className="text-xs text-zinc-500">Supplier: {item.vendorName}</p>
+                                                {item.variantProperties && Object.keys(item.variantProperties).length > 0 && (
+                                                    <div className="mt-0.5 flex flex-wrap gap-1">
+                                                        {Object.entries(item.variantProperties).map(([key, val]) => (
+                                                            <span key={key} className="inline-flex items-center rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600 capitalize border border-zinc-200/50">
+                                                                {key}: {String(val)}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                <p className="text-xs text-zinc-500 mt-1">Supplier: {item.vendorName}</p>
                                                 <p className="text-xs text-zinc-500">Qty: {item.quantity}</p>
                                             </div>
                                             <p className="text-sm font-medium text-zinc-900 whitespace-nowrap">
@@ -561,8 +573,8 @@ export default function CheckoutPage() {
                                         <span className="font-medium text-zinc-900">₹{subtotal.toLocaleString()}</span>
                                     </div>
                                     <div className="flex justify-between text-sm text-zinc-600">
-                                        <span>Estimated Tax (18% GST)</span>
-                                        <span className="font-medium text-zinc-900">₹{taxes.toLocaleString()}</span>
+                                        <span>Estimated Tax (GST)</span>
+                                        <span className="font-medium text-zinc-900">₹{Math.round(taxes).toLocaleString()}</span>
                                     </div>
                                     <div className="flex justify-between text-sm text-zinc-600">
                                         <span>Shipping</span>

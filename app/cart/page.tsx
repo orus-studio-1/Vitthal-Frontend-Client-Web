@@ -37,7 +37,7 @@ export default function CartPage() {
   useEffect(() => {
     const synced: Record<string, number> = {};
     items.forEach((item) => {
-      const key = `${item.productId}-${item.vendorId}`;
+      const key = `${item.productId}-${item.vendorId}-${item.productVariantId || ''}`;
       // Only sync if no pending debounce for this item
       if (!debounceTimers.current[key]) {
         synced[key] = item.quantity;
@@ -46,20 +46,20 @@ export default function CartPage() {
     setLocalQty((prev) => ({ ...prev, ...synced }));
   }, [items]);
 
-  const getDisplayQty = (productId: string, vendorId: string, serverQty: number) => {
-    const key = `${productId}-${vendorId}`;
+  const getDisplayQty = (productId: string, vendorId: string, serverQty: number, productVariantId?: string) => {
+    const key = `${productId}-${vendorId}-${productVariantId || ''}`;
     return localQty[key] ?? serverQty;
   };
 
-  const handleRemove = async (productId: string, vendorId: string) => {
-    const success = await removeItem(productId, vendorId);
+  const handleRemove = async (productId: string, vendorId: string, productVariantId?: string) => {
+    const success = await removeItem(productId, vendorId, productVariantId);
     if (success) toast.success("Item removed");
     else toast.error("Failed to remove item");
   };
 
   // Debounced quantity update: updates UI instantly, sends API after 500ms of no clicks
-  const handleUpdateQty = useCallback((productId: string, vendorId: string, newQty: number, moq: number) => {
-    const key = `${productId}-${vendorId}`;
+  const handleUpdateQty = useCallback((productId: string, vendorId: string, newQty: number, moq: number, productVariantId?: string) => {
+    const key = `${productId}-${vendorId}-${productVariantId || ''}`;
 
     if (newQty < moq) {
       toast.error(`Minimum quantity is ${moq}`);
@@ -76,7 +76,7 @@ export default function CartPage() {
 
     // Set new debounced API call
     debounceTimers.current[key] = setTimeout(async () => {
-      const success = await updateQuantity(productId, vendorId, newQty);
+      const success = await updateQuantity(productId, vendorId, newQty, productVariantId);
       if (!success) {
         toast.error("Failed to update quantity");
         // Revert optimistic update on failure
@@ -96,12 +96,22 @@ export default function CartPage() {
     else toast.error("Failed to clear cart");
   };
 
-  const handleMoveToWishlist = async (productId: string, vendorId: string, itemName: string, image: string, price: number, moq: number, vendorName: string) => {
-    const key = `${productId}-${vendorId}`;
+  const handleMoveToWishlist = async (
+    productId: string,
+    vendorId: string,
+    itemName: string,
+    image: string,
+    price: number,
+    moq: number,
+    vendorName: string,
+    productVariantId?: string
+  ) => {
+    const key = `${productId}-${vendorId}-${productVariantId || ''}`;
     setMovingToWishlistKey(key);
 
     const saved = await addToWishlist({
       productId,
+      productVariantId,
       productName: itemName,
       description: "",
       image,
@@ -113,7 +123,7 @@ export default function CartPage() {
     });
 
     if (saved) {
-      const removed = await removeItem(productId, vendorId);
+      const removed = await removeItem(productId, vendorId, productVariantId);
       if (removed) {
         toast.success("Moved to wishlist");
       } else {
@@ -304,100 +314,122 @@ export default function CartPage() {
 
             <div className="grid lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-4">
-                {items.map((item) => (
-                  <div
-                    key={`${item.productId}-${item.vendorId}`}
-                    className="rounded-lg border border-zinc-200 bg-white p-4 sm:p-6 shadow-sm"
-                  >
-                    <div className="flex gap-4">
-                      <div className="h-20 w-20 flex-shrink-0 rounded-md border border-zinc-200 bg-zinc-100 flex items-center justify-center overflow-hidden">
-                        {item.image ? (
-                          <img src={item.image} alt={item.productName} className="h-full w-full object-cover" />
-                        ) : (
-                          <Package size={24} className="text-zinc-400" />
-                        )}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <Link href={`/product/${item.productId}`} className="text-sm font-semibold text-zinc-900 truncate hover:text-[#1d4ed8] transition-colors">{item.productName}</Link>
-                          </div>
-                          <div className="flex flex-col items-end gap-2">
-                            <button
-                              onClick={() => handleRemove(item.productId, item.vendorId)}
-                              disabled={isLoading}
-                              className="flex-shrink-0 rounded p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
-                              aria-label="Remove item"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                            <button
-                              onClick={() => handleMoveToWishlist(item.productId, item.vendorId, item.productName, item.image, item.price, item.moq, item.vendorName)}
-                              disabled={isLoading || movingToWishlistKey === `${item.productId}-${item.vendorId}`}
-                              className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
-                            >
-                              {movingToWishlistKey === `${item.productId}-${item.vendorId}` ? (
-                                <Loader2 size={12} className="animate-spin" />
-                              ) : (
-                                <Heart size={12} />
-                              )}
-                              Save for later
-                            </button>
-                          </div>
+                {items.map((item) => {
+                  const compositeKey = `${item.productId}-${item.vendorId}-${item.productVariantId || ''}`;
+                  return (
+                    <div
+                      key={compositeKey}
+                      className="rounded-lg border border-zinc-200 bg-white p-4 sm:p-6 shadow-sm"
+                    >
+                      <div className="flex gap-4">
+                        <div className="h-20 w-20 flex-shrink-0 rounded-md border border-zinc-200 bg-zinc-100 flex items-center justify-center overflow-hidden">
+                          {item.image ? (
+                            <img src={item.image} alt={item.productName} className="h-full w-full object-cover" />
+                          ) : (
+                            <Package size={24} className="text-zinc-400" />
+                          )}
                         </div>
 
-                        <div className="mt-3 flex flex-wrap items-center gap-4">
-                          <div className="text-sm font-bold text-blue-700">₹{item.price}</div>
-                          <div className="text-xs text-zinc-500">MOQ: {item.moq} units</div>
-
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleUpdateQty(item.productId, item.vendorId, getDisplayQty(item.productId, item.vendorId, item.quantity) - 1, item.moq)}
-                              disabled={getDisplayQty(item.productId, item.vendorId, item.quantity) <= item.moq}
-                              className="rounded border border-zinc-300 p-1 text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                              aria-label="Decrease quantity"
-                            >
-                              <Minus size={14} />
-                            </button>
-                            <span className="w-10 text-center text-sm font-medium text-zinc-900">{getDisplayQty(item.productId, item.vendorId, item.quantity)}</span>
-                            <button
-                              onClick={() => handleUpdateQty(item.productId, item.vendorId, getDisplayQty(item.productId, item.vendorId, item.quantity) + 1, item.moq)}
-                              className="rounded border border-zinc-300 p-1 text-zinc-600 hover:bg-zinc-100 transition-colors"
-                              aria-label="Increase quantity"
-                            >
-                              <Plus size={14} />
-                            </button>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <Link href={`/product/${item.productId}`} className="text-sm font-semibold text-zinc-900 truncate hover:text-[#1d4ed8] transition-colors">{item.productName}</Link>
+                              {item.variantProperties && Object.keys(item.variantProperties).length > 0 && (
+                                <div className="mt-1 flex flex-wrap gap-1.5">
+                                  {Object.entries(item.variantProperties).map(([key, val]) => (
+                                    <span key={key} className="inline-flex items-center rounded-md bg-zinc-150 px-2 py-0.5 text-[11px] font-bold text-zinc-600 capitalize border border-zinc-200">
+                                      {key}: {String(val)}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                              <button
+                                onClick={() => handleRemove(item.productId, item.vendorId, item.productVariantId)}
+                                disabled={isLoading}
+                                className="flex-shrink-0 rounded p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
+                                aria-label="Remove item"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                              <button
+                                onClick={() => handleMoveToWishlist(item.productId, item.vendorId, item.productName, item.image, item.price, item.moq, item.vendorName, item.productVariantId)}
+                                disabled={isLoading || movingToWishlistKey === compositeKey}
+                                className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
+                              >
+                                {movingToWishlistKey === compositeKey ? (
+                                  <Loader2 size={12} className="animate-spin" />
+                                ) : (
+                                  <Heart size={12} />
+                                )}
+                                Save for later
+                              </button>
+                            </div>
                           </div>
 
-                          <div className="text-sm font-semibold text-zinc-900 ml-auto">
-                            ₹{(item.price * getDisplayQty(item.productId, item.vendorId, item.quantity)).toLocaleString()}
+                          <div className="mt-3 flex flex-wrap items-center gap-4">
+                            <div className="text-sm font-bold text-blue-700">₹{item.price}</div>
+                            <div className="text-xs text-zinc-500">MOQ: {item.moq} units</div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleUpdateQty(item.productId, item.vendorId, getDisplayQty(item.productId, item.vendorId, item.quantity, item.productVariantId) - 1, item.moq, item.productVariantId)}
+                                disabled={getDisplayQty(item.productId, item.vendorId, item.quantity, item.productVariantId) <= item.moq}
+                                className="rounded border border-zinc-300 p-1 text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                aria-label="Decrease quantity"
+                              >
+                                <Minus size={14} />
+                              </button>
+                              <span className="w-10 text-center text-sm font-medium text-zinc-900">{getDisplayQty(item.productId, item.vendorId, item.quantity, item.productVariantId)}</span>
+                              <button
+                                onClick={() => handleUpdateQty(item.productId, item.vendorId, getDisplayQty(item.productId, item.vendorId, item.quantity, item.productVariantId) + 1, item.moq, item.productVariantId)}
+                                className="rounded border border-zinc-300 p-1 text-zinc-600 hover:bg-zinc-100 transition-colors"
+                                aria-label="Increase quantity"
+                              >
+                                <Plus size={14} />
+                              </button>
+                            </div>
+
+                            <div className="text-sm font-semibold text-zinc-900 ml-auto">
+                              ₹{(item.price * getDisplayQty(item.productId, item.vendorId, item.quantity, item.productVariantId)).toLocaleString()}
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="lg:col-span-1">
                 <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm sticky top-24">
                   <h2 className="text-lg font-semibold text-zinc-900 mb-4">Order Summary</h2>
 
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between text-zinc-600">
-                      <span>Items ({items.length})</span>
-                      <span>₹{totalPrice().toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between text-zinc-600">
-                      <span>GST (18%)</span>
-                      <span>₹{Math.round(totalPrice() * 0.18).toLocaleString()}</span>
-                    </div>
-                    <div className="border-t border-zinc-200 pt-3 flex justify-between font-semibold text-zinc-900">
-                      <span>Total</span>
-                      <span>₹{Math.round(totalPrice() * 1.18).toLocaleString()}</span>
-                    </div>
-                  </div>
+                  {(() => {
+                    const totalGst = items.reduce((sum, item) => {
+                      const itemGst = (item.price * item.quantity) * ((item.gstPercentage ?? 0) / 100);
+                      return sum + itemGst;
+                    }, 0);
+                    const grandTotal = totalPrice() + totalGst;
+
+                    return (
+                      <div className="space-y-3 text-sm">
+                        <div className="flex justify-between text-zinc-600">
+                          <span>Items ({items.length})</span>
+                          <span>₹{totalPrice().toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-zinc-600">
+                          <span>GST</span>
+                          <span>₹{Math.round(totalGst).toLocaleString()}</span>
+                        </div>
+                        <div className="border-t border-zinc-200 pt-3 flex justify-between font-semibold text-zinc-900">
+                          <span>Total</span>
+                          <span>₹{Math.round(grandTotal).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   <Link
                     href="/checkout"

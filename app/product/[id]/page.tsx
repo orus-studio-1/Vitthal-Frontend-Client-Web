@@ -214,6 +214,7 @@ export default function ProductDetailPage() {
   const id = params.id as string;
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<any | null>(null);
+  const [selectedSpecs, setSelectedSpecs] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const addItem = useCartStore((s) => s.addItem);
@@ -229,6 +230,11 @@ export default function ProductDetailPage() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; label: string } | null>(null);
   const [savedAddress, setSavedAddress] = useState<{ latitude: number; longitude: number; address: string; city: string } | null>(null);
   const [rankedVendors, setRankedVendors] = useState<RankedVendor[]>([]);
+  const displayVendors = product
+    ? ((product.variants && product.variants.length > 0)
+      ? (selectedVariant?.vendors || [])
+      : (product.vendors || []))
+    : [];
   const [isLocating, setIsLocating] = useState(false);
   const [isRanking, setIsRanking] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState<RelatedProduct[]>([]);
@@ -283,15 +289,19 @@ export default function ProductDetailPage() {
       setProduct(data);
       if (data?.variants && data.variants.length > 0) {
         setSelectedVariant(data.variants[0]);
+        setSelectedSpecs(data.variants[0].properties || {});
         const initialQuantities: Record<string, number> = {};
-        data.variants[0].vendors.forEach((v: any) => {
-          initialQuantities[v.vendor_id] = v.moq || 1;
+        data.variants.forEach((variant: any) => {
+          (variant.vendors || []).forEach((v: any) => {
+            const key = `${variant.variant_id}-${v.vendor_id}`;
+            initialQuantities[key] = v.moq || 1;
+          });
         });
         setQuantities(initialQuantities);
       } else if (data?.vendors) {
         const initialQuantities: Record<string, number> = {};
         data.vendors.forEach((v) => {
-          initialQuantities[v.vendor_id] = v.moq || 1;
+          initialQuantities[`default-${v.vendor_id}`] = v.moq || 1;
         });
         setQuantities(initialQuantities);
       }
@@ -318,14 +328,23 @@ export default function ProductDetailPage() {
 
   // When user location or selected variant is available, fetch ranked vendors
   useEffect(() => {
-    if (!userLocation || !id) return;
+    if (!userLocation || !id) {
+      setRankedVendors([]);
+      return;
+    }
     const { lat, lng } = userLocation;
     const variantId = selectedVariant?.variant_id;
     async function loadRanking() {
+      setRankedVendors([]); // Clear stale ranked vendors immediately
       setIsRanking(true);
-      const ranked = await fetchRankedVendors(id, lat, lng, variantId);
-      setRankedVendors(ranked);
-      setIsRanking(false);
+      try {
+        const ranked = await fetchRankedVendors(id, lat, lng, variantId);
+        setRankedVendors(ranked);
+      } catch (err) {
+        console.error("Error setting ranked vendors:", err);
+      } finally {
+        setIsRanking(false);
+      }
     }
     loadRanking();
   }, [userLocation, id, selectedVariant]);
@@ -342,13 +361,49 @@ export default function ProductDetailPage() {
     loadRelated();
   }, [id]);
 
+  const getVariantAttributes = (variantsList: Array<{ properties: Record<string, string> }>) => {
+    const attributes: Record<string, Set<string>> = {};
+    variantsList.forEach((v) => {
+      if (v.properties) {
+        Object.entries(v.properties).forEach(([key, val]) => {
+          if (!attributes[key]) {
+            attributes[key] = new Set<string>();
+          }
+          attributes[key].add(val);
+        });
+      }
+    });
+
+    const result: Record<string, string[]> = {};
+    Object.entries(attributes).forEach(([key, valSet]) => {
+      result[key] = Array.from(valSet).sort();
+    });
+    return result;
+  };
+
+  const handleSpecChange = (key: string, value: string) => {
+    const updatedSpecs = { ...selectedSpecs, [key]: value };
+    setSelectedSpecs(updatedSpecs);
+
+    if (product?.variants) {
+      let match = product.variants.find((v) =>
+        Object.entries(updatedSpecs).every(([k, val]) => v.properties[k] === val)
+      );
+
+      if (!match) {
+        match = product.variants.find((v) => v.properties[key] === value);
+      }
+
+      if (match) {
+        setSelectedVariant(match);
+        setSelectedSpecs(match.properties || {});
+      }
+    }
+  };
+
   const handleSelectVariant = (variant: any) => {
     setSelectedVariant(variant);
-    const initialQuantities: Record<string, number> = {};
-    variant.vendors.forEach((v: any) => {
-      initialQuantities[v.vendor_id] = v.moq || 1;
-    });
-    setQuantities(initialQuantities);
+    setSelectedSpecs(variant.properties || {});
   };
 
   const handleUseCurrentLocation = () => {
@@ -384,9 +439,11 @@ export default function ProductDetailPage() {
     );
   };
 
-  const updateQuantity = (vendorId: string, moq: number, delta: number, stock: number) => {
+  const updateQuantity = (vendorId: string, moq: number, delta: number, stock: number, variantId?: string) => {
+    const key = `${variantId || 'default'}-${vendorId}`;
     setQuantities((prev) => {
-      const newQty = (prev[vendorId] || moq) + delta;
+      const currentQty = prev[key] !== undefined ? prev[key] : (moq || 1);
+      const newQty = currentQty + delta;
       if (newQty < moq) {
         toast.error(`Minimum order quantity is ${moq}`);
         return prev;
@@ -395,13 +452,15 @@ export default function ProductDetailPage() {
         toast.error(`Maximum available stock is ${stock}`);
         return prev;
       }
-      return { ...prev, [vendorId]: newQty };
+      return { ...prev, [key]: newQty };
     });
   };
 
-  const handleAddToCart = async (vendor: Vendor) => {
+  const handleAddToCart = async (vendor: Vendor, variantId?: string) => {
     if (!product) return;
-    const quantity = quantities[vendor.vendor_id] || vendor.moq || 1;
+    const resolvedVariantId = variantId || selectedVariant?.variant_id;
+    const qtyKey = `${resolvedVariantId || 'default'}-${vendor.vendor_id}`;
+    const quantity = quantities[qtyKey] || vendor.moq || 1;
     const quotationLimit = product.quotation_limit ? Number(product.quotation_limit) : null;
     const requiresQuotation = quotationLimit !== null && quantity >= quotationLimit;
 
@@ -410,7 +469,7 @@ export default function ProductDetailPage() {
     if (requiresQuotation) {
       const quoteSuccess = await addQuotationItem({
         productId: product.product_id,
-        productVariantId: selectedVariant?.variant_id,
+        productVariantId: resolvedVariantId,
         productName: product.product_name,
         image: product.images?.[0]?.image_url || "",
         price: Number(vendor.price) || 0,
@@ -433,7 +492,7 @@ export default function ProductDetailPage() {
 
     const success = await addItem({
       productId: product.product_id,
-      productVariantId: selectedVariant?.variant_id,
+      productVariantId: resolvedVariantId,
       productName: product.product_name,
       image: product.images?.find((img) => img.is_primary)?.image_url || product.images?.[0]?.image_url || "",
       price: typeof vendor.price === "string" ? parseFloat(vendor.price) || 0 : vendor.price || 0,
@@ -456,7 +515,7 @@ export default function ProductDetailPage() {
   const handleSaveToWishlist = async () => {
     if (!product) return;
 
-    const preferredVendor = (selectedVariant?.vendors || product.vendors)?.[0];
+    const preferredVendor = displayVendors[0];
     setSavingWishlist(true);
 
     const success = await addToWishlist({
@@ -482,7 +541,7 @@ export default function ProductDetailPage() {
   };
 
   const getPriceRange = () => {
-    const vendors = selectedVariant?.vendors || product?.vendors;
+    const vendors = displayVendors;
     if (!vendors?.length) return null;
     const prices = vendors
       .map((v: any) => (typeof v.price === "string" ? parseFloat(v.price) : v.price))
@@ -591,35 +650,41 @@ export default function ProductDetailPage() {
                 </div>
               )}
 
-              {/* Variant Selection Bar */}
-              {product.variants && product.variants.length > 1 && (
-                <div className="mb-6 p-4 bg-zinc-50 rounded-xl border border-zinc-200 shadow-sm">
-                  <h3 className="text-sm font-bold text-zinc-700 mb-3 flex items-center gap-2">
+              {/* Flipkart-Style Grouped Product Variations */}
+              {product.variants && product.variants.length > 0 && Object.keys(getVariantAttributes(product.variants)).length > 0 && (
+                <div className="mb-6 p-5 bg-white rounded-2xl border border-zinc-200 shadow-sm space-y-4">
+                  <h3 className="text-sm font-bold text-zinc-800 flex items-center gap-2 pb-2 border-b border-zinc-100">
                     <Layers size={16} className="text-[#1d4ed8]" />
-                    Product Variations
+                    Select Specifications
                   </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {product.variants.map((v: any) => {
-                      const isSelected = selectedVariant?.variant_id === v.variant_id;
-                      const label = Object.entries(v.properties || {})
-                        .map(([key, val]) => `${key}: ${val}`)
-                        .join(", ") || "Standard";
-
-                      return (
-                        <button
-                          key={v.variant_id}
-                          onClick={() => handleSelectVariant(v)}
-                          className={`px-4 py-2 text-xs font-bold rounded-lg border transition-all ${
-                            isSelected
-                              ? "bg-[#1d4ed8] text-white border-[#1d4ed8] shadow-md"
-                              : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {Object.entries(getVariantAttributes(product.variants)).map(([specKey, values]) => {
+                    const activeValue = selectedSpecs[specKey];
+                    return (
+                      <div key={specKey} className="space-y-2">
+                        <div className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                          {specKey}: <span className="text-zinc-800 font-bold capitalize">{activeValue || "None"}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {values.map((val) => {
+                            const isSelected = activeValue === val;
+                            return (
+                              <button
+                                key={val}
+                                onClick={() => handleSpecChange(specKey, val)}
+                                className={`px-4 py-2 text-xs font-bold rounded-lg border transition-all ${
+                                  isSelected
+                                    ? "bg-[#1d4ed8] text-white border-[#1d4ed8] shadow-md"
+                                    : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
+                                }`}
+                              >
+                                {val}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
@@ -719,7 +784,7 @@ export default function ProductDetailPage() {
               <div className="grid grid-cols-3 gap-3 mb-6">
                 <div className="flex flex-col items-center p-3 rounded-xl border border-zinc-100 bg-zinc-50/50 text-center">
                   <Building className="text-blue-600 mb-2" size={22} />
-                  <p className="text-xs text-zinc-500 font-medium">{product.vendors?.length || 0} Suppliers</p>
+                  <p className="text-xs text-zinc-500 font-medium">{displayVendors.length} Suppliers</p>
                 </div>
                 <div className="flex flex-col items-center p-3 rounded-xl border border-zinc-100 bg-zinc-50/50 text-center">
                   <ShieldCheck className="text-emerald-500 mb-2" size={22} />
@@ -907,204 +972,427 @@ export default function ProductDetailPage() {
                     </div>
                   )}
                 </div>
-              </div>
-
-              {/* Vendors & Add to Cart */}
-              <div className="border border-zinc-200 bg-white rounded-2xl shadow-sm">
-                <div className="px-6 py-5 border-b border-zinc-100 bg-zinc-50/50 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Building size={18} className="text-zinc-500" />
-                    <h3 className="text-lg font-semibold text-zinc-900">
-                      {rankedVendors.length > 0 ? "Ranked Suppliers" : "Compare Suppliers & Order"}
-                    </h3>
+                            {/* Grouped Vendors Compare by Variation */}
+              {product.variants && product.variants.length > 0 ? (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between pb-2 border-b border-zinc-200">
+                    <div className="flex items-center gap-2">
+                      <Building size={20} className="text-zinc-600" />
+                      <h3 className="text-xl font-bold text-zinc-900">Compare Suppliers by Variation</h3>
+                    </div>
+                    {isRanking && (
+                      <div className="flex items-center gap-1.5 text-xs text-blue-600 font-medium bg-blue-50 px-2.5 py-1 rounded-full">
+                        <Loader2 size={12} className="animate-spin" />
+                        Updating Ranking...
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    {isRanking && <Loader2 size={14} className="animate-spin text-blue-600" />}
-                    <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
-                      {(selectedVariant?.vendors || product.vendors || []).length} suppliers
-                    </span>
-                  </div>
-                </div>
 
+                  {product.variants.map((v: any) => {
+                    const isSelected = selectedVariant?.variant_id === v.variant_id;
+                    const variantLabel = Object.entries(v.properties || {})
+                      .map(([key, val]) => `${key}: ${val}`)
+                      .join(", ") || "Standard";
 
-                <div className="divide-y divide-zinc-100">
-                  {(rankedVendors.length > 0 ? rankedVendors : (selectedVariant?.vendors || product.vendors || [])).length > 0 ? (
-                    (rankedVendors.length > 0 ? rankedVendors : (selectedVariant?.vendors || product.vendors || [])).map((v: any) => {
-                      const qty = quantities[v.vendor_id] || v.moq || 1;
-                      const price = typeof v.price === "string" ? parseFloat(v.price) || 0 : v.price || 0;
-                      const totalPrice = price * qty;
-                      const quotationLimit = product.quotation_limit ? Number(product.quotation_limit) : null;
-                      const requiresQuotation = quotationLimit !== null && qty >= quotationLimit;
-                      const isRanked = rankedVendors.length > 0 && "rank" in v;
-                      const ranked = v as RankedVendor;
+                    const variantVendors = isSelected && rankedVendors.length > 0 
+                      ? rankedVendors 
+                      : (v.vendors || []);
 
-                      return (
-                        <div key={v.vendor_id} className="p-5 hover:bg-zinc-50/50 transition-colors">
-                          <div className="flex flex-col lg:flex-row gap-4">
-                            {/* Supplier Info */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-2">
-                                {isRanked && (
-                                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${ranked.rank === 1 ? "bg-amber-100 text-amber-700" :
-                                    ranked.rank === 2 ? "bg-zinc-200 text-zinc-700" :
-                                      ranked.rank === 3 ? "bg-orange-100 text-orange-700" :
-                                        "bg-zinc-100 text-zinc-500"
-                                    }`}>
-                                    {ranked.rank}
-                                  </span>
-                                )}
-                                <h4 className="font-semibold text-zinc-900">Vendor #{v.vendor_id.slice(0, 8)}</h4>
-                                {(v.city || v.state) && (
-                                  <div className="flex items-center gap-1 text-xs text-zinc-500">
-                                    <MapPin size={12} />
-                                    <span>{[v.city, v.state].filter(Boolean).join(', ')}</span>
-                                  </div>
-                                )}
-                                {v.rating > 0 && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 text-xs rounded-full">
-                                    <Star size={10} fill="currentColor" />
-                                    {Number(v.rating).toFixed(1)}
-                                  </span>
-                                )}
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-600 text-xs rounded-full">
-                                  <BadgeCheck size={10} />
-                                  Verified
-                                </span>
-                              </div>
-
-                              <div className={`grid gap-3 mb-3 ${isRanked ? 'grid-cols-4' : 'grid-cols-3'}`}>
-                                <div className="bg-zinc-50 border border-zinc-200 px-3 py-2 rounded-lg flex flex-col justify-between">
-                                  <p className="text-xs text-zinc-500">Unit Price</p>
-                                  <p className="text-sm font-bold text-[#1d4ed8]">₹{v.price || "Contact"}</p>
-                                  <p className="text-[9px] text-zinc-400 font-semibold mt-0.5">
-                                    {v.gst_percentage && Number(v.gst_percentage) > 0
-                                      ? `+ ${v.gst_percentage}% GST`
-                                      : "GST Excl."}
-                                  </p>
-                                </div>
-                                <div className="bg-zinc-50 border border-zinc-200 px-3 py-2 rounded-lg">
-                                  <p className="text-xs text-zinc-500">MOQ</p>
-                                  <p className="text-sm font-semibold text-zinc-800">{v.moq || 1} units</p>
-                                </div>
-                                <div className="bg-zinc-50 border border-zinc-200 px-3 py-2 rounded-lg">
-                                  <p className="text-xs text-zinc-500">Stock</p>
-                                  <p className="text-sm font-semibold text-zinc-800">{v.stock_quantity || "N/A"}</p>
-                                </div>
-                                {isRanked && ranked.distance !== null && (
-                                  <div className="bg-zinc-50 border border-zinc-200 px-3 py-2 rounded-lg">
-                                    <p className="text-xs text-zinc-500">Distance</p>
-                                    <p className="text-sm font-semibold text-zinc-800">
-                                      {ranked.distance < 1 ? `${Math.round(ranked.distance * 1000)} m` : `${ranked.distance.toFixed(1)} km`}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Product-level quotation info */}
-                              {product.quotation_limit && qty >= product.quotation_limit && (
-                                <div className="mb-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-                                  ⚡ Quotation mode — your request will be sent to all eligible suppliers
-                                </div>
-                              )}
-
-                            </div>
-
-                            {/* Quantity & Add to Cart */}
-                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 lg:w-auto">
-                              {/* Quantity Selector */}
-                              <div className="flex items-center gap-2 bg-white border border-zinc-200 rounded-lg px-2 py-1.5">
-                                <button
-                                  onClick={() => updateQuantity(v.vendor_id, v.moq || 1, -1, v.stock_quantity)}
-                                  className="p-1.5 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 rounded transition-colors disabled:opacity-40"
-                                  disabled={qty <= (v.moq || 1)}
-                                >
-                                  <Minus size={16} />
-                                </button>
-                                <div className="flex flex-col items-center min-w-[60px]">
-                                  <input
-                                    type="number"
-                                    min={v.moq || 1}
-                                    max={v.stock_quantity || undefined}
-                                    value={qty}
-                                    onChange={(e) => {
-                                      const val = parseInt(e.target.value);
-                                      if (!isNaN(val) && val >= (v.moq || 1)) {
-                                        if (!v.stock_quantity || val <= v.stock_quantity) {
-                                          setQuantities((prev) => ({ ...prev, [v.vendor_id]: val }));
-                                        } else {
-                                          toast.error(`Maximum available stock is ${v.stock_quantity}`);
-                                        }
-                                      }
-                                    }}
-                                    onBlur={(e) => {
-                                      const val = parseInt(e.target.value);
-                                      if (isNaN(val) || val < (v.moq || 1)) {
-                                        setQuantities((prev) => ({ ...prev, [v.vendor_id]: v.moq || 1 }));
-                                        toast.error(`Minimum order quantity is ${v.moq || 1}`);
-                                      }
-                                    }}
-                                    className="w-[60px] text-center text-sm font-semibold text-zinc-900 bg-transparent outline-none border-b border-zinc-300 focus:border-[#1d4ed8] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                  />
-                                  <span className="text-[10px] text-zinc-400">units</span>
-                                </div>
-                                <button
-                                  onClick={() => updateQuantity(v.vendor_id, v.moq || 1, 1, v.stock_quantity)}
-                                  className="p-1.5 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 rounded transition-colors"
-                                >
-                                  <Plus size={16} />
-                                </button>
-                              </div>
-
-                              {/* Total & Add Button */}
-                              <div className="flex flex-col items-end gap-2">
-                                {price > 0 && (
-                                  <p className="text-sm font-semibold text-zinc-900">
-                                    Total: ₹{totalPrice.toLocaleString()}
-                                  </p>
-                                )}
-                                <button
-                                  onClick={() => handleAddToCart(v)}
-                                  disabled={addingVendorId === v.vendor_id}
-                                  className={`px-5 py-2.5 text-white text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-70 disabled:cursor-not-allowed ${requiresQuotation ? "bg-amber-600 hover:bg-amber-700" : "bg-[#1d4ed8] hover:bg-blue-800"}`}
-                                >
-                                  {addingVendorId === v.vendor_id ? (
-                                    <Loader2 size={16} className="animate-spin" />
-                                  ) : (
-                                    <ShoppingCart size={16} />
-                                  )}
-                                  {addingVendorId === v.vendor_id ? "Adding..." : requiresQuotation ? "Request Quote" : "Add to Cart"}
-                                </button>
-                              </div>
-                            </div>
+                    return (
+                      <div
+                        key={v.variant_id}
+                        className={`bg-white rounded-2xl border transition-all duration-300 shadow-sm overflow-hidden ${
+                          isSelected
+                            ? "border-[#1d4ed8] ring-2 ring-blue-50"
+                            : "border-zinc-200 hover:border-zinc-300"
+                        }`}
+                      >
+                        {/* Variant Sub-header */}
+                        <div
+                          onClick={() => handleSelectVariant(v)}
+                          className={`px-6 py-4 flex items-center justify-between cursor-pointer transition-colors ${
+                            isSelected ? "bg-blue-50/45" : "bg-zinc-50/60"
+                          } border-b border-zinc-150`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Layers size={16} className={isSelected ? "text-[#1d4ed8]" : "text-zinc-400"} />
+                            <span className={`text-md font-bold ${isSelected ? "text-[#1d4ed8]" : "text-zinc-800"}`}>
+                              {variantLabel}
+                            </span>
+                            {isSelected && (
+                              <span className="px-2.5 py-0.5 bg-blue-100 text-blue-800 text-[10px] font-bold uppercase tracking-wider rounded-full border border-blue-200 shadow-2xs">
+                                Active Selection
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-zinc-500 bg-white px-2.5 py-1 rounded-full border border-zinc-250 shadow-3xs">
+                              {variantVendors.length} {variantVendors.length === 1 ? "Supplier" : "Suppliers"}
+                            </span>
                           </div>
                         </div>
-                      );
-                    })
-                  ) : (
-                    <div className="p-12 text-center flex flex-col items-center justify-center">
-                      <Truck size={48} className="text-zinc-200 mb-4" />
-                      <h4 className="text-lg font-medium text-zinc-900 mb-1">No suppliers available</h4>
-                      <p className="text-zinc-500 text-sm max-w-sm">We&apos;re actively sourcing verified suppliers for this product. Check back soon or contact our team.</p>
+
+                        <div className="divide-y divide-zinc-100">
+                          {variantVendors.length > 0 ? (
+                            variantVendors.map((vendor: any) => {
+                              const qtyKey = `${v.variant_id}-${vendor.vendor_id}`;
+                              const qty = quantities[qtyKey] || vendor.moq || 1;
+                              const price = typeof vendor.price === "string" ? parseFloat(vendor.price) || 0 : vendor.price || 0;
+                              const totalPrice = price * qty;
+                              const quotationLimit = product.quotation_limit ? Number(product.quotation_limit) : null;
+                              const requiresQuotation = quotationLimit !== null && qty >= quotationLimit;
+                              const isRanked = isSelected && rankedVendors.length > 0 && "rank" in vendor;
+                              const ranked = vendor as RankedVendor;
+
+                              return (
+                                <div key={vendor.vendor_id} className="p-5 hover:bg-zinc-50/30 transition-colors">
+                                  <div className="flex flex-col lg:flex-row gap-4">
+                                    {/* Supplier Info */}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        {isRanked && (
+                                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
+                                            ranked.rank === 1 ? "bg-amber-100 text-amber-700" :
+                                            ranked.rank === 2 ? "bg-zinc-200 text-zinc-700" :
+                                            ranked.rank === 3 ? "bg-orange-100 text-orange-700" :
+                                            "bg-zinc-100 text-zinc-500"
+                                          }`}>
+                                            {ranked.rank}
+                                          </span>
+                                        )}
+                                        <h4 className="font-semibold text-zinc-900">Vendor #{vendor.vendor_id.slice(0, 8)}</h4>
+                                        {(vendor.city || vendor.state) && (
+                                          <div className="flex items-center gap-1 text-xs text-zinc-500">
+                                            <MapPin size={12} />
+                                            <span>{[vendor.city, vendor.state].filter(Boolean).join(', ')}</span>
+                                          </div>
+                                        )}
+                                        {vendor.rating > 0 && (
+                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 text-xs rounded-full">
+                                            <Star size={10} fill="currentColor" />
+                                            {Number(vendor.rating).toFixed(1)}
+                                          </span>
+                                        )}
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-600 text-xs rounded-full">
+                                          <BadgeCheck size={10} />
+                                          Verified
+                                        </span>
+                                      </div>
+
+                                      <div className={`grid gap-3 mb-3 ${isRanked ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                                        <div className="bg-zinc-50 border border-zinc-200 px-3 py-2 rounded-lg flex flex-col justify-between">
+                                          <p className="text-xs text-zinc-500">Unit Price</p>
+                                          <p className="text-sm font-bold text-[#1d4ed8]">₹{vendor.price || "Contact"}</p>
+                                          <p className="text-[9px] text-zinc-400 font-semibold mt-0.5">
+                                            {vendor.gst_percentage && Number(vendor.gst_percentage) > 0
+                                              ? `+ ${vendor.gst_percentage}% GST`
+                                              : "GST Excl."}
+                                          </p>
+                                        </div>
+                                        <div className="bg-zinc-50 border border-zinc-200 px-3 py-2 rounded-lg">
+                                          <p className="text-xs text-zinc-500">MOQ</p>
+                                          <p className="text-sm font-semibold text-zinc-800">{vendor.moq || 1} units</p>
+                                        </div>
+                                        <div className="bg-zinc-50 border border-zinc-200 px-3 py-2 rounded-lg">
+                                          <p className="text-xs text-zinc-500">Stock</p>
+                                          <p className="text-sm font-semibold text-zinc-800">{vendor.stock_quantity || "N/A"}</p>
+                                        </div>
+                                        {isRanked && ranked.distance !== null && (
+                                          <div className="bg-zinc-50 border border-zinc-200 px-3 py-2 rounded-lg">
+                                            <p className="text-xs text-zinc-500">Distance</p>
+                                            <p className="text-sm font-semibold text-zinc-800">
+                                              {ranked.distance < 1 ? `${Math.round(ranked.distance * 1000)} m` : `${ranked.distance.toFixed(1)} km`}
+                                            </p>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {product.quotation_limit && qty >= product.quotation_limit && (
+                                        <div className="mb-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                                          ⚡ Quotation mode — your request will be sent to all eligible suppliers
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Quantity & Add to Cart */}
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 lg:w-auto">
+                                      <div className="flex items-center gap-2 bg-white border border-zinc-200 rounded-lg px-2 py-1.5">
+                                        <button
+                                          onClick={() => updateQuantity(vendor.vendor_id, vendor.moq || 1, -1, vendor.stock_quantity, v.variant_id)}
+                                          className="p-1.5 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 rounded transition-colors disabled:opacity-40"
+                                          disabled={qty <= (vendor.moq || 1)}
+                                        >
+                                          <Minus size={16} />
+                                        </button>
+                                        <div className="flex flex-col items-center min-w-[60px]">
+                                          <input
+                                            type="number"
+                                            min={vendor.moq || 1}
+                                            max={vendor.stock_quantity || undefined}
+                                            value={qty}
+                                            onChange={(e) => {
+                                              const val = parseInt(e.target.value);
+                                              if (!isNaN(val) && val >= (vendor.moq || 1)) {
+                                                if (!vendor.stock_quantity || val <= vendor.stock_quantity) {
+                                                  setQuantities((prev) => ({ ...prev, [`${v.variant_id}-${vendor.vendor_id}`]: val }));
+                                                } else {
+                                                  toast.error(`Maximum available stock is ${vendor.stock_quantity}`);
+                                                }
+                                              }
+                                            }}
+                                            onBlur={(e) => {
+                                              const val = parseInt(e.target.value);
+                                              if (isNaN(val) || val < (vendor.moq || 1)) {
+                                                setQuantities((prev) => ({ ...prev, [`${v.variant_id}-${vendor.vendor_id}`]: vendor.moq || 1 }));
+                                                toast.error(`Minimum order quantity is ${vendor.moq || 1}`);
+                                              }
+                                            }}
+                                            className="w-[60px] text-center text-sm font-semibold text-zinc-900 bg-transparent outline-none border-b border-zinc-300 focus:border-[#1d4ed8] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                          />
+                                          <span className="text-[10px] text-zinc-400">units</span>
+                                        </div>
+                                        <button
+                                          onClick={() => updateQuantity(vendor.vendor_id, vendor.moq || 1, 1, vendor.stock_quantity, v.variant_id)}
+                                          className="p-1.5 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 rounded transition-colors"
+                                        >
+                                          <Plus size={16} />
+                                        </button>
+                                      </div>
+
+                                      <div className="flex flex-col items-end gap-2">
+                                        {price > 0 && (
+                                          <p className="text-sm font-semibold text-zinc-900">
+                                            Total: ₹{totalPrice.toLocaleString()}
+                                          </p>
+                                        )}
+                                        <button
+                                          onClick={() => handleAddToCart(vendor, v.variant_id)}
+                                          disabled={addingVendorId === vendor.vendor_id}
+                                          className={`px-5 py-2.5 text-white text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-70 disabled:cursor-not-allowed ${
+                                            requiresQuotation ? "bg-amber-600 hover:bg-amber-700" : "bg-[#1d4ed8] hover:bg-blue-800"
+                                          }`}
+                                        >
+                                          {addingVendorId === vendor.vendor_id ? (
+                                            <Loader2 size={16} className="animate-spin" />
+                                          ) : (
+                                            <ShoppingCart size={16} />
+                                          )}
+                                          {addingVendorId === vendor.vendor_id
+                                            ? "Adding..."
+                                            : requiresQuotation
+                                            ? "Request Quote"
+                                            : "Add to Cart"}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div className="p-8 text-center flex flex-col items-center justify-center">
+                              <Truck size={36} className="text-zinc-200 mb-2" />
+                              <p className="text-sm font-medium text-zinc-500">No suppliers offering this variation</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Global Cart CTA Footer below grouped lists */}
+                  {totalItems > 0 && (
+                    <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl flex items-center justify-between shadow-xs">
+                      <p className="text-sm text-zinc-600 font-medium">
+                        You have <strong className="text-zinc-900">{totalItems}</strong> {totalItems === 1 ? "item" : "items"} in your cart.
+                      </p>
+                      <Link
+                        href="/cart"
+                        className="px-5 py-2 bg-zinc-900 text-white text-sm font-bold rounded-lg hover:bg-zinc-800 transition-all flex items-center gap-2 shadow-xs"
+                      >
+                        View Cart & Checkout
+                        <ArrowRight size={16} />
+                      </Link>
                     </div>
                   )}
                 </div>
-
-                {/* Cart CTA Footer */}
-                {(selectedVariant?.vendors || product.vendors || []).length > 0 && (
-                  <div className="px-6 py-4 border-t border-zinc-100 bg-zinc-50/50 flex items-center justify-between">
-                    <p className="text-sm text-zinc-500">
-                      {totalItems > 0 ? `${totalItems} items in your cart` : "Add items to proceed"}
-                    </p>
-                    <Link
-                      href="/cart"
-                      className="px-5 py-2 bg-zinc-900 text-white text-sm font-semibold rounded-lg hover:bg-zinc-800 transition-colors flex items-center gap-2"
-                    >
-                      View Cart & Checkout
-                      <ArrowRight size={16} />
-                    </Link>
+              ) : (
+                /* Flat list fallback */
+                <div className="border border-zinc-200 bg-white rounded-2xl shadow-sm">
+                  <div className="px-6 py-5 border-b border-zinc-100 bg-zinc-50/50 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Building size={18} className="text-zinc-500" />
+                      <h3 className="text-lg font-semibold text-zinc-900">
+                        {rankedVendors.length > 0 ? "Ranked Suppliers" : "Compare Suppliers & Order"}
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isRanking && <Loader2 size={14} className="animate-spin text-blue-600" />}
+                      <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
+                        {displayVendors.length} suppliers
+                      </span>
+                    </div>
                   </div>
-                )}
-              </div>
+
+                  <div className="divide-y divide-zinc-100">
+                    {displayVendors.length > 0 ? (
+                      displayVendors.map((v: any) => {
+                        const qty = quantities[`default-${v.vendor_id}`] || v.moq || 1;
+                        const price = typeof v.price === "string" ? parseFloat(v.price) || 0 : v.price || 0;
+                        const totalPrice = price * qty;
+                        const quotationLimit = product.quotation_limit ? Number(product.quotation_limit) : null;
+                        const requiresQuotation = quotationLimit !== null && qty >= quotationLimit;
+
+                        return (
+                          <div key={v.vendor_id} className="p-5 hover:bg-zinc-50/50 transition-colors">
+                            <div className="flex flex-col lg:flex-row gap-4">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <h4 className="font-semibold text-zinc-900">Vendor #{v.vendor_id.slice(0, 8)}</h4>
+                                  {(v.city || v.state) && (
+                                    <div className="flex items-center gap-1 text-xs text-zinc-500">
+                                      <MapPin size={12} />
+                                      <span>{[v.city, v.state].filter(Boolean).join(', ')}</span>
+                                    </div>
+                                  )}
+                                  {v.rating > 0 && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 text-xs rounded-full">
+                                      <Star size={10} fill="currentColor" />
+                                      {Number(v.rating).toFixed(1)}
+                                    </span>
+                                  )}
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-600 text-xs rounded-full">
+                                    <BadgeCheck size={10} />
+                                    Verified
+                                  </span>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-3 mb-3">
+                                  <div className="bg-zinc-50 border border-zinc-200 px-3 py-2 rounded-lg flex flex-col justify-between">
+                                    <p className="text-xs text-zinc-500">Unit Price</p>
+                                    <p className="text-sm font-bold text-[#1d4ed8]">₹{v.price || "Contact"}</p>
+                                    <p className="text-[9px] text-zinc-400 font-semibold mt-0.5">
+                                      {v.gst_percentage && Number(v.gst_percentage) > 0
+                                        ? `+ ${v.gst_percentage}% GST`
+                                        : "GST Excl."}
+                                    </p>
+                                  </div>
+                                  <div className="bg-zinc-50 border border-zinc-200 px-3 py-2 rounded-lg">
+                                    <p className="text-xs text-zinc-500">MOQ</p>
+                                    <p className="text-sm font-semibold text-zinc-800">{v.moq || 1} units</p>
+                                  </div>
+                                  <div className="bg-zinc-50 border border-zinc-200 px-3 py-2 rounded-lg">
+                                    <p className="text-xs text-zinc-500">Stock</p>
+                                    <p className="text-sm font-semibold text-zinc-800">{v.stock_quantity || "N/A"}</p>
+                                  </div>
+                                </div>
+
+                                {product.quotation_limit && qty >= product.quotation_limit && (
+                                  <div className="mb-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                                    ⚡ Quotation mode — your request will be sent to all eligible suppliers
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 lg:w-auto">
+                                <div className="flex items-center gap-2 bg-white border border-zinc-200 rounded-lg px-2 py-1.5">
+                                  <button
+                                    onClick={() => updateQuantity(v.vendor_id, v.moq || 1, -1, v.stock_quantity)}
+                                    className="p-1.5 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 rounded transition-colors disabled:opacity-40"
+                                    disabled={qty <= (v.moq || 1)}
+                                  >
+                                    <Minus size={16} />
+                                  </button>
+                                  <div className="flex flex-col items-center min-w-[60px]">
+                                    <input
+                                      type="number"
+                                      min={v.moq || 1}
+                                      max={v.stock_quantity || undefined}
+                                      value={qty}
+                                      onChange={(e) => {
+                                        const val = parseInt(e.target.value);
+                                        if (!isNaN(val) && val >= (v.moq || 1)) {
+                                          if (!v.stock_quantity || val <= v.stock_quantity) {
+                                            setQuantities((prev) => ({ ...prev, [`default-${v.vendor_id}`]: val }));
+                                          } else {
+                                            toast.error(`Maximum available stock is ${v.stock_quantity}`);
+                                          }
+                                        }
+                                      }}
+                                      onBlur={(e) => {
+                                        const val = parseInt(e.target.value);
+                                        if (isNaN(val) || val < (v.moq || 1)) {
+                                          setQuantities((prev) => ({ ...prev, [`default-${v.vendor_id}`]: v.moq || 1 }));
+                                          toast.error(`Minimum order quantity is ${v.moq || 1}`);
+                                        }
+                                      }}
+                                      className="w-[60px] text-center text-sm font-semibold text-zinc-900 bg-transparent outline-none border-b border-zinc-300 focus:border-[#1d4ed8] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                    <span className="text-[10px] text-zinc-400">units</span>
+                                  </div>
+                                  <button
+                                    onClick={() => updateQuantity(v.vendor_id, v.moq || 1, 1, v.stock_quantity)}
+                                    className="p-1.5 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 rounded transition-colors"
+                                  >
+                                    <Plus size={16} />
+                                  </button>
+                                </div>
+
+                                <div className="flex flex-col items-end gap-2">
+                                  {price > 0 && (
+                                    <p className="text-sm font-semibold text-zinc-900">
+                                      Total: ₹{totalPrice.toLocaleString()}
+                                    </p>
+                                  )}
+                                  <button
+                                    onClick={() => handleAddToCart(v)}
+                                    disabled={addingVendorId === v.vendor_id}
+                                    className={`px-5 py-2.5 text-white text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-70 disabled:cursor-not-allowed ${
+                                      requiresQuotation ? "bg-amber-600 hover:bg-amber-700" : "bg-[#1d4ed8] hover:bg-blue-800"
+                                    }`}
+                                  >
+                                    {addingVendorId === v.vendor_id ? (
+                                      <Loader2 size={16} className="animate-spin" />
+                                    ) : (
+                                      <ShoppingCart size={16} />
+                                    )}
+                                    {addingVendorId === v.vendor_id
+                                      ? "Adding..."
+                                      : requiresQuotation
+                                      ? "Request Quote"
+                                      : "Add to Cart"}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="p-12 text-center flex flex-col items-center justify-center">
+                        <Truck size={48} className="text-zinc-200 mb-4" />
+                        <h4 className="text-lg font-medium text-zinc-900 mb-1">No suppliers available</h4>
+                        <p className="text-zinc-500 text-sm max-w-sm">We&apos;re actively sourcing verified suppliers for this product. Check back soon or contact our team.</p>
+                      </div>
+                    )}
+                  </div>
+                  {/* Cart CTA Footer */}
+                  {displayVendors.length > 0 && (
+                    <div className="px-6 py-4 border-t border-zinc-100 bg-zinc-50/50 flex items-center justify-between">
+                      <p className="text-sm text-zinc-500">
+                        {totalItems > 0 ? `${totalItems} items in your cart` : "Add items to proceed"}
+                      </p>
+                      <Link
+                        href="/cart"
+                        className="px-5 py-2 bg-zinc-900 text-white text-sm font-semibold rounded-lg hover:bg-zinc-800 transition-colors flex items-center gap-2"
+                      >
+                        View Cart & Checkout
+                        <ArrowRight size={16} />
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              )}          </div>
             </div>
 
           </div>

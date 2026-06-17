@@ -171,7 +171,7 @@ export default function QuotationCartPage() {
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-4">
             {items.map((item) => (
-              <div key={`${item.productId}-${item.vendorId}`} className="rounded-lg border border-zinc-200 bg-white p-4 sm:p-6 shadow-sm">
+              <div key={`${item.productId}-${item.vendorId}-${item.productVariantId || ''}`} className="rounded-lg border border-zinc-200 bg-white p-4 sm:p-6 shadow-sm">
                 <div className="flex gap-4">
                   <div className="h-20 w-20 flex-shrink-0 rounded-md border border-zinc-200 bg-zinc-100 flex items-center justify-center overflow-hidden">
                     {item.image ? (
@@ -186,9 +186,18 @@ export default function QuotationCartPage() {
                         <Link href={`/product/${item.productId}`} className="text-sm font-semibold text-zinc-900 truncate hover:text-blue-600">
                           {item.productName}
                         </Link>
+                        {item.variantProperties && Object.keys(item.variantProperties).length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1.5">
+                            {Object.entries(item.variantProperties).map(([key, val]) => (
+                              <span key={key} className="inline-flex items-center rounded-md bg-zinc-150 px-2 py-0.5 text-[11px] font-bold text-zinc-600 capitalize border border-zinc-200">
+                                {key}: {String(val)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <button
-                        onClick={() => removeItem(item.productId, item.vendorId)}
+                        onClick={() => removeItem(item.productId, item.vendorId, item.productVariantId)}
                         className="text-xs text-red-600 hover:text-red-700"
                       >
                         Remove
@@ -207,7 +216,7 @@ export default function QuotationCartPage() {
                           type="number"
                           min="1"
                           value={item.quantity}
-                          onChange={(event) => updateQuantity(item.productId, item.vendorId, Number(event.target.value))}
+                          onChange={(event) => updateQuantity(item.productId, item.vendorId, Number(event.target.value), item.productVariantId)}
                           className="w-20 rounded border border-zinc-300 px-2 py-1 text-sm"
                         />
                       </div>

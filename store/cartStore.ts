@@ -13,6 +13,7 @@ export type CartItem = {
   quantity: number;
   vendorId: string;
   vendorName: string;
+  gstPercentage?: number;
 };
 
 type CartApiRow = {
@@ -26,6 +27,7 @@ type CartApiRow = {
   quantity: number;
   vendor_id: string;
   vendor_name?: string | null;
+  gst_percentage?: string | number | null;
 };
 
 type CartState = {
@@ -80,6 +82,7 @@ export const useCartStore = create<CartState>((set, get) => ({
         quantity: row.quantity,
         vendorId: row.vendor_id,
         vendorName: row.vendor_name || "Unknown Vendor",
+        gstPercentage: row.gst_percentage !== null && row.gst_percentage !== undefined ? Number(row.gst_percentage) : 0,
       }));
       set({ items, isLoading: false });
     } catch (err) {
@@ -221,6 +224,8 @@ export const useCartStore = create<CartState>((set, get) => ({
       
       const items: CartItem[] = (data.items || []).map((row: CartApiRow) => ({
         productId: row.product_id,
+        productVariantId: row.product_variant_id || undefined,
+        variantProperties: row.variant_properties || undefined,
         productName: row.product_name || "Unknown Product",
         image: row.image_url || "",
         price: Number(row.price_at_added) || 0,
@@ -228,6 +233,7 @@ export const useCartStore = create<CartState>((set, get) => ({
         quantity: row.quantity,
         vendorId: row.vendor_id,
         vendorName: row.vendor_name || "Unknown Vendor",
+        gstPercentage: row.gst_percentage !== null && row.gst_percentage !== undefined ? Number(row.gst_percentage) : 0,
       }));
 
       return {
@@ -267,6 +273,7 @@ export const useCartStore = create<CartState>((set, get) => ({
           credentials: "include",
           body: JSON.stringify({
             product_id: item.productId,
+            product_variant_id: item.productVariantId || null,
             vendor_id: item.vendorId,
             quantity: item.quantity,
             cart_type: cartType,
