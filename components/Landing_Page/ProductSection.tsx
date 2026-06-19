@@ -8,6 +8,8 @@ type Product = {
   name: string;
   minPrice: number;
   maxPrice: number;
+  minOriginalPrice?: number;
+  maxOriginalPrice?: number;
   moq: number;
   sellerCount: number;
   image: string;

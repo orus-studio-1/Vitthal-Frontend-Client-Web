@@ -22,6 +22,8 @@ type ProductCardProps = {
   name: string;
   minPrice: number;
   maxPrice: number;
+  minOriginalPrice?: number;
+  maxOriginalPrice?: number;
   moq: number;
   sellerCount: number;
   image: string;
@@ -29,9 +31,15 @@ type ProductCardProps = {
 };
 
 export function ProductCard(product: ProductCardProps) {
+  const hasDiscount = product.minOriginalPrice !== undefined && product.minOriginalPrice > product.minPrice;
   const priceLabel = product.minPrice === product.maxPrice
     ? `₹${product.minPrice.toLocaleString()}`
     : `₹${product.minPrice.toLocaleString()} – ₹${product.maxPrice.toLocaleString()}`;
+  const originalPriceLabel = hasDiscount
+    ? (product.minOriginalPrice === product.maxOriginalPrice
+        ? `₹${product.minOriginalPrice?.toLocaleString()}`
+        : `₹${product.minOriginalPrice?.toLocaleString()} – ₹${product.maxOriginalPrice?.toLocaleString()}`)
+    : null;
   const addToWishlist = useWishlistStore((state) => state.addItem);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -102,7 +110,14 @@ export function ProductCard(product: ProductCardProps) {
           {/* Price Section */}
           <div className="pt-2 border-t border-zinc-100">
             <p className="text-sm text-zinc-500">Price Range</p>
-            <p className="text-lg font-bold text-zinc-900">{priceLabel}</p>
+            <div className="flex flex-wrap items-baseline gap-2">
+              <span className="text-lg font-bold text-zinc-900">{priceLabel}</span>
+              {originalPriceLabel && (
+                <span className="text-xs text-zinc-400 line-through font-medium">
+                  {originalPriceLabel}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Order Details */}

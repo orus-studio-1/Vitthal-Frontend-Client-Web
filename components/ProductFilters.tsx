@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Search } from "lucide-react";
 
 interface ProductFiltersProps {
@@ -27,6 +27,12 @@ export function ProductFilters({ hideCategory = false }: ProductFiltersProps) {
   const [productType, setProductType] = useState(searchParams.get("productType") || "");
   const [categories, setCategories] = useState<Category[]>([]);
   const [productTypes, setProductTypes] = useState<string[]>([]);
+
+  // Use a ref to hold the latest searchParams so updateUrl doesn't depend on searchParams directly
+  const searchParamsRef = useRef(searchParams);
+  useEffect(() => {
+    searchParamsRef.current = searchParams;
+  }, [searchParams]);
 
   // Fetch product types dynamically
   useEffect(() => {
@@ -55,34 +61,39 @@ export function ProductFilters({ hideCategory = false }: ProductFiltersProps) {
       });
   }, [hideCategory]);
 
-  function updateUrl(s: string, c: string, p: string) {
-    const params = new URLSearchParams(searchParams.toString());
-    if (s) params.set("search", s);
-    else params.delete("search");
+  const updateUrl = useCallback(
+    (s: string, c: string, p: string) => {
+      const params = new URLSearchParams(searchParamsRef.current.toString());
+      if (s) params.set("search", s);
+      else params.delete("search");
 
-    // If hideCategory is true, we shouldn't modify the category query param because it's managed by the URL path
-    if (!hideCategory) {
-      if (c) params.set("category", c);
-      else params.delete("category");
-    }
+      // If hideCategory is true, we shouldn't modify the category query param because it's managed by the URL path
+      if (!hideCategory) {
+        if (c) params.set("category", c);
+        else params.delete("category");
+      }
 
-    if (p) params.set("productType", p);
-    else params.delete("productType");
+      if (p) params.set("productType", p);
+      else params.delete("productType");
 
-    // Reset to page 1 when filtering
-    params.set("page", "1");
+      // Reset to page 1 when filtering
+      params.set("page", "1");
 
-    router.push(`${pathname}?${params.toString()}`);
-  }
+      router.push(`${pathname}?${params.toString()}`);
+    },
+    [hideCategory, pathname, router],
+  );
 
-  // Debounced Search Update
+  // Debounced search-only update — only the search input triggers this
   useEffect(() => {
     const timer = setTimeout(() => {
       updateUrl(search, category, productType);
     }, 500);
     return () => clearTimeout(timer);
-  }, [category, pathname, productType, router, search, searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
+  // Dropdown changes update the URL immediately (no debounce needed)
   const handleCategoryChange = (val: string) => {
     setCategory(val);
     updateUrl(search, val, productType);

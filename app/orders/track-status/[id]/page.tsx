@@ -39,6 +39,7 @@ interface OrderItem {
   image_url: string | null;
   quantity: number;
   price: number;
+  original_price?: number | null;
   variant_properties?: Record<string, string>;
 }
 
@@ -916,7 +917,14 @@ export default function OrderTrackingPage() {
                       )}
                       <div className="mt-1 flex items-center gap-4 text-sm text-zinc-500">
                         <span>Qty: {item.quantity}</span>
-                        <span>₹{Number(item.price).toLocaleString()} each</span>
+                        <div className="flex flex-wrap items-baseline gap-1.5">
+                          <span>₹{Number(item.price).toLocaleString()} each</span>
+                          {item.original_price && (
+                            <span className="text-xs text-zinc-400 line-through">
+                              ₹{Number(item.original_price).toLocaleString()} each
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 

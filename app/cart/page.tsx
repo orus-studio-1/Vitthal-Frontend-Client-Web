@@ -369,7 +369,14 @@ export default function CartPage() {
                           </div>
 
                           <div className="mt-3 flex flex-wrap items-center gap-4">
-                            <div className="text-sm font-bold text-blue-700">₹{item.price}</div>
+                            <div className="flex flex-wrap items-baseline gap-1.5">
+                              <span className="text-sm font-bold text-blue-700">₹{item.price}</span>
+                              {item.originalPrice && (
+                                <span className="text-xs text-zinc-400 line-through font-medium">
+                                  ₹{item.originalPrice}
+                                </span>
+                              )}
+                            </div>
                             <div className="text-xs text-zinc-500">MOQ: {item.moq} units</div>
 
                             <div className="flex items-center gap-2">

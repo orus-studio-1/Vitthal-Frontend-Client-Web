@@ -558,7 +558,14 @@ export default function CheckoutPage() {
                                                     </div>
                                                 )}
                                                 <p className="text-xs text-zinc-500 mt-1">Supplier: {item.vendorName}</p>
-                                                <p className="text-xs text-zinc-500">Qty: {item.quantity}</p>
+                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                    <span className="text-xs text-zinc-500">Qty: {item.quantity}</span>
+                                                    <span className="text-xs text-zinc-500">•</span>
+                                                    <span className="text-xs text-blue-600 font-semibold">₹{item.price}/unit</span>
+                                                    {item.originalPrice && (
+                                                        <span className="text-[10px] text-zinc-400 line-through">₹{item.originalPrice}/unit</span>
+                                                    )}
+                                                </div>
                                             </div>
                                             <p className="text-sm font-medium text-zinc-900 whitespace-nowrap">
                                                 ₹{(item.price * item.quantity).toLocaleString()}

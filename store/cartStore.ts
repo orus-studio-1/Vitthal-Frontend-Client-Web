@@ -9,6 +9,7 @@ export type CartItem = {
   productName: string;
   image: string;
   price: number;
+  originalPrice?: number;
   moq: number;
   quantity: number;
   vendorId: string;
@@ -23,6 +24,7 @@ type CartApiRow = {
   product_name?: string | null;
   image_url?: string | null;
   price_at_added: string | number;
+  original_price?: string | number | null;
   moq?: number | null;
   quantity: number;
   vendor_id: string;
@@ -78,6 +80,7 @@ export const useCartStore = create<CartState>((set, get) => ({
         productName: row.product_name || "Unknown Product",
         image: row.image_url || "",
         price: Number(row.price_at_added) || 0,
+        originalPrice: row.original_price ? Number(row.original_price) : undefined,
         moq: row.moq || 1,
         quantity: row.quantity,
         vendorId: row.vendor_id,
@@ -229,6 +232,7 @@ export const useCartStore = create<CartState>((set, get) => ({
         productName: row.product_name || "Unknown Product",
         image: row.image_url || "",
         price: Number(row.price_at_added) || 0,
+        originalPrice: row.original_price ? Number(row.original_price) : undefined,
         moq: row.moq || 1,
         quantity: row.quantity,
         vendorId: row.vendor_id,

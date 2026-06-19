@@ -24,7 +24,9 @@ interface OrderItem {
   image_url: string;
   quantity: number;
   price: number;
+  original_price?: number | null;
   variant_properties?: Record<string, string>;
+  variant_name?: string | null;
 }
 
 interface Order {
@@ -300,6 +302,11 @@ export default function OrdersPage() {
                             <p className="text-sm font-semibold text-zinc-900 hover:text-blue-600 cursor-pointer transition-colors truncate">
                               {item.product_name}
                             </p>
+                            {item.variant_name && (
+                              <p className="text-xs font-semibold text-zinc-500 mt-0.5">
+                                Variant: {item.variant_name}
+                              </p>
+                            )}
                             {item.variant_properties && Object.keys(item.variant_properties).length > 0 && (
                               <div className="mt-1 flex flex-wrap gap-1.5">
                                 {Object.entries(item.variant_properties).map(([key, val]) => (
@@ -311,9 +318,14 @@ export default function OrdersPage() {
                             )}
                             <div className="mt-1 flex items-center gap-4 text-sm text-zinc-500">
                               <span>Qty: {item.quantity}</span>
-                              <span>
-                                ₹{Number(item.price).toLocaleString()} each
-                              </span>
+                              <div className="flex flex-wrap items-baseline gap-1.5">
+                                <span>₹{Number(item.price).toLocaleString()} each</span>
+                                {item.original_price && (
+                                  <span className="text-xs text-zinc-400 line-through">
+                                    ₹{Number(item.original_price).toLocaleString()} each
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
 

@@ -11,6 +11,8 @@ type Product = {
   name: string;
   minPrice: number;
   maxPrice: number;
+  minOriginalPrice?: number;
+  maxOriginalPrice?: number;
   moq: number;
   sellerCount: number;
   image: string;
@@ -23,11 +25,15 @@ function mapBackendProduct(bp: any): Product {
   const minPrice = Number(bp.min_price) || 0;
   const maxPrice = Number(bp.max_price) || 0;
   const minMoq = Number(bp.min_moq) || 1;
+  const minOriginalPrice = bp.min_original_price ? Number(bp.min_original_price) : undefined;
+  const maxOriginalPrice = bp.max_original_price ? Number(bp.max_original_price) : undefined;
 
   return {
     name: bp.product_name || "Unknown Product",
     minPrice,
     maxPrice,
+    minOriginalPrice,
+    maxOriginalPrice,
     moq: minMoq,
     sellerCount: vendorsCount,
     image:
