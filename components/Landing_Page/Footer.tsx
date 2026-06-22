@@ -7,6 +7,7 @@ export function Footer() {
     <footer className="border-t border-zinc-800 bg-zinc-900">
       <div className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-5 lg:gap-12">
+          {/* Brand */}
           <div>
             <h3 className="text-base font-semibold text-white">MTWO Groups</h3>
             <p className="mt-4 text-sm text-zinc-400 leading-relaxed">
@@ -14,6 +15,7 @@ export function Footer() {
             </p>
           </div>
 
+          {/* Product */}
           <div>
             <h4 className="text-sm font-semibold text-white">Product</h4>
             <ul className="mt-4 space-y-3 text-sm text-zinc-400">
@@ -40,6 +42,7 @@ export function Footer() {
             </ul>
           </div>
 
+          {/* Company */}
           <div>
             <h4 className="text-sm font-semibold text-white">Company</h4>
             <ul className="mt-4 space-y-3 text-sm text-zinc-400">
@@ -66,6 +69,7 @@ export function Footer() {
             </ul>
           </div>
 
+          {/* Support */}
           <div>
             <h4 className="text-sm font-semibold text-white">Support</h4>
             <ul className="mt-4 space-y-3 text-sm text-zinc-400">
@@ -92,12 +96,13 @@ export function Footer() {
             </ul>
           </div>
 
+          {/* Get in Touch */}
           <div>
             <h4 className="text-sm font-semibold text-white">Get in Touch</h4>
             <ul className="mt-4 space-y-3 text-sm text-zinc-400">
               <li>
-                <a href="mailto:support@mtwo.com" className="hover:text-white transition-colors break-all">
-                  support@mtwo.com
+                <a href="mailto:support@mtwo.in" className="hover:text-white transition-colors break-all">
+                  support@mtwo.in
                 </a>
               </li>
               <li>
@@ -132,4 +137,3 @@ export function Footer() {
     </footer>
   );
 }
-

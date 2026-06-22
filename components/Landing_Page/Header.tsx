@@ -86,7 +86,7 @@ export function Header() {
       <div className="border-b border-zinc-100 bg-zinc-50/80">
         <div className="mx-auto flex h-9 w-full max-w-7xl items-center justify-between px-4 text-xs text-zinc-600 sm:px-6 lg:px-8">
           <p>Trusted by procurement teams in manufacturing and distribution</p>
-          <p className="hidden sm:block">support@mtwo.com</p>
+          <p className="hidden sm:block">support@mtwo.in</p>
         </div>
       </div>
       <div className="mx-auto flex  h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">

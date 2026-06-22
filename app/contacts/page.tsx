@@ -25,10 +25,10 @@ const contactMethods = [
   {
     icon: Mail,
     title: "Email Us",
-    detail: "support@mtwo.com",
+    detail: "support@mtwo.in",
     subtext: "We reply within 24 hours",
     action: "Send Email",
-    href: "mailto:support@mtwo.com",
+    href: "mailto:support@mtwo.in",
   },
   {
     icon: HeadphonesIcon,
@@ -365,7 +365,7 @@ export default function ContactsPage() {
               Call Support
             </a>
             <a
-              href="mailto:support@mtwo.com"
+              href="mailto:support@mtwo.in"
               className="whitespace-nowrap rounded-lg border border-white/40 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/10"
             >
               Email Us
