@@ -17,10 +17,10 @@ const contactMethods = [
   {
     icon: Phone,
     title: "Phone Support",
-    detail: "+91 1800-123-4567",
+    detail: "+91 85300 90303",
     subtext: "Mon-Sat, 9 AM - 7 PM IST",
     action: "Call Now",
-    href: "tel:+9118001234567",
+    href: "tel:+918530090303",
   },
   {
     icon: Mail,
@@ -41,10 +41,10 @@ const contactMethods = [
   {
     icon: MessageSquare,
     title: "WhatsApp",
-    detail: "+91 98765-43210",
+    detail: "+91 85300 90303",
     subtext: "Quick responses on WhatsApp",
     action: "Message",
-    href: "https://wa.me/919876543210",
+    href: "https://wa.me/918530090303",
   },
 ];
 
@@ -208,7 +208,7 @@ export default function ContactsPage() {
                       <label className="block text-sm font-medium text-zinc-700">Phone</label>
                       <input
                         type="tel"
-                        placeholder="+91 98765-43210"
+                        placeholder="+91 85300 90303"
                         className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[#1d4ed8] focus:ring-2 focus:ring-[#1d4ed8]/20"
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -359,7 +359,7 @@ export default function ContactsPage() {
           </div>
           <div className="flex shrink-0 flex-wrap gap-3">
             <a
-              href="tel:+9118001234567"
+              href="tel:+918530090303"
               className="whitespace-nowrap rounded-lg bg-white px-6 py-2.5 text-sm font-semibold text-[#1d4ed8] transition-colors hover:bg-blue-50"
             >
               Call Support

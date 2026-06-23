@@ -295,7 +295,7 @@ export default function SetupProfile() {
                         required
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
-                        placeholder="+91 98765 43210"
+                        placeholder="+91 85300 90303"
                         className="h-11 w-full rounded-md border border-zinc-300 pl-10 pr-3 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600/30"
                       />
                     </div>
