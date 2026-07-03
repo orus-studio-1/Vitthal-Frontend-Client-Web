@@ -310,7 +310,7 @@ export default function ProfilePage() {
                 <Heart size={24} />
               </div>
               <div>
-                <p className="font-semibold text-zinc-900">Saved Products</p>
+                <p className="font-semibold text-zinc-900">Saved Products & Services</p>
                 <p className="text-xs text-zinc-500">Your wishlist items</p>
               </div>
             </div>
