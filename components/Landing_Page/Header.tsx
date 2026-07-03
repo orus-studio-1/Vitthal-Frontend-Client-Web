@@ -225,6 +225,10 @@ export function Header() {
                                 setNotifDropdown(false);
                                 if (n.reference_type === "quotation" && n.reference_id) {
                                   router.push(`/quotations/${n.reference_id}`);
+                                } else if (n.reference_type === "service_quotation") {
+                                  router.push(`/quotations?tab=services`);
+                                } else if (n.reference_type === "service_booking") {
+                                  router.push(`/services/bookings`);
                                 }
                               }}
                               className={`w-full text-left px-4 py-3.5 hover:bg-zinc-50 transition-colors flex gap-3.5 ${!n.is_read ? "bg-blue-50/40" : ""}`}

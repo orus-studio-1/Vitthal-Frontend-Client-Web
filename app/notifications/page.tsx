@@ -191,6 +191,10 @@ export default function NotificationsPage() {
       router.push(`/products`);
     } else if (n.reference_type === "quotation" && n.reference_id) {
       router.push(`/quotations/${n.reference_id}`);
+    } else if (n.reference_type === "service_quotation") {
+      router.push(`/quotations?tab=services`);
+    } else if (n.reference_type === "service_booking") {
+      router.push(`/services/bookings`);
     }
   }
 

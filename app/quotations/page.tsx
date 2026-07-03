@@ -274,6 +274,16 @@ export default function QuotationsPage() {
   }, [fetchUser]);
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const cat = params.get("tab") || params.get("category");
+      if (cat === "services") {
+        setActiveCategory("services");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     const loadQuotations = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/quotations`, {
