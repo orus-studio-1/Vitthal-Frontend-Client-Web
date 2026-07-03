@@ -7,7 +7,6 @@ import { useCartStore } from "@/store/cartStore";
 import { toast } from "sonner";
 import { MapPin, CreditCard, Package, CheckCircle, ChevronLeft, Loader2, ShieldCheck, Edit2, X, Smartphone, Building, Wallet, QrCode, Lock, Check, AlertCircle, Wrench } from "lucide-react";
 import Link from "next/link";
-import { useServiceCartStore } from "@/store/serviceCartStore";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
 
@@ -42,7 +41,6 @@ export default function CheckoutPage() {
     const router = useRouter();
     const { isAuthenticated, isLoading: authLoading, fetchUser, checkClientSetupStatus } = useAuthStore();
     const { items, totalPrice, fetchCart, clearCart } = useCartStore();
-    const { items: serviceItems, totalPrice: serviceTotalPrice, fetchCart: fetchServiceCart, clearCart: clearServiceCart } = useServiceCartStore();
 
     const [clientDetails, setClientDetails] = useState<ClientDetails | null>(null);
     const [fetchingClient, setFetchingClient] = useState(true);
@@ -68,8 +66,7 @@ export default function CheckoutPage() {
     useEffect(() => {
         fetchUser();
         fetchCart();
-        fetchServiceCart("direct");
-    }, [fetchUser, fetchCart, fetchServiceCart]);
+    }, [fetchUser, fetchCart]);
 
     useEffect(() => {
         if (!authLoading && !isAuthenticated) {
@@ -294,7 +291,6 @@ export default function CheckoutPage() {
                             if (verifyRes.ok) {
                                 toast.success("Payment verified and order placed successfully!");
                                 await clearCart();
-                                await clearServiceCart("direct");
                                 router.push("/orders?success=true");
                             } else {
                                 const verifyData = await verifyRes.json();
@@ -345,7 +341,6 @@ export default function CheckoutPage() {
                 if (res.ok) {
                     toast.success("Order placed successfully!");
                     await clearCart();
-                    await clearServiceCart("direct");
                     router.push("/orders?success=true");
                 } else {
                     const data = await res.json();
@@ -382,9 +377,7 @@ export default function CheckoutPage() {
         );
     }
 
-    const productSubtotal = totalPrice();
-    const serviceSubtotal = serviceTotalPrice();
-    const subtotal = productSubtotal + serviceSubtotal;
+    const subtotal = totalPrice();
     const taxes = items.reduce((sum, item) => {
         const itemGst = (item.price * item.quantity) * ((item.gstPercentage ?? 0) / 100);
         return sum + itemGst;
@@ -579,49 +572,10 @@ export default function CheckoutPage() {
                                             </p>
                                         </div>
                                     ))}
-                                    {serviceItems.map((svc) => (
-                                        <div key={svc.serviceCartItemId} className="flex items-start gap-3">
-                                            {svc.image ? (
-                                                <img src={svc.image} alt={svc.serviceName} className="w-12 h-12 rounded-md object-cover border border-zinc-200" />
-                                            ) : (
-                                                <div className="w-12 h-12 bg-zinc-100 rounded-md border border-zinc-200 flex items-center justify-center">
-                                                    <Wrench className="w-5 h-5 text-zinc-400" />
-                                                </div>
-                                            )}
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-zinc-900 truncate">{svc.serviceName}</p>
-                                                <p className="text-xs text-zinc-500 mt-1">Supplier: {svc.vendorName}</p>
-                                                <div className="flex items-center gap-1.5 mt-0.5">
-                                                    <span className="text-xs text-zinc-500">Qty: {svc.quantity}</span>
-                                                    <span className="text-xs text-zinc-500">•</span>
-                                                    <span className="text-xs text-blue-600 font-semibold">₹{svc.priceAtAdded}/unit</span>
-                                                </div>
-                                            </div>
-                                            <p className="text-sm font-medium text-zinc-900 whitespace-nowrap">
-                                                ₹{(svc.priceAtAdded * svc.quantity).toLocaleString()}
-                                            </p>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="space-y-3 pt-4 border-t border-zinc-100">
-                                    {productSubtotal > 0 && serviceSubtotal > 0 ? (
-                                        <>
-                                            <div className="flex justify-between text-sm text-zinc-600">
-                                                <span>Products Subtotal</span>
-                                                <span className="font-medium text-zinc-900">₹{productSubtotal.toLocaleString()}</span>
-                                            </div>
-                                            <div className="flex justify-between text-sm text-zinc-600">
-                                                <span>Services Subtotal</span>
-                                                <span className="font-medium text-zinc-900">₹{serviceSubtotal.toLocaleString()}</span>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <div className="flex justify-between text-sm text-zinc-600">
-                                            <span>Subtotal</span>
-                                            <span className="font-medium text-zinc-900">₹{subtotal.toLocaleString()}</span>
-                                        </div>
-                                    )}
+                                    <div className="flex justify-between text-sm text-zinc-600">
+                                        <span>Subtotal</span>
+                                        <span className="font-medium text-zinc-900">₹{subtotal.toLocaleString()}</span>
+                                    </div>
                                     <div className="flex justify-between text-sm text-zinc-600">
                                         <span>Estimated Tax (GST)</span>
                                         <span className="font-medium text-zinc-900">₹{Math.round(taxes).toLocaleString()}</span>

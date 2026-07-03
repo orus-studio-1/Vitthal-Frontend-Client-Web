@@ -400,53 +400,13 @@ export default function ServiceDetailPage() {
                     </div>
                   </div>
 
-                  {service.vendor_offerings.length > 0 && (
-                    <div className="rounded-2xl border border-[#b3c5f2] bg-blue-50/30 p-5 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                          Starting Price
-                        </p>
-                        <p className="text-3xl font-extrabold text-[#1d4ed8] mt-1">
-                          ₹{parseFloat(service.vendor_offerings[0].price).toLocaleString("en-IN")}
-                          <span className="text-sm font-normal text-zinc-500 ml-1.5">
-                            {PRICING_LABELS[service.vendor_offerings[0].pricing_type] ?? service.vendor_offerings[0].pricing_type}
-                          </span>
-                        </p>
-                      </div>
-                      <div className="hidden sm:block">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
-                          <CheckCircle2 size={12} />
-                          Best Rate
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Actions Panel */}
-                <div className="flex flex-col lg:flex-row items-stretch gap-3 pt-4 border-t border-zinc-100 mt-auto">
                   <button
                     onClick={handleSaveToWishlist}
                     disabled={savingWishlist}
-                    className="flex-1 px-6 py-3.5 border border-rose-200 bg-rose-50 text-rose-700 text-sm font-semibold rounded-xl hover:bg-rose-100 hover:shadow-md transition-all text-center flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                    className="w-full px-6 py-3.5 border border-rose-200 bg-rose-50 text-rose-700 text-sm font-semibold rounded-xl hover:bg-rose-100 hover:shadow-md transition-all text-center flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                   >
                     {savingWishlist ? <Loader2 size={18} className="animate-spin" /> : <Heart size={18} className={isSaved ? "fill-rose-600 text-rose-600" : ""} />}
                     {savingWishlist ? "Saving..." : (isSaved ? "Saved" : "Save to Wishlist")}
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (!isAuthenticated) {
-                        toast.error("Please sign in to request services");
-                        router.push("/login");
-                        return;
-                      }
-                      setIsQuoteModalOpen(true);
-                    }}
-                    disabled={!service || service.vendor_offerings.length === 0}
-                    className="flex-[2] px-6 py-3.5 bg-[#1d4ed8] hover:bg-blue-800 text-white text-sm font-semibold rounded-xl hover:shadow-lg transition-all text-center flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Wrench size={18} />
-                    Request Service
                   </button>
                 </div>
 
@@ -637,16 +597,7 @@ export default function ServiceDetailPage() {
                             )}
                           </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <div className="bg-zinc-50 border border-zinc-200 px-3.5 py-2.5 rounded-xl">
-                              <p className="text-xs text-zinc-500 font-medium">Service Rate</p>
-                              <p className="text-base font-bold text-[#1d4ed8] mt-0.5">
-                                ₹{parseFloat(offering.price).toLocaleString("en-IN")}
-                                <span className="text-xs font-normal text-zinc-500 ml-1">
-                                  {PRICING_LABELS[offering.pricing_type] ?? offering.pricing_type}
-                                </span>
-                              </p>
-                            </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div className="bg-zinc-50 border border-zinc-200 px-3.5 py-2.5 rounded-xl">
                               <p className="text-xs text-zinc-500 font-medium">Minimum Order (MOQ)</p>
                               <p className="text-base font-semibold text-zinc-800 mt-0.5">{offering.moq || 1} unit(s)</p>
@@ -659,22 +610,31 @@ export default function ServiceDetailPage() {
                             </div>
                           </div>
                         </div>
-
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 lg:w-auto self-stretch lg:self-center justify-end pt-4 lg:pt-0 border-t border-zinc-100 lg:border-0">
-                          <div className="text-left sm:text-right">
-                            <p className="text-xs text-zinc-400 font-medium">Estimated Rate</p>
-                            <p className="text-xl font-extrabold text-[#1d4ed8] mt-0.5">
-                              ₹{parseFloat(offering.price).toLocaleString("en-IN")}
-                              <span className="text-xs font-normal text-zinc-500 ml-1">
-                                {PRICING_LABELS[offering.pricing_type] ?? offering.pricing_type}
-                              </span>
-                            </p>
-                          </div>
-                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
+
+                {service.vendor_offerings.length > 0 && (
+                  <div className="px-6 py-5 bg-zinc-50 border-t border-zinc-150 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!isAuthenticated) {
+                          toast.error("Please sign in to request services");
+                          router.push("/login");
+                          return;
+                        }
+                        setIsQuoteModalOpen(true);
+                      }}
+                      disabled={!service || service.vendor_offerings.length === 0}
+                      className="w-full sm:w-auto px-8 py-3.5 bg-[#1d4ed8] hover:bg-blue-800 text-white text-base font-semibold rounded-xl hover:shadow-lg transition-all text-center flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Wrench size={18} />
+                      Request Service
+                    </button>
+                  </div>
+                )}
               </div>
 
             ) : (

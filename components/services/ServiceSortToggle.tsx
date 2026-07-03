@@ -42,8 +42,6 @@ export function ServiceSortToggle({ currentSort = "all", currentView = "cards" }
           <option value="all">All Services</option>
           <option value="name">Service Name (A - Z)</option>
           <option value="name-desc">Service Name (Z - A)</option>
-          <option value="price-asc">Price (Low to High)</option>
-          <option value="price-desc">Price (High to Low)</option>
           <option value="rating">Highest Rated</option>
         </select>
       </div>

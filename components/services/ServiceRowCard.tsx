@@ -63,12 +63,8 @@ export function ServiceRowCard({ id, name, description, rating, review_count, ca
             </p>
           )}
 
-          {/* Price and Provider Stats */}
-          <div className="grid grid-cols-2 gap-4 mb-2">
-            <div>
-              <p className="text-[10px] text-zinc-400 uppercase tracking-wider mb-0.5">Starting From</p>
-              <p className="text-sm font-bold text-zinc-900">{formatPrice(starting_price)}</p>
-            </div>
+          {/* Provider Stats */}
+          <div className="mb-2">
             <div>
               <p className="text-[10px] text-zinc-400 uppercase tracking-wider mb-0.5">Rating</p>
               <div className="flex items-center gap-1">

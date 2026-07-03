@@ -137,14 +137,6 @@ export function ServiceCard({ id, name, description, rating, review_count, categ
             </div>
           )}
 
-          {/* Price Section */}
-          <div className="pt-2 border-t border-zinc-100">
-            <p className="text-sm text-zinc-500">Starting from</p>
-            <div className="flex flex-wrap items-baseline gap-2">
-              <span className="text-lg font-bold text-zinc-900">{formatPrice(starting_price)}</span>
-            </div>
-          </div>
-
           {/* Service Details */}
           <div className="pt-2 border-t border-zinc-100 space-y-1.5">
             <div className="flex justify-between items-center text-xs">
