@@ -445,66 +445,27 @@ export default function ServiceDetailPage() {
                 </div>
 
                 {/* Actions Panel */}
-                <div className="mt-8 pt-6 border-t border-zinc-100 flex flex-col sm:flex-row gap-3">
-                  {service.vendor_offerings.length > 0 ? (
-                    <div className="flex gap-2 flex-1">
-                      <button
-                        onClick={() => handleAddToCart(service.vendor_offerings[0], "direct")}
-                        disabled={addingToCart !== null}
-                        className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#1d4ed8] px-5 py-3.5 text-sm font-semibold text-white hover:bg-[#1e40af] hover:shadow-md transition-all disabled:opacity-70"
-                      >
-                        {addingToCart === `${service.vendor_offerings[0].vendor_service_id}-direct` ? (
-                          <Loader2 size={18} className="animate-spin" />
-                        ) : (
-                          <ShoppingCart size={18} />
-                        )}
-                        Add to Cart
-                      </button>
-                      <button
-                        onClick={() => handleAddToCart(service.vendor_offerings[0], "quotation")}
-                        disabled={addingToCart !== null}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 px-4 py-3.5 text-sm font-semibold text-white hover:shadow-md transition-all disabled:opacity-70"
-                        title="Request a custom quote for this service"
-                      >
-                        {addingToCart === `${service.vendor_offerings[0].vendor_service_id}-quotation` ? (
-                          <Loader2 size={18} className="animate-spin" />
-                        ) : (
-                          <FileText size={18} />
-                        )}
-                        Request Quote
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      disabled
-                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-100 px-5 py-3.5 text-sm font-semibold text-zinc-400 border border-zinc-200 cursor-not-allowed"
-                    >
-                      No Providers Yet
-                    </button>
-                  )}
-
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-4 border-t border-zinc-100 mt-auto">
                   <button
                     onClick={handleSaveToWishlist}
                     disabled={savingWishlist}
-                    className={`inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-semibold transition-all border ${
-                      isSaved
-                        ? "bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 hover:shadow-sm sm:w-auto"
-                        : "bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 hover:shadow-sm sm:w-auto"
-                    } disabled:opacity-75 flex-1 sm:flex-none`}
+                    className="flex-1 px-6 py-3.5 border border-rose-200 bg-rose-50 text-rose-700 text-sm font-semibold rounded-xl hover:bg-rose-100 hover:shadow-md transition-all text-center flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                   >
-                    {savingWishlist ? (
-                      <Loader2 size={18} className="animate-spin text-zinc-500" />
-                    ) : (
-                      <Heart size={18} className={isSaved ? "fill-rose-600 text-rose-600" : ""} />
-                    )}
-                    {isSaved ? "Saved" : "Save to Wishlist"}
+                    {savingWishlist ? <Loader2 size={18} className="animate-spin" /> : <Heart size={18} className={isSaved ? "fill-rose-600 text-rose-600" : ""} />}
+                    {savingWishlist ? "Saving..." : (isSaved ? "Saved" : "Save to Wishlist")}
                   </button>
-
+                  <a
+                    href="#vendors-list"
+                    className="flex-1 px-6 py-3.5 bg-[#1d4ed8] text-white text-sm font-semibold rounded-xl hover:bg-blue-800 hover:shadow-lg transition-all text-center flex items-center justify-center gap-2"
+                  >
+                    <ShoppingCart size={18} />
+                    View Providers & Add to Cart
+                  </a>
                   <Link
                     href="/cart"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-5 py-3.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 hover:shadow-sm transition-all flex-1 sm:flex-none"
+                    className="px-6 py-3.5 border-2 border-zinc-200 text-zinc-700 text-sm font-semibold rounded-xl hover:border-zinc-300 hover:bg-zinc-50 transition-all text-center flex items-center justify-center gap-2"
                   >
-                    View Cart
+                    Go to Cart
                     <ArrowRight size={16} />
                   </Link>
                 </div>
@@ -631,7 +592,7 @@ export default function ServiceDetailPage() {
               </div>
             </div>
 
-            <div className="mb-8 flex items-center justify-between">
+            <div id="vendors-list" className="mb-8 flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold tracking-tight text-zinc-950">
                   Compare Verified Service Providers
