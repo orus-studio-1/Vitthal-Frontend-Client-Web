@@ -148,12 +148,6 @@ type ServiceState = {
     category?: string;
   }) => Promise<void>;
 
-  bookService: (payload: {
-    vendorServiceId: string;
-    scheduledStart?: string;
-    scheduledEnd?: string;
-    bookingNotes?: string;
-  }) => Promise<boolean>;
 
   fetchMyBookings: () => Promise<void>;
 
@@ -232,22 +226,6 @@ export const useServiceStore = create<ServiceState>((set) => ({
     }
   },
 
-  bookService: async ({ vendorServiceId, scheduledStart, scheduledEnd, bookingNotes }) => {
-    try {
-      const res = await fetch(`${API_BASE}/api/services/bookings`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          "x-request-from": "client",
-        },
-        body: JSON.stringify({ vendorServiceId, scheduledStart, scheduledEnd, bookingNotes }),
-      });
-      return res.ok;
-    } catch {
-      return false;
-    }
-  },
 
   fetchMyBookings: async () => {
     set({ isLoadingBookings: true, bookingsError: null });

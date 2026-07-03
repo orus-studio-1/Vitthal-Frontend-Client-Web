@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useCartStore } from "@/store/cartStore";
+import { useServiceCartStore } from "@/store/serviceCartStore";
 import { useNotificationStore } from "@/store/notificationStore";
 import { toast } from "sonner";
 import Image from "next/image";
@@ -17,7 +18,9 @@ export function Header() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLLIElement>(null);
   const { user, isAuthenticated, isLoading, fetchUser, logout } = useAuthStore();
-  const totalItems = useCartStore((s) => s.items.length);
+  const productCartCount = useCartStore((s) => s.items.length);
+  const serviceCartCount = useServiceCartStore((s) => s.items.length);
+  const totalItems = productCartCount + serviceCartCount;
   const { notifications, unreadCount, isLoading: notificationsLoading, isLoadingMore, hasMore, fetchNotifications, fetchMore, fetchUnreadCount, markRead, markAllRead, initSocket, disconnectSocket } = useNotificationStore();
   const router = useRouter();
 

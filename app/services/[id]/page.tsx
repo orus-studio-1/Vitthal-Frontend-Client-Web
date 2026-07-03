@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -13,6 +13,8 @@ import {
   Users,
   Tag,
   ShoppingBag,
+  ShoppingCart,
+  FileText,
   MessageSquare,
   Wrench,
   Heart,
@@ -24,12 +26,14 @@ import {
   Crosshair,
   BadgeCheck,
   Layers,
+  Minus,
+  Plus,
 } from "lucide-react";
 import { ServiceMediaGallery } from "@/components/services/ServiceMediaGallery";
-import { BookServiceModal } from "@/components/services/BookServiceModal";
 import { ServiceCard } from "@/components/services/ServiceCard";
 import { useAuthStore } from "@/store/authStore";
 import { useWishlistStore } from "@/store/wishlistStore";
+import { useServiceCartStore } from "@/store/serviceCartStore";
 import type { ServiceDetail, VendorOffering } from "@/store/serviceStore";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
@@ -91,8 +95,13 @@ export default function ServiceDetailPage() {
   const [service, setService] = useState<ServiceDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [bookModalOpen, setBookModalOpen] = useState(false);
-  const [selectedOffering, setSelectedOffering] = useState<VendorOffering | null>(null);
+  // Per-offering quantity state (keyed by vendor_service_id)
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [addingToCart, setAddingToCart] = useState<string | null>(null);
+
+  // Service cart store
+  const addServiceToCart = useServiceCartStore((s) => s.addItem);
+  const fetchServiceCart = useServiceCartStore((s) => s.fetchCart);
 
   // User location and saved address states
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; label: string } | null>(null);
@@ -215,14 +224,33 @@ export default function ServiceDetailPage() {
     loadRelated();
   }, [service]);
 
-  function handleBookClick(offering: VendorOffering) {
+  async function handleAddToCart(offering: VendorOffering, cartType: "direct" | "quotation" = "direct") {
     if (!isAuthenticated) {
-      toast.error("Please sign in to book a service");
+      toast.error("Please sign in to add services to cart");
       router.push("/login");
       return;
     }
-    setSelectedOffering(offering);
-    setBookModalOpen(true);
+    const qty = quantities[offering.vendor_service_id] || offering.moq || 1;
+    setAddingToCart(`${offering.vendor_service_id}-${cartType}`);
+    try {
+      const success = await addServiceToCart(offering.vendor_service_id, qty, cartType);
+      if (success) {
+        await fetchServiceCart(cartType, true);
+        if (cartType === "quotation") {
+          toast.success("Added to Quotation Cart", {
+            action: { label: "View", onClick: () => router.push("/quotation-cart") },
+          });
+        } else {
+          toast.success("Added to Cart", {
+            action: { label: "View Cart", onClick: () => router.push("/cart") },
+          });
+        }
+      } else {
+        toast.error("Failed to add to cart");
+      }
+    } finally {
+      setAddingToCart(null);
+    }
   }
 
   function handleUseCurrentLocation() {
@@ -419,13 +447,33 @@ export default function ServiceDetailPage() {
                 {/* Actions Panel */}
                 <div className="mt-8 pt-6 border-t border-zinc-100 flex flex-col sm:flex-row gap-3">
                   {service.vendor_offerings.length > 0 ? (
-                    <button
-                      onClick={() => handleBookClick(service.vendor_offerings[0])}
-                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#1d4ed8] px-5 py-3.5 text-sm font-semibold text-white hover:bg-[#1e40af] hover:shadow-md transition-all"
-                    >
-                      <ShoppingBag size={18} />
-                      Book Now
-                    </button>
+                    <div className="flex gap-2 flex-1">
+                      <button
+                        onClick={() => handleAddToCart(service.vendor_offerings[0], "direct")}
+                        disabled={addingToCart !== null}
+                        className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#1d4ed8] px-5 py-3.5 text-sm font-semibold text-white hover:bg-[#1e40af] hover:shadow-md transition-all disabled:opacity-70"
+                      >
+                        {addingToCart === `${service.vendor_offerings[0].vendor_service_id}-direct` ? (
+                          <Loader2 size={18} className="animate-spin" />
+                        ) : (
+                          <ShoppingCart size={18} />
+                        )}
+                        Add to Cart
+                      </button>
+                      <button
+                        onClick={() => handleAddToCart(service.vendor_offerings[0], "quotation")}
+                        disabled={addingToCart !== null}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 px-4 py-3.5 text-sm font-semibold text-white hover:shadow-md transition-all disabled:opacity-70"
+                        title="Request a custom quote for this service"
+                      >
+                        {addingToCart === `${service.vendor_offerings[0].vendor_service_id}-quotation` ? (
+                          <Loader2 size={18} className="animate-spin" />
+                        ) : (
+                          <FileText size={18} />
+                        )}
+                        Request Quote
+                      </button>
+                    </div>
                   ) : (
                     <button
                       disabled
@@ -453,10 +501,10 @@ export default function ServiceDetailPage() {
                   </button>
 
                   <Link
-                    href="/services/bookings"
+                    href="/cart"
                     className="inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-5 py-3.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 hover:shadow-sm transition-all flex-1 sm:flex-none"
                   >
-                    My Bookings
+                    View Cart
                     <ArrowRight size={16} />
                   </Link>
                 </div>
@@ -673,20 +721,45 @@ export default function ServiceDetailPage() {
                           </div>
                         </div>
 
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 lg:w-auto self-stretch lg:self-center justify-end pt-4 lg:pt-0 border-t border-zinc-100 lg:border-0">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 lg:w-auto self-stretch lg:self-center justify-end pt-4 lg:pt-0 border-t border-zinc-100 lg:border-0">
                           <div className="text-left sm:text-right">
                             <p className="text-xs text-zinc-400 font-medium">Estimated Total</p>
                             <p className="text-xl font-extrabold text-zinc-900 mt-0.5">
-                              ₹{parseFloat(offering.price).toLocaleString("en-IN")}
+                              ₹{(parseFloat(offering.price) * (quantities[offering.vendor_service_id] || offering.moq || 1)).toLocaleString("en-IN")}
                             </p>
                           </div>
-                          <button
-                            onClick={() => handleBookClick(offering)}
-                            className="px-6 py-3 bg-[#1d4ed8] hover:bg-blue-800 text-white font-semibold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2"
-                          >
-                            <ShoppingBag size={16} />
-                            Book Now
-                          </button>
+                          {/* Quantity selector */}
+                          <div className="flex items-center gap-1 border border-zinc-200 rounded-xl overflow-hidden bg-white">
+                            <button
+                              onClick={() => setQuantities((prev) => ({ ...prev, [offering.vendor_service_id]: Math.max(offering.moq || 1, (prev[offering.vendor_service_id] || offering.moq || 1) - 1) }))}
+                              className="px-3 py-2.5 text-zinc-500 hover:bg-zinc-50 transition-colors"
+                            ><Minus size={14} /></button>
+                            <span className="px-3 text-sm font-semibold text-zinc-900 min-w-[2rem] text-center">
+                              {quantities[offering.vendor_service_id] || offering.moq || 1}
+                            </span>
+                            <button
+                              onClick={() => setQuantities((prev) => ({ ...prev, [offering.vendor_service_id]: (prev[offering.vendor_service_id] || offering.moq || 1) + 1 }))}
+                              className="px-3 py-2.5 text-zinc-500 hover:bg-zinc-50 transition-colors"
+                            ><Plus size={14} /></button>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleAddToCart(offering, "direct")}
+                              disabled={addingToCart !== null}
+                              className="px-4 py-2.5 bg-[#1d4ed8] hover:bg-blue-800 text-white font-semibold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-70"
+                            >
+                              {addingToCart === `${offering.vendor_service_id}-direct` ? <Loader2 size={15} className="animate-spin" /> : <ShoppingCart size={15} />}
+                              Add to Cart
+                            </button>
+                            <button
+                              onClick={() => handleAddToCart(offering, "quotation")}
+                              disabled={addingToCart !== null}
+                              className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-70"
+                              title="Request a custom quotation"
+                            >
+                              {addingToCart === `${offering.vendor_service_id}-quotation` ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -866,14 +939,7 @@ export default function ServiceDetailPage() {
         </section>
       </main>
 
-      {selectedOffering && (
-        <BookServiceModal
-          isOpen={bookModalOpen}
-          onClose={() => { setBookModalOpen(false); setSelectedOffering(null); }}
-          offering={selectedOffering}
-          serviceName={service.name}
-        />
-      )}
+
     </div>
   );
 }

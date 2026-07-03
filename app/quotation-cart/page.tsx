@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Package, ArrowLeft, Send, Loader2, FileSignature, Share2 } from "lucide-react";
+import { Package, ArrowLeft, Send, Loader2, FileSignature, Share2, Wrench, Trash2 } from "lucide-react";
 import { useQuotationCartStore } from "@/store/quotationCartStore";
 import { useCartStore } from "@/store/cartStore";
 import { useAuthStore } from "@/store/authStore";
+import { useServiceCartStore } from "@/store/serviceCartStore";
 import { toast } from "sonner";
 import ShareCartModal from "@/components/ShareCartModal";
 
@@ -15,6 +16,7 @@ export default function QuotationCartPage() {
   const { items, fetchCart, updateQuantity, removeItem, clearCart, isLoading } = useQuotationCartStore();
   const { fetchUser, user } = useAuthStore();
   const shareCart = useCartStore((s) => s.shareCart);
+  const { items: serviceItems, fetchCart: fetchServiceCart, removeItem: removeServiceItem, updateQuantity: updateServiceQty } = useServiceCartStore();
 
   const [requestNote, setRequestNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -44,8 +46,9 @@ export default function QuotationCartPage() {
   useEffect(() => {
     if (user) {
       fetchCart();
+      fetchServiceCart("quotation");
     }
-  }, [user, fetchCart]);
+  }, [user, fetchCart, fetchServiceCart]);
 
   const handleSubmitQuotation = async () => {
     setSubmitting(true);
@@ -225,6 +228,56 @@ export default function QuotationCartPage() {
                 </div>
               </div>
             ))}
+
+            {/* ── Service Quotation Items ── */}
+            {serviceItems.length > 0 && (
+              <div className="mt-6">
+                <h2 className="text-base font-semibold text-zinc-700 mb-3 flex items-center gap-2">
+                  <Wrench size={16} className="text-amber-600" />
+                  Service Quotations ({serviceItems.length})
+                </h2>
+                <div className="space-y-4">
+                  {serviceItems.map((svc) => (
+                    <div key={svc.serviceCartItemId} className="rounded-lg border border-amber-100 bg-amber-50/40 p-4 sm:p-5 shadow-sm">
+                      <div className="flex gap-4">
+                        <div className="h-16 w-16 flex-shrink-0 rounded-md border border-zinc-200 bg-zinc-100 flex items-center justify-center overflow-hidden">
+                          {svc.image ? (
+                            <img src={svc.image} alt={svc.serviceName} className="h-full w-full object-cover" />
+                          ) : (
+                            <Wrench size={22} className="text-zinc-400" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <Link href={`/services/${svc.serviceId}`} className="text-sm font-semibold text-zinc-900 hover:text-amber-700 transition-colors">{svc.serviceName}</Link>
+                              <p className="text-xs text-zinc-500 mt-0.5">{svc.vendorName} · <span className="capitalize">{svc.pricingType}</span></p>
+                            </div>
+                            <button
+                              onClick={async () => { const ok = await removeServiceItem(svc.serviceCartItemId); if (!ok) toast.error("Failed to remove"); }}
+                              className="text-xs text-red-600 hover:text-red-700"
+                            >Remove</button>
+                          </div>
+                          <div className="mt-3 flex flex-wrap items-center gap-4">
+                            <span className="text-sm font-bold text-amber-700">₹{svc.priceAtAdded.toLocaleString("en-IN")}</span>
+                            <span className="text-xs text-zinc-500">MOQ: {svc.moq}</span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min={svc.moq}
+                                value={svc.quantity}
+                                onChange={(e) => updateServiceQty(svc.serviceCartItemId, Number(e.target.value))}
+                                className="w-20 rounded border border-zinc-300 px-2 py-1 text-sm"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="lg:col-span-1">
