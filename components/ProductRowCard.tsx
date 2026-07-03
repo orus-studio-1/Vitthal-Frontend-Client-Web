@@ -7,6 +7,9 @@ import { useState, type MouseEvent } from "react";
 import { toast } from "sonner";
 import { useWishlistStore } from "@/store/wishlistStore";
 
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/store/authStore";
+
 const FALLBACK_IMAGE = "/placeholder-product.png";
 
 function isValidUrl(url: string): boolean {
@@ -40,32 +43,52 @@ export function ProductRowCard(product: ProductRowCardProps) {
         ? `₹${product.minOriginalPrice?.toLocaleString()}`
         : `₹${product.minOriginalPrice?.toLocaleString()} – ₹${product.maxOriginalPrice?.toLocaleString()}`)
     : null;
+  const items = useWishlistStore((state) => state.items);
   const addToWishlist = useWishlistStore((state) => state.addItem);
+  const removeItem = useWishlistStore((state) => state.removeItem);
+  const isSaved = items.some((item) => item.itemType === "product" && item.productId === product.id);
+  const { isAuthenticated } = useAuthStore();
+  const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSaveToWishlist = async (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
 
-    setIsSaving(true);
-    const success = await addToWishlist({
-      productId: product.id,
-      productName: product.name,
-      description: "",
-      image: isValidUrl(product.image) ? product.image : FALLBACK_IMAGE,
-      vendorId: null,
-      vendorName: "",
-      price: product.minPrice,
-      moq: product.moq,
-      stockQuantity: 0,
-    });
-    setIsSaving(false);
-
-    if (success) {
-      toast.success("Saved to wishlist");
-    } else {
-      toast.error("Failed to save to wishlist");
+    if (!isAuthenticated) {
+      toast.error("Please sign in to save items to your wishlist");
+      router.push("/login");
+      return;
     }
+
+    setIsSaving(true);
+    if (isSaved) {
+      const success = await removeItem(product.id);
+      if (success) {
+        toast.success("Removed from wishlist");
+      } else {
+        toast.error("Failed to remove from wishlist");
+      }
+    } else {
+      const success = await addToWishlist({
+        itemType: "product",
+        productId: product.id,
+        productName: product.name,
+        description: "",
+        image: isValidUrl(product.image) ? product.image : FALLBACK_IMAGE,
+        vendorId: null,
+        vendorName: "",
+        price: product.minPrice,
+        moq: product.moq,
+        stockQuantity: 0,
+      });
+      if (success) {
+        toast.success("Saved to wishlist");
+      } else {
+        toast.error("Failed to save to wishlist");
+      }
+    }
+    setIsSaving(false);
   };
 
   return (
@@ -77,7 +100,7 @@ export function ProductRowCard(product: ProductRowCardProps) {
         className="absolute right-4 top-4 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/80 bg-white/95 text-zinc-500 shadow-sm transition-colors hover:text-rose-600 hover:bg-rose-50 disabled:opacity-70"
         aria-label="Save product to wishlist"
       >
-        {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Heart size={14} />}
+        {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Heart size={14} className={isSaved ? "fill-rose-500 text-rose-500" : ""} />}
       </button>
 
       <Link href={`/product/${product.id}`} className="flex flex-1 items-center gap-6">

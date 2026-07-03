@@ -14,11 +14,16 @@ export type WishlistItem = {
   price: number;
   moq: number;
   stockQuantity: number;
+  // Service support
+  serviceId?: string;
+  itemType?: "product" | "service";
 };
 
 type WishlistApiRow = {
-  product_id: string;
+  item_type?: "product" | "service" | null;
+  product_id?: string | null;
   product_variant_id?: string | null;
+  service_id?: string | null;
   variant_properties?: any;
   product_name?: string | null;
   description?: string | null;
@@ -68,14 +73,16 @@ export const useWishlistStore = create<WishlistState>((set, get) => ({
 
       const data = await res.json();
       const items: WishlistItem[] = ((data.data as WishlistApiRow[] | undefined) || []).map((row) => ({
-        productId: row.product_id,
+        itemType: row.item_type === "service" ? "service" : "product",
+        productId: row.item_type === "service" ? `service:${row.service_id}` : (row.product_id || ""),
+        serviceId: row.service_id || undefined,
         productVariantId: row.product_variant_id || undefined,
         variantProperties: row.variant_properties || undefined,
-        productName: row.product_name || "Unknown Product",
+        productName: row.product_name || "Unknown",
         description: row.description || "",
         image: row.image_url || "",
         vendorId: row.vendor_id || null,
-        vendorName: row.vendor_name || "Unknown Vendor",
+        vendorName: row.vendor_name || "",
         price: Number(row.current_price) || 0,
         moq: row.moq || 1,
         stockQuantity: row.stock_quantity || 0,
@@ -97,18 +104,21 @@ export const useWishlistStore = create<WishlistState>((set, get) => ({
           "x-request-from": "client",
         },
         credentials: "include",
-        body: JSON.stringify({
-          product_id: item.productId,
-          product_variant_id: item.productVariantId || null,
-          vendor_id: item.vendorId,
-        }),
+        body: JSON.stringify(
+          item.itemType === "service"
+            ? { service_id: item.serviceId }
+            : {
+                product_id: item.productId,
+                product_variant_id: item.productVariantId || null,
+                vendor_id: item.vendorId,
+              }
+        ),
       });
 
       if (!res.ok) {
-        if (res.status === 401) {
-          throw new Error("Please login to save items");
-        }
-        throw new Error("Failed to add item to wishlist");
+        const errorMsg = res.status === 401 ? "Please login to save items" : "Failed to add item to wishlist";
+        set({ error: errorMsg, isLoading: false });
+        return false;
       }
 
       await get().fetchWishlist(true);
@@ -129,7 +139,13 @@ export const useWishlistStore = create<WishlistState>((set, get) => ({
           "x-request-from": "client",
         },
         credentials: "include",
-        body: JSON.stringify({ product_id: productId, product_variant_id: productVariantId || null }),
+        body: JSON.stringify(
+          productVariantId
+            ? { product_variant_id: productVariantId }
+            : productId && productId.startsWith("service:")
+              ? { service_id: productId.replace("service:", "") }
+              : { product_id: productId }
+        ),
       });
 
       if (!res.ok) {

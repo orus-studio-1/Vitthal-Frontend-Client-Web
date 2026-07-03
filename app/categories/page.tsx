@@ -44,18 +44,22 @@ function getCategoryStats(code: string) {
 }
 
 export default function CategoriesPage() {
-    const [categories, setCategories] = useState<Category[]>([]);
+    const [productCategories, setProductCategories] = useState<Category[]>([]);
+    const [serviceCategories, setServiceCategories] = useState<Category[]>([]);
+    const [activeTab, setActiveTab] = useState<"products" | "services">("products");
     const [searchQuery, setSearchQuery] = useState("");
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         async function loadCategories() {
             try {
-                const res = await fetch(
-                    `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000"}/api/products/getCategories`
-                );
-                if (res.ok) {
-                    const resData = await res.json();
+                const [prodRes, servRes] = await Promise.all([
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000"}/api/products/getCategories?type=product`),
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000"}/api/products/getCategories?type=service`)
+                ]);
+
+                if (prodRes.ok) {
+                    const resData = await prodRes.json();
                     if (resData.data) {
                         const mapped = resData.data.map((c: any) => {
                             const stats = getCategoryStats(c.code);
@@ -69,7 +73,25 @@ export default function CategoriesPage() {
                                 products: stats.products,
                             };
                         });
-                        setCategories(mapped);
+                        setProductCategories(mapped);
+                    }
+                }
+
+                if (servRes.ok) {
+                    const resData = await servRes.json();
+                    if (resData.data) {
+                        const mapped = resData.data.map((c: any) => {
+                            return {
+                                id: c.id,
+                                code: c.code,
+                                label: c.label,
+                                description: c.description || "",
+                                image: c.image || "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=600&auto=format&fit=crop&q=80",
+                                suppliers: "Verified Providers",
+                                products: "Industrial Services",
+                            };
+                        });
+                        setServiceCategories(mapped);
                     }
                 }
             } catch (err) {
@@ -80,6 +102,8 @@ export default function CategoriesPage() {
         }
         loadCategories();
     }, []);
+
+    const categories = activeTab === "products" ? productCategories : serviceCategories;
 
     const filteredCategories = categories.filter((cat) =>
         cat.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -101,7 +125,7 @@ export default function CategoriesPage() {
                             Browse Core Categories
                         </h1>
                         <p className="mx-auto mt-4 max-w-2xl text-lg text-zinc-400">
-                            Discover verified manufacturers, bulk suppliers, and high-performance products across our active industrial supply networks.
+                            Discover verified manufacturers, bulk suppliers, and high-performance products and services across our active industrial supply networks.
                         </p>
 
                         {/* Premium Search Box */}
@@ -111,7 +135,7 @@ export default function CategoriesPage() {
                             </div>
                             <input
                                 type="text"
-                                placeholder="Search categories (e.g., Plastic, Metal)..."
+                                placeholder={`Search ${activeTab} categories...`}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full rounded-2xl border border-zinc-700 bg-zinc-800/80 py-3.5 pl-11 pr-4 text-sm text-white placeholder-zinc-500 outline-none backdrop-blur-sm transition focus:border-blue-500 focus:bg-zinc-800"
@@ -120,8 +144,36 @@ export default function CategoriesPage() {
                     </div>
                 </section>
 
+                {/* Tab Switcher */}
+                <div className="border-b border-zinc-200 bg-white">
+                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                        <div className="flex h-14 items-center justify-center gap-6">
+                            <button
+                                onClick={() => { setActiveTab("products"); setSearchQuery(""); }}
+                                className={`h-full border-b-2 px-4 text-sm font-semibold transition-all ${
+                                    activeTab === "products"
+                                        ? "border-blue-600 text-blue-600"
+                                        : "border-transparent text-zinc-500 hover:text-zinc-800"
+                                }`}
+                            >
+                                Product Categories
+                            </button>
+                            <button
+                                onClick={() => { setActiveTab("services"); setSearchQuery(""); }}
+                                className={`h-full border-b-2 px-4 text-sm font-semibold transition-all ${
+                                    activeTab === "services"
+                                        ? "border-blue-600 text-blue-600"
+                                        : "border-transparent text-zinc-500 hover:text-zinc-800"
+                                }`}
+                            >
+                                Service Categories
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Categories Grid */}
-                <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+                <section className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
                     {loading ? (
                         <div className="flex min-h-[30vh] items-center justify-center">
                             <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
@@ -159,17 +211,25 @@ export default function CategoriesPage() {
                                         {/* Stats */}
                                         <div className="mb-4 grid grid-cols-2 gap-4 rounded-xl bg-zinc-50 p-3 text-center">
                                             <div>
-                                                <span className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">Suppliers</span>
+                                                <span className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                                                    {activeTab === "products" ? "Suppliers" : "Providers"}
+                                                </span>
                                                 <span className="text-sm font-bold text-zinc-800">{category.suppliers}</span>
                                             </div>
                                             <div>
-                                                <span className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">Products</span>
+                                                <span className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                                                    {activeTab === "products" ? "Products" : "Type"}
+                                                </span>
                                                 <span className="text-sm font-bold text-zinc-800">{category.products}</span>
                                             </div>
                                         </div>
 
                                         <Link
-                                            href={`/products/${category.code}`}
+                                            href={
+                                                activeTab === "products"
+                                                    ? `/products/${category.code}`
+                                                    : `/services?category=${category.id}`
+                                            }
                                             className="flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 transition"
                                         >
                                             Explore catalog <ArrowRight size={16} className="transition group-hover:translate-x-1" />
@@ -188,4 +248,4 @@ export default function CategoriesPage() {
 
         </div>
     );
-}
+}
