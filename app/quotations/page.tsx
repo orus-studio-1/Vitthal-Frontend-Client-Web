@@ -95,14 +95,36 @@ type QuotationDetail = {
   }[];
 };
 
+type ServiceQuotationGroup = {
+  service_id: string;
+  service_name: string;
+  scope_of_work: string;
+  created_at: string;
+  updated_at: string;
+  total_vendors: number;
+  vendors_responded: number;
+  accepted_count: number;
+  group_status: "pending" | "offers_received" | "accepted" | "closed";
+  vendor_quotations: ServiceQuotation[];
+};
+
 type ThreadDialogProps = {
-  quotation: ServiceQuotation;
+  quotationGroup: ServiceQuotationGroup;
   onClose: () => void;
   onUpdate: () => void;
 };
 
-function ThreadDialog({ quotation, onClose, onUpdate }: ThreadDialogProps) {
+function ThreadDialog({ quotationGroup, onClose, onUpdate }: ThreadDialogProps) {
   const respondQuotation = useServiceStore((s) => s.respondQuotation);
+  const [selectedVendorId, setSelectedVendorId] = useState(
+    quotationGroup.vendor_quotations[0]?.vendor_id || ""
+  );
+
+  const activeQuotation = useMemo(() => {
+    return quotationGroup.vendor_quotations.find(vq => vq.vendor_id === selectedVendorId)
+      || quotationGroup.vendor_quotations[0];
+  }, [quotationGroup, selectedVendorId]);
+
   const [detail, setDetail] = useState<QuotationDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState("");
@@ -111,10 +133,11 @@ function ThreadDialog({ quotation, onClose, onUpdate }: ThreadDialogProps) {
   const [isResponding, setIsResponding] = useState(false);
 
   useEffect(() => {
+    if (!activeQuotation) return;
     async function load() {
       setLoading(true);
       try {
-        const res = await fetch(`${API_BASE}/api/services/quotations/${quotation.id}`, {
+        const res = await fetch(`${API_BASE}/api/services/quotations/${activeQuotation.id}`, {
           credentials: "include",
           headers: { "Content-Type": "application/json", "x-request-from": "client" },
         });
@@ -128,15 +151,19 @@ function ThreadDialog({ quotation, onClose, onUpdate }: ThreadDialogProps) {
       }
     }
     load();
-  }, [quotation.id]);
+    setAction("");
+    setOfferPrice("");
+    setNote("");
+  }, [activeQuotation?.id]);
 
   async function handleRespond(e: React.FormEvent) {
     e.preventDefault();
+    if (!activeQuotation) return;
     if (!action) { toast.error("Select an action"); return; }
     if ((action === "counter") && !offerPrice) { toast.error("Enter your counter price"); return; }
 
     setIsResponding(true);
-    const success = await respondQuotation(quotation.id, {
+    const success = await respondQuotation(activeQuotation.id, {
       action,
       offerPrice: offerPrice || undefined,
       note: note || undefined,
@@ -152,107 +179,144 @@ function ThreadDialog({ quotation, onClose, onUpdate }: ThreadDialogProps) {
     }
   }
 
-  const isTerminal = TERMINAL_STATUSES.has(quotation.status);
-  const canRespond = quotation.status === "vendor_offered" || quotation.status === "vendor_countered";
+  if (!activeQuotation) return null;
+
+  const isTerminal = TERMINAL_STATUSES.has(activeQuotation.status);
+  const canRespond = activeQuotation.status === "vendor_offered" || activeQuotation.status === "vendor_countered";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
-      <div className="relative w-full sm:max-w-xl bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="relative w-full sm:max-w-4xl bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4 shrink-0">
           <div>
-            <h2 className="text-sm font-semibold text-zinc-900">{quotation.service_name}</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">with {quotation.vendor_name}</p>
+            <h2 className="text-base font-bold text-zinc-900">{quotationGroup.service_name}</h2>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              Service inquiry with {quotationGroup.vendor_quotations.length} provider(s)
+            </p>
           </div>
-          <div className="flex items-center gap-3">
-            <StatusBadge status={quotation.status} />
-            <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 transition-colors"><X size={18} /></button>
-          </div>
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 transition-colors"><X size={18} /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-          {loading ? (
-            <div className="flex items-center justify-center py-12"><Loader2 size={20} className="animate-spin text-zinc-400" /></div>
-          ) : detail?.messages?.length ? (
-            detail.messages.map((msg) => {
-              const isClient = msg.sender_role === "client";
-              return (
-                <div key={msg.id} className={`flex gap-3 ${isClient ? "flex-row-reverse" : "flex-row"}`}>
-                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${isClient ? "bg-[#1d4ed8] text-white" : "bg-zinc-200 text-zinc-700"}`}>
-                    {isClient ? "Y" : "V"}
-                  </div>
-                  <div className={`max-w-xs rounded-xl px-4 py-3 text-xs space-y-1 ${isClient ? "bg-[#1d4ed8]/10 text-zinc-900" : "bg-zinc-100 text-zinc-800"}`}>
-                    <p className="font-semibold text-[11px] text-zinc-500">{ACTION_LABELS[msg.action] ?? msg.action}</p>
-                    {msg.offer_price && (
-                      <p className="font-bold text-sm text-zinc-900">₹{parseFloat(msg.offer_price).toLocaleString("en-IN")}</p>
-                    )}
-                    {msg.note && <p className="text-zinc-600">{msg.note}</p>}
-                    {msg.reason && <p className="text-zinc-400 italic">{msg.reason}</p>}
-                    <p className="text-[10px] text-zinc-400 pt-1">{formatDate(msg.created_at)}</p>
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <p className="text-center text-xs text-zinc-400 py-8">No messages yet</p>
-          )}
-        </div>
-
-        {canRespond && !isTerminal && (
-          <form onSubmit={handleRespond} className="border-t border-zinc-100 px-6 py-4 space-y-3 shrink-0">
-            <div className="flex gap-2">
-              {["accept", "counter", "reject"].map((a) => (
-                <button
-                  key={a}
-                  type="button"
-                  onClick={() => setAction(a)}
-                  className={`flex-1 rounded-lg border py-2 text-xs font-semibold capitalize transition-colors ${
-                    action === a
-                      ? a === "accept" ? "bg-emerald-600 border-emerald-600 text-white" : a === "reject" ? "bg-red-500 border-red-500 text-white" : "bg-[#1d4ed8] border-[#1d4ed8] text-white"
-                      : "border-zinc-200 text-zinc-600 hover:border-zinc-400"
-                  }`}
-                >
-                  {a}
-                </button>
-              ))}
+        <div className="flex-1 flex overflow-hidden min-h-0">
+          {/* Sidebar listing vendors */}
+          {quotationGroup.vendor_quotations.length > 1 && (
+            <div className="w-1/3 border-r border-zinc-100 overflow-y-auto bg-zinc-50/50 p-4 space-y-2 shrink-0">
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-3">Service Providers</p>
+              {quotationGroup.vendor_quotations.map((vq) => {
+                const isActive = vq.vendor_id === selectedVendorId;
+                return (
+                  <button
+                    key={vq.id}
+                    onClick={() => setSelectedVendorId(vq.vendor_id || "")}
+                    className={`w-full text-left p-3.5 rounded-xl border transition-all flex flex-col gap-1.5 ${
+                      isActive
+                        ? "bg-white border-blue-500 shadow-sm ring-1 ring-blue-500/20"
+                        : "bg-transparent border-transparent hover:bg-zinc-100/70 text-zinc-700"
+                    }`}
+                  >
+                    <span className="text-xs font-bold truncate block">{vq.vendor_name}</span>
+                    <span className="scale-90 origin-left block">
+                      <StatusBadge status={vq.status} />
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            {action === "counter" && (
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-zinc-500">₹</span>
-                <input
-                  type="number"
-                  min="0"
-                  value={offerPrice}
-                  onChange={(e) => setOfferPrice(e.target.value)}
-                  placeholder="Your counter price"
-                  className="w-full rounded-lg border border-zinc-300 pl-7 pr-3 py-2 text-sm focus:border-[#1d4ed8] focus:outline-none focus:ring-1 focus:ring-[#1d4ed8]/30 transition-colors"
-                />
+          )}
+
+          {/* Main thread area */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="px-6 py-3 bg-zinc-50/50 border-b border-zinc-100 flex items-center justify-between shrink-0">
+              <span className="text-xs font-bold text-zinc-700">{activeQuotation.vendor_name}</span>
+              <StatusBadge status={activeQuotation.status} />
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+              {loading ? (
+                <div className="flex items-center justify-center py-12"><Loader2 size={20} className="animate-spin text-zinc-400" /></div>
+              ) : detail?.messages?.length ? (
+                detail.messages.map((msg) => {
+                  const isClient = msg.sender_role === "client";
+                  return (
+                    <div key={msg.id} className={`flex gap-3 ${isClient ? "flex-row-reverse" : "flex-row"}`}>
+                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${isClient ? "bg-[#1d4ed8] text-white" : "bg-zinc-200 text-zinc-700"}`}>
+                        {isClient ? "Y" : "V"}
+                      </div>
+                      <div className={`max-w-xs rounded-xl px-4 py-3 text-xs space-y-1 ${isClient ? "bg-[#1d4ed8]/10 text-zinc-900" : "bg-zinc-100 text-zinc-800"}`}>
+                        <p className="font-semibold text-[11px] text-zinc-500">{ACTION_LABELS[msg.action] ?? msg.action}</p>
+                        {msg.offer_price && (
+                          <p className="font-bold text-sm text-zinc-900">₹{parseFloat(msg.offer_price).toLocaleString("en-IN")}</p>
+                        )}
+                        {msg.note && <p className="text-zinc-600">{msg.note}</p>}
+                        {msg.reason && <p className="text-zinc-400 italic">{msg.reason}</p>}
+                        <p className="text-[10px] text-zinc-400 pt-1">{formatDate(msg.created_at)}</p>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-center text-xs text-zinc-400 py-8">No messages yet</p>
+              )}
+            </div>
+
+            {canRespond && !isTerminal && (
+              <form onSubmit={handleRespond} className="border-t border-zinc-100 px-6 py-4 space-y-3 shrink-0">
+                <div className="flex gap-2">
+                  {["accept", "counter", "reject"].map((a) => (
+                    <button
+                      key={a}
+                      type="button"
+                      onClick={() => setAction(a)}
+                      className={`flex-1 rounded-lg border py-2 text-xs font-semibold capitalize transition-colors ${
+                        action === a
+                          ? a === "accept" ? "bg-emerald-600 border-emerald-600 text-white" : a === "reject" ? "bg-red-500 border-red-500 text-white" : "bg-[#1d4ed8] border-[#1d4ed8] text-white"
+                          : "border-zinc-200 text-zinc-600 hover:border-zinc-400"
+                      }`}
+                    >
+                      {a}
+                    </button>
+                  ))}
+                </div>
+                {action === "counter" && (
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-zinc-500">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={offerPrice}
+                      onChange={(e) => setOfferPrice(e.target.value)}
+                      placeholder="Your counter price"
+                      className="w-full rounded-lg border border-zinc-300 pl-7 pr-3 py-2 text-sm focus:border-[#1d4ed8] focus:outline-none focus:ring-1 focus:ring-[#1d4ed8]/30 transition-colors"
+                    />
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="Add a note (optional)"
+                    className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-[#1d4ed8] focus:outline-none focus:ring-1 focus:ring-[#1d4ed8]/30 transition-colors"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isResponding || !action}
+                    className="flex items-center gap-1.5 rounded-lg bg-[#1d4ed8] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1e40af] disabled:opacity-60 transition-colors"
+                  >
+                    {isResponding ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                    Send
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {isTerminal && (
+              <div className="border-t border-zinc-100 px-6 py-4 text-center shrink-0">
+                <p className="text-xs text-zinc-400">This quotation has been finalised.</p>
               </div>
             )}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Add a note (optional)"
-                className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-[#1d4ed8] focus:outline-none focus:ring-1 focus:ring-[#1d4ed8]/30 transition-colors"
-              />
-              <button
-                type="submit"
-                disabled={isResponding || !action}
-                className="flex items-center gap-1.5 rounded-lg bg-[#1d4ed8] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1e40af] disabled:opacity-60 transition-colors"
-              >
-                {isResponding ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                Send
-              </button>
-            </div>
-          </form>
-        )}
-
-        {isTerminal && (
-          <div className="border-t border-zinc-100 px-6 py-4 text-center shrink-0">
-            <p className="text-xs text-zinc-400">This quotation has been finalised.</p>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
@@ -267,7 +331,7 @@ export default function QuotationsPage() {
   const [activeCategory, setActiveCategory] = useState<"products" | "services">("products");
   const [activeTab, setActiveTab] = useState<FilterTab>("All");
   const [searchQuery, setSearchQuery] = useState("");
-  const [openQuotation, setOpenQuotation] = useState<ServiceQuotation | null>(null);
+  const [openQuotation, setOpenQuotation] = useState<ServiceQuotationGroup | null>(null);
 
   useEffect(() => {
     fetchUser();
@@ -320,7 +384,6 @@ export default function QuotationsPage() {
   const filteredGroups = useMemo(() => {
     let filtered = quotationGroups;
 
-    // Apply text search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -328,7 +391,6 @@ export default function QuotationsPage() {
       );
     }
 
-    // Apply tab filter
     switch (activeTab) {
       case "Pending":
         filtered = filtered.filter(item => item.group_status === "pending");
@@ -347,33 +409,89 @@ export default function QuotationsPage() {
     return filtered;
   }, [quotationGroups, activeTab, searchQuery]);
 
-  const filteredServiceQuotations = useMemo(() => {
-    let filtered = serviceQuotations;
+  const serviceQuotationGroups = useMemo(() => {
+    const groups: ServiceQuotationGroup[] = [];
+
+    const sorted = [...serviceQuotations].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    for (const sq of sorted) {
+      const sqTime = new Date(sq.created_at).getTime();
+      const existingGroup = groups.find(
+        (g) =>
+          g.service_id === sq.service_id &&
+          Math.abs(new Date(g.created_at).getTime() - sqTime) < 15000
+      );
+
+      if (existingGroup) {
+        existingGroup.vendor_quotations.push(sq);
+        existingGroup.total_vendors += 1;
+        if (sq.status !== "pending_vendor") {
+          existingGroup.vendors_responded += 1;
+        }
+        if (sq.status === "client_accepted") {
+          existingGroup.accepted_count += 1;
+        }
+      } else {
+        groups.push({
+          service_id: sq.service_id || "",
+          service_name: sq.service_name,
+          scope_of_work: sq.scope_of_work,
+          created_at: sq.created_at,
+          updated_at: sq.updated_at,
+          total_vendors: 1,
+          vendors_responded: sq.status !== "pending_vendor" ? 1 : 0,
+          accepted_count: sq.status === "client_accepted" ? 1 : 0,
+          group_status: "pending",
+          vendor_quotations: [sq],
+        });
+      }
+    }
+
+    for (const g of groups) {
+      const statuses = g.vendor_quotations.map(q => q.status);
+      if (statuses.some(s => s === "client_accepted")) {
+        g.group_status = "accepted";
+      } else if (statuses.some(s => s === "vendor_offered" || s === "vendor_countered")) {
+        g.group_status = "offers_received";
+      } else if (statuses.every(s => s === "client_rejected" || s === "vendor_rejected" || s === "cancelled")) {
+        g.group_status = "closed";
+      } else {
+        g.group_status = "pending";
+      }
+    }
+
+    return groups;
+  }, [serviceQuotations]);
+
+  const filteredServiceGroups = useMemo(() => {
+    let filtered = serviceQuotationGroups;
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter(
-        item => item.service_name.toLowerCase().includes(q) || item.vendor_name.toLowerCase().includes(q)
+        item => item.service_name.toLowerCase().includes(q)
       );
     }
 
     switch (activeTab) {
       case "Pending":
-        filtered = filtered.filter(item => item.status === "pending_vendor" || item.status === "client_countered");
+        filtered = filtered.filter(item => item.group_status === "pending");
         break;
       case "Offers Received":
-        filtered = filtered.filter(item => item.status === "vendor_offered" || item.status === "vendor_countered");
+        filtered = filtered.filter(item => item.group_status === "offers_received");
         break;
       case "Accepted":
-        filtered = filtered.filter(item => item.status === "client_accepted");
+        filtered = filtered.filter(item => item.group_status === "accepted");
         break;
       case "Closed":
-        filtered = filtered.filter(item => item.status === "client_rejected" || item.status === "vendor_rejected" || item.status === "cancelled");
+        filtered = filtered.filter(item => item.group_status === "closed");
         break;
     }
 
     return filtered;
-  }, [serviceQuotations, activeTab, searchQuery]);
+  }, [serviceQuotationGroups, activeTab, searchQuery]);
 
   if (loading) {
     return (
@@ -383,7 +501,7 @@ export default function QuotationsPage() {
     );
   }
 
-  if (quotationGroups.length === 0 && serviceQuotations.length === 0) {
+  if (quotationGroups.length === 0 && serviceQuotationGroups.length === 0) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-24 text-center">
         <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-blue-50 mb-6">
@@ -441,7 +559,7 @@ export default function QuotationsPage() {
                   : "border-transparent text-zinc-500 hover:text-zinc-800"
               }`}
             >
-              Services ({serviceQuotations.length})
+              Services ({serviceQuotationGroups.length})
             </button>
           </div>
 
@@ -472,19 +590,19 @@ export default function QuotationsPage() {
             <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
               <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
                 <p className="text-sm font-medium text-zinc-500">Total Services</p>
-                <p className="mt-2 text-3xl font-bold text-zinc-900">{serviceQuotations.length}</p>
+                <p className="mt-2 text-3xl font-bold text-zinc-900">{serviceQuotationGroups.length}</p>
               </div>
               <div className="rounded-2xl border border-zinc-200 bg-amber-50 p-5">
                 <p className="text-sm font-medium text-amber-700">Awaiting Vendor</p>
-                <p className="mt-2 text-3xl font-bold text-amber-900">{serviceQuotations.filter(q => q.status === "pending_vendor" || q.status === "client_countered").length}</p>
+                <p className="mt-2 text-3xl font-bold text-amber-900">{serviceQuotationGroups.filter(q => q.group_status === "pending").length}</p>
               </div>
               <div className="rounded-2xl border border-zinc-200 bg-blue-50 p-5">
                 <p className="text-sm font-medium text-blue-700">Vendor Offered</p>
-                <p className="mt-2 text-3xl font-bold text-blue-900">{serviceQuotations.filter(q => q.status === "vendor_offered" || q.status === "vendor_countered").length}</p>
+                <p className="mt-2 text-3xl font-bold text-blue-900">{serviceQuotationGroups.filter(q => q.group_status === "offers_received").length}</p>
               </div>
               <div className="rounded-2xl border border-zinc-200 bg-emerald-50 p-5">
                 <p className="text-sm font-medium text-emerald-700">Accepted</p>
-                <p className="mt-2 text-3xl font-bold text-emerald-900">{serviceQuotations.filter(q => q.status === "client_accepted").length}</p>
+                <p className="mt-2 text-3xl font-bold text-emerald-900">{serviceQuotationGroups.filter(q => q.group_status === "accepted").length}</p>
               </div>
             </div>
           )}
@@ -619,47 +737,64 @@ export default function QuotationsPage() {
 
         {/* Service Quotation Cards */}
         {activeCategory === "services" && (
-          filteredServiceQuotations.length === 0 ? (
+          filteredServiceGroups.length === 0 ? (
             <div className="rounded-3xl border border-zinc-200 bg-white py-20 text-center shadow-sm">
               <Search className="mx-auto h-10 w-10 text-zinc-300 mb-3" />
               <p className="text-zinc-500">No service quotations found matching your criteria.</p>
             </div>
           ) : (
-            <div className="grid gap-4">
-              {filteredServiceQuotations.map((quotation) => (
-                <button
-                  key={quotation.id}
-                  onClick={() => setOpenQuotation(quotation)}
-                  className="w-full text-left rounded-2xl border border-zinc-200 bg-white p-5 hover:border-zinc-300 hover:shadow-md transition-all flex items-center justify-between gap-4"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-bold text-zinc-900 text-base">{quotation.service_name}</p>
-                        <p className="text-xs text-zinc-500 mt-0.5">with {quotation.vendor_name}</p>
+            <div className="grid gap-5">
+              {filteredServiceGroups.map((group) => {
+                const status = getGroupStatusInfo(group.group_status);
+                const StatusIcon = status.icon;
+
+                return (
+                  <button
+                    key={`${group.service_id}-${group.created_at}`}
+                    onClick={() => setOpenQuotation(group)}
+                    className="group relative w-full text-left rounded-3xl border border-zinc-200 bg-white p-5 hover:border-zinc-300 hover:shadow-lg transition-all flex items-center justify-between gap-5"
+                  >
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors overflow-hidden">
+                      <Wrench size={28} />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-1">
+                        <h3 className="text-lg font-bold text-zinc-900 truncate">{group.service_name}</h3>
+                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${status.bg} ${status.color}`}>
+                          <StatusIcon size={14} />
+                          {status.label}
+                        </span>
                       </div>
-                      <StatusBadge status={quotation.status} />
+
+                      {/* Vendor response summary */}
+                      <div className="flex items-center gap-2 mb-3">
+                        <Users size={14} className="text-zinc-400" />
+                        <p className="text-sm text-zinc-500">
+                          <span className="font-semibold text-zinc-700">{group.vendors_responded}</span> of{" "}
+                          <span className="font-semibold text-zinc-700">{group.total_vendors}</span> vendor{group.total_vendors > 1 ? "s" : ""} responded
+                          {group.accepted_count > 0 && (
+                            <span className="ml-2 text-emerald-600 font-medium">• {group.accepted_count} accepted</span>
+                          )}
+                        </p>
+                      </div>
+
+                      <p className="text-xs text-zinc-500 line-clamp-1">{group.scope_of_work}</p>
                     </div>
-                    <p className="mt-2 text-xs text-zinc-500 line-clamp-1">{quotation.scope_of_work}</p>
-                    <div className="mt-3 flex items-center gap-3 text-xs text-zinc-400">
-                      {quotation.requested_price && (
-                        <span className="flex items-center gap-1 bg-zinc-50 px-2 py-1 rounded border border-zinc-100 font-medium text-zinc-700">
-                          Budget: ₹{parseFloat(quotation.requested_price).toLocaleString("en-IN")}
-                        </span>
-                      )}
-                      {quotation.agreed_price && (
-                        <span className="flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded border border-emerald-100 text-emerald-700 font-semibold">
-                          Agreed: ₹{parseFloat(quotation.agreed_price).toLocaleString("en-IN")}
-                        </span>
-                      )}
-                      <span>Updated: {formatDate(quotation.updated_at)}</span>
+
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-50 text-zinc-400 transition-colors group-hover:bg-blue-600 group-hover:text-white">
+                      <ArrowRight size={20} />
                     </div>
-                  </div>
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-50 text-zinc-400 hover:bg-blue-600 hover:text-white transition-colors">
-                    <ArrowRight size={16} />
-                  </div>
-                </button>
-              ))}
+
+                    {/* Desktop Date Badge */}
+                    <div className="absolute right-5 top-5 hidden sm:block">
+                      <p className="text-xs font-medium text-zinc-400">
+                        {new Date(group.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )
         )}
@@ -667,7 +802,7 @@ export default function QuotationsPage() {
 
       {openQuotation && (
         <ThreadDialog
-          quotation={openQuotation}
+          quotationGroup={openQuotation}
           onClose={() => setOpenQuotation(null)}
           onUpdate={fetchMyQuotations}
         />

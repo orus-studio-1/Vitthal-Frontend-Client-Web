@@ -98,6 +98,8 @@ export type ServiceQuotation = {
   updated_at: string;
   service_name: string;
   vendor_name: string;
+  service_id: string;
+  vendor_id: string;
 };
 
 export type QuotationMessage = {
