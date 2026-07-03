@@ -1051,7 +1051,7 @@ export default function ProductDetailPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-4 border-t border-zinc-100 mt-auto">
+              <div className="flex flex-col lg:flex-row items-stretch gap-3 pt-4 border-t border-zinc-100 mt-auto">
                 <button
                   onClick={handleSaveToWishlist}
                   disabled={savingWishlist}
@@ -1067,10 +1067,10 @@ export default function ProductDetailPage() {
                   <ShoppingCart size={18} />
                   View Suppliers & Add to Cart
                 </a>
-                <Link
-                  href="/cart"
-                  className="px-6 py-3.5 border-2 border-zinc-200 text-zinc-700 text-sm font-semibold rounded-xl hover:border-zinc-300 hover:bg-zinc-50 transition-all text-center flex items-center justify-center gap-2"
-                >
+                  <Link
+                    href="/cart"
+                    className="flex-1 px-6 py-3.5 border-2 border-zinc-200 text-zinc-700 text-sm font-semibold rounded-xl hover:border-zinc-300 hover:bg-zinc-50 transition-all text-center flex items-center justify-center gap-2"
+                  >
                   Go to Cart
                   <ArrowRight size={16} />
                 </Link>
