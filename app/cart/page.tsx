@@ -272,7 +272,7 @@ export default function CartPage() {
           </Link>
         </div>
 
-        {items.length === 0 ? (
+        {items.length === 0 && serviceItems.length === 0 ? (
           <div className="mt-8 flex flex-col items-center justify-center text-center py-16 bg-white border border-zinc-200 rounded-xl p-8 shadow-sm">
             <ShoppingCart size={64} className="text-zinc-300 mb-4" />
             <h1 className="text-2xl font-semibold text-zinc-900 mb-2">Your cart is empty</h1>
@@ -410,7 +410,6 @@ export default function CartPage() {
                     </div>
                   );
                 })}
-              </div>
 
               {/* ── Services Section ── */}
               {serviceItems.length > 0 && (
@@ -468,6 +467,7 @@ export default function CartPage() {
                   </div>
                 </div>
               )}
+              </div>{/* end lg:col-span-2 */}
 
               <div className="lg:col-span-1">
                 <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm sticky top-24">
@@ -482,20 +482,24 @@ export default function CartPage() {
 
                     return (
                       <div className="space-y-3 text-sm">
-                        <div className="flex justify-between text-zinc-600">
-                          <span>Products ({items.length})</span>
-                          <span>₹{totalPrice().toLocaleString()}</span>
-                        </div>
+                        {items.length > 0 && (
+                          <div className="flex justify-between text-zinc-600">
+                            <span>Products ({items.length})</span>
+                            <span>₹{totalPrice().toLocaleString()}</span>
+                          </div>
+                        )}
                         {serviceItems.length > 0 && (
                           <div className="flex justify-between text-zinc-600">
                             <span>Services ({serviceItems.length})</span>
                             <span>₹{serviceTotalPrice().toLocaleString("en-IN")}</span>
                           </div>
                         )}
-                        <div className="flex justify-between text-zinc-600">
-                          <span>GST</span>
-                          <span>₹{Math.round(totalGst).toLocaleString()}</span>
-                        </div>
+                        {totalGst > 0 && (
+                          <div className="flex justify-between text-zinc-600">
+                            <span>GST</span>
+                            <span>₹{Math.round(totalGst).toLocaleString()}</span>
+                          </div>
+                        )}
                         <div className="border-t border-zinc-200 pt-3 flex justify-between font-semibold text-zinc-900">
                           <span>Total</span>
                           <span>₹{Math.round(grandTotal).toLocaleString()}</span>

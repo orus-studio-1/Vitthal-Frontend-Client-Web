@@ -16,7 +16,7 @@ export default function QuotationCartPage() {
   const { items, fetchCart, updateQuantity, removeItem, clearCart, isLoading } = useQuotationCartStore();
   const { fetchUser, user } = useAuthStore();
   const shareCart = useCartStore((s) => s.shareCart);
-  const { items: serviceItems, fetchCart: fetchServiceCart, removeItem: removeServiceItem, updateQuantity: updateServiceQty } = useServiceCartStore();
+  const { items: serviceItems, fetchCart: fetchServiceCart, removeItem: removeServiceItem, updateQuantity: updateServiceQty, clearCart: clearServiceCart } = useServiceCartStore();
 
   const [requestNote, setRequestNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -66,6 +66,7 @@ export default function QuotationCartPage() {
       toast.success("Quotation requests submitted");
       setRequestNote("");
       await clearCart();
+      await clearServiceCart("quotation");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to submit quotation";
       toast.error(message);
@@ -84,7 +85,7 @@ export default function QuotationCartPage() {
     );
   }
 
-  if (items.length === 0) {
+  if (items.length === 0 && serviceItems.length === 0) {
     return (
       <main className="flex-1 bg-zinc-50">
         <div className="mx-auto max-w-4xl px-4 py-16 text-center">
@@ -163,7 +164,10 @@ export default function QuotationCartPage() {
             </button>
             <span className="text-zinc-300">|</span>
             <button
-              onClick={() => void clearCart()}
+              onClick={async () => {
+                await clearCart();
+                await clearServiceCart("quotation");
+              }}
               className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors disabled:opacity-50"
             >
               Clear all
