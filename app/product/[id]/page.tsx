@@ -240,7 +240,7 @@ export default function ProductDetailPage() {
     : [];
   const displayVendors = Array.from(
     new Map(rawDisplayVendors.map((v: any) => [v.vendor_id || v.id || Math.random(), v])).values()
-  );
+  ) as any[];
   const [isLocating, setIsLocating] = useState(false);
   const [isRanking, setIsRanking] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState<RelatedProduct[]>([]);
