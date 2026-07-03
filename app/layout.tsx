@@ -3,6 +3,7 @@ import { Outfit, Montserrat } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { Footer, Header } from "@/components/Landing_Page";
+import PreFooter from "@/components/shared/PreFooter";
 import { Toaster } from "@/components/ui/sonner";
 import { consoleGuardScript, isProduction } from "@/lib/consoleGuard";
 
@@ -47,6 +48,7 @@ export default function RootLayout({
         <Toaster position="top-right" richColors/>
         <Header />
         {children}
+        <PreFooter />
         <Footer />
       </body>
     </html>
