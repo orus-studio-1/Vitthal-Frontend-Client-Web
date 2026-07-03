@@ -11,10 +11,10 @@ type Props = {
   onClose: () => void;
   serviceId: string;
   serviceName: string;
-  offering: VendorOffering;
+  offerings: VendorOffering[];
 };
 
-export function RequestQuoteModal({ isOpen, onClose, serviceId, serviceName, offering }: Props) {
+export function RequestQuoteModal({ isOpen, onClose, serviceId, serviceName, offerings }: Props) {
   const createQuotation = useServiceStore((s) => s.createQuotation);
   const [scopeOfWork, setScopeOfWork] = useState("");
   const [requestedPrice, setRequestedPrice] = useState("");
@@ -35,22 +35,37 @@ export function RequestQuoteModal({ isOpen, onClose, serviceId, serviceName, off
       return;
     }
 
+    if (offerings.length === 0) {
+      toast.error("No service providers available for this service");
+      return;
+    }
+
     setIsSubmitting(true);
 
-    const success = await createQuotation({
-      vendorId: offering.vendor_id,
-      serviceId,
-      scopeOfWork: scopeOfWork.trim(),
-      requestedPrice: requestedPrice.trim() || undefined,
-    });
+    try {
+      const promises = offerings.map((o) =>
+        createQuotation({
+          vendorId: o.vendor_id,
+          serviceId,
+          scopeOfWork: scopeOfWork.trim(),
+          requestedPrice: requestedPrice.trim() || undefined,
+        })
+      );
 
-    setIsSubmitting(false);
+      const results = await Promise.all(promises);
+      const successCount = results.filter(Boolean).length;
 
-    if (success) {
-      setSubmitted(true);
-      toast.success("Quotation request sent!");
-    } else {
-      toast.error("Failed to send quotation. Please try again.");
+      if (successCount > 0) {
+        setSubmitted(true);
+        toast.success(`Service request sent to ${successCount} provider(s)!`);
+      } else {
+        toast.error("Failed to send service requests. Please try again.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("An error occurred. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -69,8 +84,8 @@ export function RequestQuoteModal({ isOpen, onClose, serviceId, serviceName, off
       <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
           <div>
-            <h2 className="text-base font-semibold text-zinc-900">Request a Quote</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">{serviceName} · {offering.company_name}</p>
+            <h2 className="text-base font-semibold text-zinc-900">Request Service</h2>
+            <p className="text-xs text-zinc-500 mt-0.5">{serviceName} · {offerings.length} provider(s)</p>
           </div>
           <button
             onClick={handleClose}
@@ -87,10 +102,10 @@ export function RequestQuoteModal({ isOpen, onClose, serviceId, serviceName, off
               <CheckCircle size={32} className="text-[#1d4ed8]" />
             </div>
             <div>
-              <p className="text-base font-semibold text-zinc-900">Quotation Sent!</p>
+              <p className="text-base font-semibold text-zinc-900">Request Sent!</p>
               <p className="mt-1 text-sm text-zinc-500">
-                The vendor will respond to your request. Track it in{" "}
-                <a href="/services/quotations" className="text-[#1d4ed8] underline underline-offset-2">
+                The service providers will respond with their proposals. Track them in{" "}
+                <a href="/quotations?tab=services" className="text-[#1d4ed8] underline underline-offset-2">
                   My Quotations
                 </a>.
               </p>
@@ -105,8 +120,8 @@ export function RequestQuoteModal({ isOpen, onClose, serviceId, serviceName, off
         ) : (
           <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
             <div className="rounded-xl border border-blue-100 bg-blue-50 p-3.5 text-xs text-blue-700">
-              <p className="font-medium">How quotations work</p>
-              <p className="mt-1 text-blue-600">Describe your requirements and optionally suggest a budget. The vendor will respond with their offer and you can negotiate.</p>
+              <p className="font-medium">How service requests work</p>
+              <p className="mt-1 text-blue-600">Describe your requirements and optionally suggest a budget. This request will be sent directly to all available providers, who will respond with custom offers.</p>
             </div>
 
             <div>
@@ -119,7 +134,7 @@ export function RequestQuoteModal({ isOpen, onClose, serviceId, serviceName, off
                 required
                 value={scopeOfWork}
                 onChange={(e) => setScopeOfWork(e.target.value)}
-                placeholder="Describe what you need: location, timeline, quantity, quality requirements, any specific standards..."
+                placeholder="Describe what you need: location, timeline, quantity, quality requirements, specific standards..."
                 className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-[#1d4ed8] focus:outline-none focus:ring-1 focus:ring-[#1d4ed8]/30 transition-colors resize-none"
               />
             </div>
@@ -148,7 +163,7 @@ export function RequestQuoteModal({ isOpen, onClose, serviceId, serviceName, off
               disabled={isSubmitting}
               className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#1d4ed8] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1e40af] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             >
-              {isSubmitting ? <><Loader2 size={16} className="animate-spin" /> Sending...</> : "Send Quotation Request"}
+              {isSubmitting ? <><Loader2 size={16} className="animate-spin" /> Sending...</> : "Send Service Request"}
             </button>
           </form>
         )}

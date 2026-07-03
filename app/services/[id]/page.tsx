@@ -31,9 +31,9 @@ import {
 } from "lucide-react";
 import { ServiceMediaGallery } from "@/components/services/ServiceMediaGallery";
 import { ServiceCard } from "@/components/services/ServiceCard";
+import { RequestQuoteModal } from "@/components/services/RequestQuoteModal";
 import { useAuthStore } from "@/store/authStore";
 import { useWishlistStore } from "@/store/wishlistStore";
-import { useServiceCartStore } from "@/store/serviceCartStore";
 import type { ServiceDetail, VendorOffering } from "@/store/serviceStore";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
@@ -70,6 +70,13 @@ async function fetchClientAddress(): Promise<{ latitude: number; longitude: numb
   }
 }
 
+
+function formatDistance(distance: number | null | undefined): string {
+  if (distance === null || distance === undefined) return "Regional Provider";
+  return distance < 1 
+    ? `${Math.round(distance * 1000)} m away`
+    : `${distance.toFixed(1)} km away`;
+}
 
 function StarDisplay({ rating, count }: { rating: string | null; count: number }) {
   const value = rating ? parseFloat(rating) : 0;
@@ -119,16 +126,7 @@ export default function ServiceDetailPage() {
 
   const [service, setService] = useState<ServiceDetail | null>(null);
   const [loading, setLoading] = useState(true);
-
-  // Per-offering quantity state (keyed by vendor_service_id)
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [addingToCart, setAddingToCart] = useState<string | null>(null);
-
-  // Service cart store
-  const addServiceToCart = useServiceCartStore((s) => s.addItem);
-  const fetchServiceCart = useServiceCartStore((s) => s.fetchCart);
-  const serviceCartItems = useServiceCartStore((s) => s.items);
-  const [activeCartType, setActiveCartType] = useState<"direct" | "quotation">("direct");
+  const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
 
   // User location and saved address states
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; label: string } | null>(null);
@@ -163,12 +161,7 @@ export default function ServiceDetailPage() {
     loadAddress();
   }, []);
 
-  // Fetch service cart items on mount
-  useEffect(() => {
-    if (user) {
-      fetchServiceCart("direct", true);
-    }
-  }, [user, fetchServiceCart]);
+
 
 
   // Load service details (re-fetches when location changes to rank offerings)
@@ -237,35 +230,7 @@ export default function ServiceDetailPage() {
     loadRelated();
   }, [service]);
 
-  async function handleAddToCart(offering: VendorOffering, cartType: "direct" | "quotation" = "direct") {
-    if (!isAuthenticated) {
-      toast.error("Please sign in to add services to cart");
-      router.push("/login");
-      return;
-    }
-    const qty = quantities[offering.vendor_service_id] || offering.moq || 1;
-    setAddingToCart(`${offering.vendor_service_id}-${cartType}`);
-    try {
-      const success = await addServiceToCart(offering.vendor_service_id, qty, cartType);
-      if (success) {
-        setActiveCartType(cartType);
-        await fetchServiceCart(cartType, true);
-        if (cartType === "quotation") {
-          toast.success("Added to Quotation Cart", {
-            action: { label: "View", onClick: () => router.push("/quotation-cart") },
-          });
-        } else {
-          toast.success("Added to Cart", {
-            action: { label: "View Cart", onClick: () => router.push("/cart") },
-          });
-        }
-      } else {
-        toast.error("Failed to add to cart");
-      }
-    } finally {
-      setAddingToCart(null);
-    }
-  }
+
 
   function handleUseCurrentLocation() {
     if (!navigator.geolocation) {
@@ -468,20 +433,21 @@ export default function ServiceDetailPage() {
                     {savingWishlist ? <Loader2 size={18} className="animate-spin" /> : <Heart size={18} className={isSaved ? "fill-rose-600 text-rose-600" : ""} />}
                     {savingWishlist ? "Saving..." : (isSaved ? "Saved" : "Save to Wishlist")}
                   </button>
-                  <a
-                    href="#vendors-list"
-                    className="flex-1 px-6 py-3.5 bg-[#1d4ed8] text-white text-sm font-semibold rounded-xl hover:bg-blue-800 hover:shadow-lg transition-all text-center flex items-center justify-center gap-2"
+                  <button
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        toast.error("Please sign in to request services");
+                        router.push("/login");
+                        return;
+                      }
+                      setIsQuoteModalOpen(true);
+                    }}
+                    disabled={!service || service.vendor_offerings.length === 0}
+                    className="flex-[2] px-6 py-3.5 bg-[#1d4ed8] hover:bg-blue-800 text-white text-sm font-semibold rounded-xl hover:shadow-lg transition-all text-center flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <ShoppingCart size={18} />
-                    View Providers & Add to Cart
-                  </a>
-                  <Link
-                    href="/cart"
-                    className="flex-1 px-6 py-3.5 border-2 border-zinc-200 text-zinc-700 text-sm font-semibold rounded-xl hover:border-zinc-300 hover:bg-zinc-50 transition-all text-center flex items-center justify-center gap-2"
-                  >
-                    Go to Cart
-                    <ArrowRight size={16} />
-                  </Link>
+                    <Wrench size={18} />
+                    Request Service
+                  </button>
                 </div>
 
                 {/* MTWO service guarantee section */}
@@ -688,9 +654,7 @@ export default function ServiceDetailPage() {
                             <div className="bg-zinc-50 border border-zinc-200 px-3.5 py-2.5 rounded-xl">
                               <p className="text-xs text-zinc-500 font-medium">Site Distance</p>
                               <p className="text-base font-semibold text-zinc-800 mt-0.5">
-                                {offering.distance !== null && offering.distance !== undefined
-                                  ? `${offering.distance.toFixed(1)} km away`
-                                  : "Regional Provider"}
+                                {formatDistance(offering.distance)}
                               </p>
                             </div>
                           </div>
@@ -698,66 +662,19 @@ export default function ServiceDetailPage() {
 
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 lg:w-auto self-stretch lg:self-center justify-end pt-4 lg:pt-0 border-t border-zinc-100 lg:border-0">
                           <div className="text-left sm:text-right">
-                            <p className="text-xs text-zinc-400 font-medium">Estimated Total</p>
-                            <p className="text-xl font-extrabold text-zinc-900 mt-0.5">
-                              ₹{(parseFloat(offering.price) * (quantities[offering.vendor_service_id] || offering.moq || 1)).toLocaleString("en-IN")}
+                            <p className="text-xs text-zinc-400 font-medium">Estimated Rate</p>
+                            <p className="text-xl font-extrabold text-[#1d4ed8] mt-0.5">
+                              ₹{parseFloat(offering.price).toLocaleString("en-IN")}
+                              <span className="text-xs font-normal text-zinc-500 ml-1">
+                                {PRICING_LABELS[offering.pricing_type] ?? offering.pricing_type}
+                              </span>
                             </p>
-                          </div>
-                          {/* Quantity selector */}
-                          <div className="flex items-center gap-1 border border-zinc-200 rounded-xl overflow-hidden bg-white">
-                            <button
-                              onClick={() => setQuantities((prev) => ({ ...prev, [offering.vendor_service_id]: Math.max(offering.moq || 1, (prev[offering.vendor_service_id] || offering.moq || 1) - 1) }))}
-                              className="px-3 py-2.5 text-zinc-500 hover:bg-zinc-50 transition-colors"
-                            ><Minus size={14} /></button>
-                            <span className="px-3 text-sm font-semibold text-zinc-900 min-w-[2rem] text-center">
-                              {quantities[offering.vendor_service_id] || offering.moq || 1}
-                            </span>
-                            <button
-                              onClick={() => setQuantities((prev) => ({ ...prev, [offering.vendor_service_id]: (prev[offering.vendor_service_id] || offering.moq || 1) + 1 }))}
-                              className="px-3 py-2.5 text-zinc-500 hover:bg-zinc-50 transition-colors"
-                            ><Plus size={14} /></button>
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleAddToCart(offering, "direct")}
-                              disabled={addingToCart !== null}
-                              className="px-4 py-2.5 bg-[#1d4ed8] hover:bg-blue-800 text-white font-semibold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-70"
-                            >
-                              {addingToCart === `${offering.vendor_service_id}-direct` ? <Loader2 size={15} className="animate-spin" /> : <ShoppingCart size={15} />}
-                              Add to Cart
-                            </button>
-                            <button
-                              onClick={() => handleAddToCart(offering, "quotation")}
-                              disabled={addingToCart !== null}
-                              className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-70"
-                              title="Request a custom quotation"
-                            >
-                              {addingToCart === `${offering.vendor_service_id}-quotation` ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />}
-                            </button>
                           </div>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
-                {service.vendor_offerings.length > 0 && serviceCartItems.length > 0 && (
-                  <div className="px-6 py-4 border-t border-zinc-100 bg-zinc-50/50 flex items-center justify-between">
-                    <p className="text-sm text-zinc-500 font-medium">
-                      {activeCartType === "direct" ? (
-                        <>You have <strong className="text-zinc-900">{serviceCartItems.length}</strong> {serviceCartItems.length === 1 ? "service" : "services"} in your cart.</>
-                      ) : (
-                        <>You have <strong className="text-zinc-900">{serviceCartItems.length}</strong> service {serviceCartItems.length === 1 ? "quotation" : "quotations"} in your cart.</>
-                      )}
-                    </p>
-                    <Link
-                      href={activeCartType === "direct" ? "/cart" : "/quotation-cart"}
-                      className="px-5 py-2 bg-zinc-900 text-white text-sm font-semibold rounded-lg hover:bg-zinc-800 transition-colors flex items-center gap-2"
-                    >
-                      {activeCartType === "direct" ? "View Cart & Checkout" : "View Quotation Cart"}
-                      <ArrowRight size={16} />
-                    </Link>
-                  </div>
-                )}
               </div>
 
             ) : (
@@ -934,6 +851,15 @@ export default function ServiceDetailPage() {
       </main>
 
 
+      {service && (
+        <RequestQuoteModal
+          isOpen={isQuoteModalOpen}
+          onClose={() => setIsQuoteModalOpen(false)}
+          serviceId={service.id}
+          serviceName={service.name}
+          offerings={service.vendor_offerings}
+        />
+      )}
     </div>
   );
 }

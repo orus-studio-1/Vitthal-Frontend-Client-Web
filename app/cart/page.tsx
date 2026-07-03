@@ -5,7 +5,6 @@ import { Minus, Plus, Trash2, ShoppingCart, ArrowLeft, Package, Loader2, Heart, 
 import { useCartStore } from "@/store/cartStore";
 import { useAuthStore } from "@/store/authStore";
 import { useWishlistStore } from "@/store/wishlistStore";
-import { useServiceCartStore } from "@/store/serviceCartStore";
 import { useEffect, useLayoutEffect, useRef, useCallback, useState } from "react";
 import { toast } from "sonner";
 import ShareCartModal from "@/components/ShareCartModal";
@@ -14,7 +13,6 @@ export default function CartPage() {
   const { items, removeItem, updateQuantity, clearCart, totalPrice, fetchCart, isLoading, shareCart } = useCartStore();
   const { fetchUser, user } = useAuthStore();
   const { addItem: addToWishlist } = useWishlistStore();
-  const { items: serviceItems, fetchCart: fetchServiceCart, removeItem: removeServiceItem, updateQuantity: updateServiceQty, totalPrice: serviceTotalPrice } = useServiceCartStore();
 
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareId, setShareId] = useState<string | null>(null);
@@ -32,9 +30,8 @@ export default function CartPage() {
   useLayoutEffect(() => {
     if (user) {
       fetchCart();
-      fetchServiceCart("direct");
     }
-  }, [user, fetchCart, fetchServiceCart]);
+  }, [user, fetchCart]);
 
   // Sync local quantities when items change (from server)
   useEffect(() => {
@@ -139,44 +136,7 @@ export default function CartPage() {
     setMovingToWishlistKey(null);
   };
 
-  const handleMoveServiceToWishlist = async (
-    serviceCartItemId: string,
-    serviceId: string,
-    serviceName: string,
-    image: string,
-    price: number,
-    moq: number,
-    vendorId: string,
-    vendorName: string
-  ) => {
-    setMovingToWishlistKey(serviceCartItemId);
 
-    const saved = await addToWishlist({
-      itemType: "service",
-      serviceId,
-      productId: `service:${serviceId}`,
-      productName: serviceName,
-      image,
-      vendorId,
-      vendorName,
-      price,
-      moq,
-      stockQuantity: 0,
-    });
-
-    if (saved) {
-      const removed = await removeServiceItem(serviceCartItemId);
-      if (removed) {
-        toast.success("Service moved to wishlist");
-      } else {
-        toast.warning("Saved to wishlist, but could not remove from cart");
-      }
-    } else {
-      toast.error("Failed to move service to wishlist");
-    }
-
-    setMovingToWishlistKey(null);
-  };
 
 
   const handleShareCart = async () => {
@@ -312,7 +272,7 @@ export default function CartPage() {
           </Link>
         </div>
 
-        {items.length === 0 && serviceItems.length === 0 ? (
+        {items.length === 0 ? (
           <div className="mt-8 flex flex-col items-center justify-center text-center py-16 bg-white border border-zinc-200 rounded-xl p-8 shadow-sm">
             <ShoppingCart size={64} className="text-zinc-300 mb-4" />
             <h1 className="text-2xl font-semibold text-zinc-900 mb-2">Your cart is empty</h1>
@@ -451,76 +411,6 @@ export default function CartPage() {
                   );
                 })}
 
-              {/* ── Services Section ── */}
-              {serviceItems.length > 0 && (
-                <div className="mt-6">
-                  <h2 className="text-base font-semibold text-zinc-700 mb-3 flex items-center gap-2">
-                    <Wrench size={16} className="text-blue-600" />
-                    Services ({serviceItems.length})
-                  </h2>
-                  <div className="space-y-4">
-                    {serviceItems.map((svc) => (
-                      <div key={svc.serviceCartItemId} className="rounded-lg border border-blue-100 bg-blue-50/40 p-4 sm:p-5 shadow-sm">
-                        <div className="flex gap-4">
-                          <div className="h-16 w-16 flex-shrink-0 rounded-md border border-zinc-200 bg-zinc-100 flex items-center justify-center overflow-hidden">
-                            {svc.image ? (
-                              <img src={svc.image} alt={svc.serviceName} className="h-full w-full object-cover" />
-                            ) : (
-                              <Wrench size={22} className="text-zinc-400" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <div>
-                                <Link href={`/services/${svc.serviceId}`} className="text-sm font-semibold text-zinc-900 hover:text-blue-700 transition-colors">{svc.serviceName}</Link>
-                                <p className="text-xs text-zinc-500 mt-0.5">{svc.vendorName} · <span className="capitalize">{svc.pricingType}</span></p>
-                              </div>
-                              <div className="flex flex-col items-end gap-2">
-                                <button
-                                  onClick={async () => { const ok = await removeServiceItem(svc.serviceCartItemId); if (!ok) toast.error("Failed to remove"); }}
-                                  className="rounded p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                                  aria-label="Remove service"
-                                >
-                                  <Trash2 size={15} />
-                                </button>
-                                <button
-                                  onClick={() => handleMoveServiceToWishlist(svc.serviceCartItemId, svc.serviceId, svc.serviceName, svc.image, svc.priceAtAdded, svc.moq, svc.vendorId, svc.vendorName)}
-                                  disabled={isLoading || movingToWishlistKey === svc.serviceCartItemId}
-                                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
-                                >
-                                  {movingToWishlistKey === svc.serviceCartItemId ? (
-                                    <Loader2 size={12} className="animate-spin" />
-                                  ) : (
-                                    <Heart size={12} />
-                                  )}
-                                  Save for later
-                                </button>
-                              </div>
-                            </div>
-                            <div className="mt-3 flex flex-wrap items-center gap-4">
-                              <span className="text-sm font-bold text-blue-700">₹{svc.priceAtAdded.toLocaleString("en-IN")}</span>
-                              <span className="text-xs text-zinc-500">MOQ: {svc.moq}</span>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={async () => { if (svc.quantity <= svc.moq) { toast.error(`Min qty is ${svc.moq}`); return; } await updateServiceQty(svc.serviceCartItemId, svc.quantity - 1); }}
-                                  disabled={svc.quantity <= svc.moq}
-                                  className="rounded border border-zinc-300 p-1 text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                                ><Minus size={13} /></button>
-                                <span className="w-8 text-center text-sm font-medium">{svc.quantity}</span>
-                                <button
-                                  onClick={async () => await updateServiceQty(svc.serviceCartItemId, svc.quantity + 1)}
-                                  className="rounded border border-zinc-300 p-1 text-zinc-600 hover:bg-zinc-100"
-                                ><Plus size={13} /></button>
-                              </div>
-                              <span className="text-sm font-semibold text-zinc-900 ml-auto">₹{(svc.priceAtAdded * svc.quantity).toLocaleString("en-IN")}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
               </div>{/* end lg:col-span-2 */}
 
               <div className="lg:col-span-1">
@@ -532,7 +422,7 @@ export default function CartPage() {
                       const itemGst = (item.price * item.quantity) * ((item.gstPercentage ?? 0) / 100);
                       return sum + itemGst;
                     }, 0);
-                    const grandTotal = totalPrice() + totalGst + serviceTotalPrice();
+                    const grandTotal = totalPrice() + totalGst;
 
                     return (
                       <div className="space-y-3 text-sm">
@@ -540,12 +430,6 @@ export default function CartPage() {
                           <div className="flex justify-between text-zinc-600">
                             <span>Products ({items.length})</span>
                             <span>₹{totalPrice().toLocaleString()}</span>
-                          </div>
-                        )}
-                        {serviceItems.length > 0 && (
-                          <div className="flex justify-between text-zinc-600">
-                            <span>Services ({serviceItems.length})</span>
-                            <span>₹{serviceTotalPrice().toLocaleString("en-IN")}</span>
                           </div>
                         )}
                         {totalGst > 0 && (
