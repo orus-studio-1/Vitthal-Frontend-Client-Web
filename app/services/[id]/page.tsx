@@ -127,6 +127,8 @@ export default function ServiceDetailPage() {
   // Service cart store
   const addServiceToCart = useServiceCartStore((s) => s.addItem);
   const fetchServiceCart = useServiceCartStore((s) => s.fetchCart);
+  const serviceCartItems = useServiceCartStore((s) => s.items);
+  const [activeCartType, setActiveCartType] = useState<"direct" | "quotation">("direct");
 
   // User location and saved address states
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; label: string } | null>(null);
@@ -160,6 +162,14 @@ export default function ServiceDetailPage() {
     }
     loadAddress();
   }, []);
+
+  // Fetch service cart items on mount
+  useEffect(() => {
+    if (user) {
+      fetchServiceCart("direct", true);
+    }
+  }, [user, fetchServiceCart]);
+
 
   // Load service details (re-fetches when location changes to rank offerings)
   useEffect(() => {
@@ -238,6 +248,7 @@ export default function ServiceDetailPage() {
     try {
       const success = await addServiceToCart(offering.vendor_service_id, qty, cartType);
       if (success) {
+        setActiveCartType(cartType);
         await fetchServiceCart(cartType, true);
         if (cartType === "quotation") {
           toast.success("Added to Quotation Cart", {
@@ -729,7 +740,26 @@ export default function ServiceDetailPage() {
                     </div>
                   ))}
                 </div>
+                {service.vendor_offerings.length > 0 && serviceCartItems.length > 0 && (
+                  <div className="px-6 py-4 border-t border-zinc-100 bg-zinc-50/50 flex items-center justify-between">
+                    <p className="text-sm text-zinc-500 font-medium">
+                      {activeCartType === "direct" ? (
+                        <>You have <strong className="text-zinc-900">{serviceCartItems.length}</strong> {serviceCartItems.length === 1 ? "service" : "services"} in your cart.</>
+                      ) : (
+                        <>You have <strong className="text-zinc-900">{serviceCartItems.length}</strong> service {serviceCartItems.length === 1 ? "quotation" : "quotations"} in your cart.</>
+                      )}
+                    </p>
+                    <Link
+                      href={activeCartType === "direct" ? "/cart" : "/quotation-cart"}
+                      className="px-5 py-2 bg-zinc-900 text-white text-sm font-semibold rounded-lg hover:bg-zinc-800 transition-colors flex items-center gap-2"
+                    >
+                      {activeCartType === "direct" ? "View Cart & Checkout" : "View Quotation Cart"}
+                      <ArrowRight size={16} />
+                    </Link>
+                  </div>
+                )}
               </div>
+
             ) : (
               <div className="rounded-2xl border border-dashed border-zinc-200 bg-white p-10 text-center max-w-xl mx-auto shadow-sm">
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 text-amber-600">
