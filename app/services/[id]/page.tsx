@@ -46,6 +46,31 @@ const PRICING_LABELS: Record<string, string> = {
   milestone: "milestone",
 };
 
+async function fetchClientAddress(): Promise<{ latitude: number; longitude: number; address: string; city: string } | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/client/clientDetails`, {
+      credentials: "include",
+      headers: { "Content-Type": "application/json", "x-request-from": "client" },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const data = json.data;
+    const primaryAddr = data?.primary_address || data?.addresses?.[0] || null;
+    if (primaryAddr?.latitude != null && primaryAddr?.longitude != null) {
+      return {
+        latitude: Number(primaryAddr.latitude),
+        longitude: Number(primaryAddr.longitude),
+        address: primaryAddr.address || "",
+        city: primaryAddr.city || ""
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+
 function StarDisplay({ rating, count }: { rating: string | null; count: number }) {
   const value = rating ? parseFloat(rating) : 0;
   return (
@@ -120,43 +145,21 @@ export default function ServiceDetailPage() {
   const isSaved = wishlistItems.some((item) => item.itemType === "service" && item.serviceId === id);
   const [savingWishlist, setSavingWishlist] = useState(false);
 
-  // Load user profile saved address
+  // Try to get user's saved address on mount
   useEffect(() => {
-    if (!user) return;
     async function loadAddress() {
-      try {
-        const res = await fetch(`${API_BASE}/api/users/profile`, {
-          headers: { "Content-Type": "application/json", "x-request-from": "client" },
-          credentials: "include"
+      const addr = await fetchClientAddress();
+      if (addr) {
+        setSavedAddress(addr);
+        setUserLocation({
+          lat: addr.latitude,
+          lng: addr.longitude,
+          label: `${addr.address}, ${addr.city}`
         });
-        if (res.ok) {
-          const json = await res.json();
-          const addr = json.data?.address;
-          if (addr && addr.latitude && addr.longitude) {
-            const parsedLat = parseFloat(addr.latitude);
-            const parsedLng = parseFloat(addr.longitude);
-            if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
-              const addressInfo = {
-                latitude: parsedLat,
-                longitude: parsedLng,
-                address: addr.address || "",
-                city: addr.city || ""
-              };
-              setSavedAddress(addressInfo);
-              setUserLocation({
-                lat: parsedLat,
-                lng: parsedLng,
-                label: `${addr.address || ""}, ${addr.city || ""}`
-              });
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Error loading profile address:", err);
       }
     }
     loadAddress();
-  }, [user]);
+  }, []);
 
   // Load service details (re-fetches when location changes to rank offerings)
   useEffect(() => {
