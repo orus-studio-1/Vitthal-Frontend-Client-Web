@@ -16,7 +16,7 @@ function formatPrice(price: string | null): string {
 
 type ServiceRowCardProps = ServiceListItem;
 
-export function ServiceRowCard({ id, name, description, rating, review_count, category_label, vendor_count, starting_price }: ServiceRowCardProps) {
+export function ServiceRowCard({ id, name, description, rating, review_count, category_label, vendor_count, starting_price, image_url }: ServiceRowCardProps) {
   const ratingValue = rating ? parseFloat(rating) : 0;
   return (
     <article className="group relative flex items-center gap-6 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm transition-all hover:border-zinc-400 hover:shadow-md cursor-pointer">
@@ -24,11 +24,12 @@ export function ServiceRowCard({ id, name, description, rating, review_count, ca
         {/* Image */}
         <div className="relative h-24 w-24 shrink-0 overflow-hidden bg-zinc-100 rounded-md">
           <Image
-            src={FALLBACK_IMAGE}
+            src={image_url || FALLBACK_IMAGE}
             alt={name}
             fill
             sizes="100px"
             className="object-cover transition-transform duration-300 group-hover:scale-105"
+            unoptimized={!!image_url}
           />
           {Number(vendor_count) > 0 ? (
             <span className="absolute top-1 left-1 rounded bg-white/90 backdrop-blur-sm px-1.5 py-0.5 text-[9px] font-medium text-zinc-600 shadow-sm">

@@ -17,6 +17,7 @@ export type ServiceListItem = {
   category_label: string | null;
   vendor_count: number;
   starting_price: string | null;
+  image_url?: string | null;
 };
 
 export type ServiceMedia = {

@@ -21,7 +21,7 @@ function formatPrice(price: string | null): string {
 
 type ServiceCardProps = ServiceListItem;
 
-export function ServiceCard({ id, name, description, rating, review_count, category_label, vendor_count, starting_price }: ServiceCardProps) {
+export function ServiceCard({ id, name, description, rating, review_count, category_label, vendor_count, starting_price, image_url }: ServiceCardProps) {
   const ratingValue = rating ? parseFloat(rating) : 0;
   const { isAuthenticated } = useAuthStore();
   const router = useRouter();
@@ -100,11 +100,12 @@ export function ServiceCard({ id, name, description, rating, review_count, categ
 
         <div className="relative h-48 w-full overflow-hidden bg-zinc-100">
           <Image
-            src={FALLBACK_IMAGE}
+            src={image_url || FALLBACK_IMAGE}
             alt={name}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
             className="object-cover transition-transform duration-300 group-hover:scale-105"
+            unoptimized={!!image_url}
             onError={() => {}}
           />
           {Number(vendor_count) > 0 ? (
