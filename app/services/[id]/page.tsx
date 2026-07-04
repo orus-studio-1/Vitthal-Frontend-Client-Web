@@ -78,6 +78,13 @@ function formatDistance(distance: number | null | undefined): string {
     : `${distance.toFixed(1)} km away`;
 }
 
+function formatCurrency(val: number | string | null | undefined): string {
+  if (val === null || val === undefined) return "₹0.00";
+  const num = Number(val);
+  if (isNaN(num)) return "₹0.00";
+  return `₹${num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 function StarDisplay({ rating, count }: { rating: string | null; count: number }) {
   const value = rating ? parseFloat(rating) : 0;
   return (
@@ -572,7 +579,7 @@ export default function ServiceDetailPage() {
                               {idx + 1}
                             </span>
                             <h4 className="font-bold text-zinc-900 text-base">
-                              {offering.company_name || `Vendor #${offering.vendor_id.slice(0, 8)}`}
+                              Vendor #{offering.vendor_id.slice(0, 8).toUpperCase()}
                             </h4>
                             {(offering.city || offering.state) && (
                               <div className="flex items-center gap-1 text-xs text-zinc-500">
@@ -590,11 +597,6 @@ export default function ServiceDetailPage() {
                               <BadgeCheck size={12} className="text-emerald-600" />
                               Verified
                             </span>
-                            {idx === 0 && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-semibold rounded-full border border-blue-100">
-                                Best Rate
-                              </span>
-                            )}
                           </div>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

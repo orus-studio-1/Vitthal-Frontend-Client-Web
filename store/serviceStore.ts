@@ -100,6 +100,7 @@ export type ServiceQuotation = {
   vendor_name: string;
   service_id: string;
   vendor_id: string;
+  service_image?: string | null;
 };
 
 export type QuotationMessage = {

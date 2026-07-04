@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
-import { Loader2, ArrowRight, FileText, Search, Clock, CheckCircle2, XCircle, AlertCircle, TrendingUp, Package, Users, Wrench, IndianRupee, MessageSquare, Send, X, ChevronRight, ChevronDown } from "lucide-react";
+import { Loader2, ArrowRight, FileText, Search, Clock, CheckCircle2, XCircle, TrendingUp, Package, Users, Wrench } from "lucide-react";
 import { useServiceStore } from "@/store/serviceStore";
 import type { ServiceQuotation } from "@/store/serviceStore";
 import { useAuthStore } from "@/store/authStore";
-import { toast } from "sonner";
 import Image from "next/image";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
@@ -46,54 +45,14 @@ function getGroupStatusInfo(status: string) {
   }
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  pending_vendor:   { label: "Awaiting Vendor",  color: "bg-amber-50 text-amber-700 border-amber-200" },
-  vendor_offered:   { label: "Vendor Offered",   color: "bg-blue-50 text-blue-700 border-blue-200" },
-  client_countered: { label: "Counter Sent",     color: "bg-indigo-50 text-indigo-700 border-indigo-200" },
-  vendor_countered: { label: "Vendor Countered", color: "bg-purple-50 text-purple-700 border-purple-200" },
-  client_accepted:  { label: "Accepted",         color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  client_rejected:  { label: "Rejected",         color: "bg-red-50 text-red-700 border-red-200" },
-  vendor_rejected:  { label: "Vendor Rejected",  color: "bg-red-50 text-red-700 border-red-200" },
-  cancelled:        { label: "Cancelled",        color: "bg-zinc-100 text-zinc-500 border-zinc-200" },
-};
-
-const ACTION_LABELS: Record<string, string> = {
-  request: "Requested",
-  offer:   "Vendor Offered",
-  counter: "Counter Offered",
-  accept:  "Accepted",
-  reject:  "Rejected",
-};
-
 function StatusBadge({ status }: { status: string }) {
-  const cfg = STATUS_CONFIG[status] ?? { label: status, color: "bg-zinc-100 text-zinc-600 border-zinc-200" };
+  const cfg = { label: status, color: "bg-zinc-100 text-zinc-600 border-zinc-200" };
   return (
     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${cfg.color}`}>
       {cfg.label}
     </span>
   );
 }
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-IN", {
-    day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
-  });
-}
-
-const TERMINAL_STATUSES = new Set(["client_accepted", "client_rejected", "vendor_rejected", "cancelled"]);
-
-type QuotationDetail = {
-  quotation: ServiceQuotation;
-  messages: {
-    id: string;
-    sender_role: string;
-    action: string;
-    offer_price?: string | null;
-    note?: string | null;
-    reason?: string | null;
-    created_at: string;
-  }[];
-};
 
 type ServiceQuotationGroup = {
   service_id: string;
@@ -106,232 +65,18 @@ type ServiceQuotationGroup = {
   accepted_count: number;
   group_status: "pending" | "offers_received" | "accepted" | "closed";
   vendor_quotations: ServiceQuotation[];
+  service_image?: string | null;
 };
-
-type ThreadDialogProps = {
-  quotationGroup: ServiceQuotationGroup;
-  onClose: () => void;
-  onUpdate: () => void;
-};
-
-function ThreadDialog({ quotationGroup, onClose, onUpdate }: ThreadDialogProps) {
-  const respondQuotation = useServiceStore((s) => s.respondQuotation);
-  const [selectedVendorId, setSelectedVendorId] = useState(
-    quotationGroup.vendor_quotations[0]?.vendor_id || ""
-  );
-
-  const activeQuotation = useMemo(() => {
-    return quotationGroup.vendor_quotations.find(vq => vq.vendor_id === selectedVendorId)
-      || quotationGroup.vendor_quotations[0];
-  }, [quotationGroup, selectedVendorId]);
-
-  const [detail, setDetail] = useState<QuotationDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [action, setAction] = useState("");
-  const [offerPrice, setOfferPrice] = useState("");
-  const [note, setNote] = useState("");
-  const [isResponding, setIsResponding] = useState(false);
-
-  useEffect(() => {
-    if (!activeQuotation) return;
-    async function load() {
-      setLoading(true);
-      try {
-        const res = await fetch(`${API_BASE}/api/services/quotations/${activeQuotation.id}`, {
-          credentials: "include",
-          headers: { "Content-Type": "application/json", "x-request-from": "client" },
-        });
-        if (!res.ok) { setLoading(false); return; }
-        const json = await res.json();
-        setDetail(json.data);
-      } catch {
-        // ignore
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-    setAction("");
-    setOfferPrice("");
-    setNote("");
-  }, [activeQuotation?.id]);
-
-  async function handleRespond(e: React.FormEvent) {
-    e.preventDefault();
-    if (!activeQuotation) return;
-    if (!action) { toast.error("Select an action"); return; }
-    if ((action === "counter") && !offerPrice) { toast.error("Enter your counter price"); return; }
-
-    setIsResponding(true);
-    const success = await respondQuotation(activeQuotation.id, {
-      action,
-      offerPrice: offerPrice || undefined,
-      note: note || undefined,
-    });
-    setIsResponding(false);
-
-    if (success) {
-      toast.success("Response submitted!");
-      onUpdate();
-      onClose();
-    } else {
-      toast.error("Failed to respond. Please try again.");
-    }
-  }
-
-  if (!activeQuotation) return null;
-
-  const isTerminal = TERMINAL_STATUSES.has(activeQuotation.status);
-  const canRespond = activeQuotation.status === "vendor_offered" || activeQuotation.status === "vendor_countered";
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
-      <div className="relative w-full sm:max-w-4xl bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4 shrink-0">
-          <div>
-            <h2 className="text-base font-bold text-zinc-900">{quotationGroup.service_name}</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              Service inquiry with {quotationGroup.vendor_quotations.length} provider(s)
-            </p>
-          </div>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 transition-colors"><X size={18} /></button>
-        </div>
-
-        <div className="flex-1 flex overflow-hidden min-h-0">
-          {/* Sidebar listing vendors */}
-          {quotationGroup.vendor_quotations.length > 1 && (
-            <div className="w-1/3 border-r border-zinc-100 overflow-y-auto bg-zinc-50/50 p-4 space-y-2 shrink-0">
-              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-3">Service Providers</p>
-              {quotationGroup.vendor_quotations.map((vq) => {
-                const isActive = vq.vendor_id === selectedVendorId;
-                return (
-                  <button
-                    key={vq.id}
-                    onClick={() => setSelectedVendorId(vq.vendor_id || "")}
-                    className={`w-full text-left p-3.5 rounded-xl border transition-all flex flex-col gap-1.5 ${
-                      isActive
-                        ? "bg-white border-blue-500 shadow-sm ring-1 ring-blue-500/20"
-                        : "bg-transparent border-transparent hover:bg-zinc-100/70 text-zinc-700"
-                    }`}
-                  >
-                    <span className="text-xs font-bold truncate block">{vq.vendor_name}</span>
-                    <span className="scale-90 origin-left block">
-                      <StatusBadge status={vq.status} />
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Main thread area */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="px-6 py-3 bg-zinc-50/50 border-b border-zinc-100 flex items-center justify-between shrink-0">
-              <span className="text-xs font-bold text-zinc-700">{activeQuotation.vendor_name}</span>
-              <StatusBadge status={activeQuotation.status} />
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-              {loading ? (
-                <div className="flex items-center justify-center py-12"><Loader2 size={20} className="animate-spin text-zinc-400" /></div>
-              ) : detail?.messages?.length ? (
-                detail.messages.map((msg) => {
-                  const isClient = msg.sender_role === "client";
-                  return (
-                    <div key={msg.id} className={`flex gap-3 ${isClient ? "flex-row-reverse" : "flex-row"}`}>
-                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${isClient ? "bg-[#1d4ed8] text-white" : "bg-zinc-200 text-zinc-700"}`}>
-                        {isClient ? "Y" : "V"}
-                      </div>
-                      <div className={`max-w-xs rounded-xl px-4 py-3 text-xs space-y-1 ${isClient ? "bg-[#1d4ed8]/10 text-zinc-900" : "bg-zinc-100 text-zinc-800"}`}>
-                        <p className="font-semibold text-[11px] text-zinc-500">{ACTION_LABELS[msg.action] ?? msg.action}</p>
-                        {msg.offer_price && (
-                          <p className="font-bold text-sm text-zinc-900">₹{parseFloat(msg.offer_price).toLocaleString("en-IN")}</p>
-                        )}
-                        {msg.note && <p className="text-zinc-600">{msg.note}</p>}
-                        {msg.reason && <p className="text-zinc-400 italic">{msg.reason}</p>}
-                        <p className="text-[10px] text-zinc-400 pt-1">{formatDate(msg.created_at)}</p>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <p className="text-center text-xs text-zinc-400 py-8">No messages yet</p>
-              )}
-            </div>
-
-            {canRespond && !isTerminal && (
-              <form onSubmit={handleRespond} className="border-t border-zinc-100 px-6 py-4 space-y-3 shrink-0">
-                <div className="flex gap-2">
-                  {["accept", "counter", "reject"].map((a) => (
-                    <button
-                      key={a}
-                      type="button"
-                      onClick={() => setAction(a)}
-                      className={`flex-1 rounded-lg border py-2 text-xs font-semibold capitalize transition-colors ${
-                        action === a
-                          ? a === "accept" ? "bg-emerald-600 border-emerald-600 text-white" : a === "reject" ? "bg-red-500 border-red-500 text-white" : "bg-[#1d4ed8] border-[#1d4ed8] text-white"
-                          : "border-zinc-200 text-zinc-600 hover:border-zinc-400"
-                      }`}
-                    >
-                      {a}
-                    </button>
-                  ))}
-                </div>
-                {action === "counter" && (
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-zinc-500">₹</span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={offerPrice}
-                      onChange={(e) => setOfferPrice(e.target.value)}
-                      placeholder="Your counter price"
-                      className="w-full rounded-lg border border-zinc-300 pl-7 pr-3 py-2 text-sm focus:border-[#1d4ed8] focus:outline-none focus:ring-1 focus:ring-[#1d4ed8]/30 transition-colors"
-                    />
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="Add a note (optional)"
-                    className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-[#1d4ed8] focus:outline-none focus:ring-1 focus:ring-[#1d4ed8]/30 transition-colors"
-                  />
-                  <button
-                    type="submit"
-                    disabled={isResponding || !action}
-                    className="flex items-center gap-1.5 rounded-lg bg-[#1d4ed8] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1e40af] disabled:opacity-60 transition-colors"
-                  >
-                    {isResponding ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                    Send
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {isTerminal && (
-              <div className="border-t border-zinc-100 px-6 py-4 text-center shrink-0">
-                <p className="text-xs text-zinc-400">This quotation has been finalised.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function QuotationsPage() {
   const { isAuthenticated, isLoading: authLoading, fetchUser } = useAuthStore();
-  const { quotations: serviceQuotations, isLoadingQuotations, fetchMyQuotations } = useServiceStore();
+  const { quotations: serviceQuotations, fetchMyQuotations } = useServiceStore();
 
   const [quotationGroups, setQuotationGroups] = useState<QuotationGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<"products" | "services">("products");
   const [activeTab, setActiveTab] = useState<FilterTab>("All");
   const [searchQuery, setSearchQuery] = useState("");
-  const [openQuotation, setOpenQuotation] = useState<ServiceQuotationGroup | null>(null);
 
   useEffect(() => {
     fetchUser();
@@ -445,6 +190,7 @@ export default function QuotationsPage() {
           accepted_count: sq.status === "client_accepted" ? 1 : 0,
           group_status: "pending",
           vendor_quotations: [sq],
+          service_image: sq.service_image || null,
         });
       }
     }
@@ -676,7 +422,6 @@ export default function QuotationsPage() {
                         </span>
                       </div>
                       
-                      {/* Vendor response summary */}
                       <div className="flex items-center gap-2 mb-3">
                         <Users size={14} className="text-zinc-400" />
                         <p className="text-sm text-zinc-500">
@@ -714,15 +459,11 @@ export default function QuotationsPage() {
                     </div>
 
                     <div className="mt-4 sm:mt-0 flex items-center justify-between w-full sm:w-auto">
-                      <p className="text-xs font-medium text-zinc-400 sm:hidden">
-                        {new Date(group.updated_at).toLocaleDateString()}
-                      </p>
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-50 text-zinc-400 transition-colors group-hover:bg-blue-600 group-hover:text-white">
                         <ArrowRight size={20} />
                       </div>
                     </div>
                     
-                    {/* Desktop Date Badge */}
                     <div className="absolute right-5 top-5 hidden sm:block">
                       <p className="text-xs font-medium text-zinc-400">
                         {new Date(group.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -749,13 +490,23 @@ export default function QuotationsPage() {
                 const StatusIcon = status.icon;
 
                 return (
-                  <button
+                  <Link
                     key={`${group.service_id}-${group.created_at}`}
-                    onClick={() => setOpenQuotation(group)}
+                    href={`/quotations/${group.vendor_quotations[0]?.id}`}
                     className="group relative w-full text-left rounded-3xl border border-zinc-200 bg-white p-5 hover:border-zinc-300 hover:shadow-lg transition-all flex items-center justify-between gap-5"
                   >
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors overflow-hidden">
-                      <Wrench size={28} />
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors overflow-hidden relative">
+                      {group.service_image ? (
+                        <Image
+                          src={group.service_image}
+                          alt="Service"
+                          width={64}
+                          height={64}
+                          className="rounded-2xl object-cover h-full w-full"
+                        />
+                      ) : (
+                        <Wrench size={28} />
+                      )}
                     </div>
 
                     <div className="flex-1 min-w-0">
@@ -767,7 +518,6 @@ export default function QuotationsPage() {
                         </span>
                       </div>
 
-                      {/* Vendor response summary */}
                       <div className="flex items-center gap-2 mb-3">
                         <Users size={14} className="text-zinc-400" />
                         <p className="text-sm text-zinc-500">
@@ -786,27 +536,18 @@ export default function QuotationsPage() {
                       <ArrowRight size={20} />
                     </div>
 
-                    {/* Desktop Date Badge */}
                     <div className="absolute right-5 top-5 hidden sm:block">
                       <p className="text-xs font-medium text-zinc-400">
                         {new Date(group.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </p>
                     </div>
-                  </button>
+                  </Link>
                 );
               })}
             </div>
           )
         )}
       </div>
-
-      {openQuotation && (
-        <ThreadDialog
-          quotationGroup={openQuotation}
-          onClose={() => setOpenQuotation(null)}
-          onUpdate={fetchMyQuotations}
-        />
-      )}
     </div>
   );
 }

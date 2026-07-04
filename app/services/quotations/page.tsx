@@ -290,10 +290,10 @@ export default function MyServiceQuotationsPage() {
             ) : (
               <div className="space-y-3">
                 {quotations.map((quotation) => (
-                  <button
+                  <Link
                     key={quotation.id}
-                    onClick={() => setOpenQuotation(quotation)}
-                    className="w-full text-left rounded-xl border border-zinc-200 bg-white p-5 hover:border-zinc-300 hover:shadow-sm transition-all"
+                    href={`/quotations/${quotation.id}`}
+                    className="w-full text-left rounded-xl border border-zinc-200 bg-white p-5 hover:border-zinc-300 hover:shadow-sm transition-all block"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex-1">
@@ -323,7 +323,7 @@ export default function MyServiceQuotationsPage() {
                       </div>
                       <ArrowRight size={16} className="text-zinc-400 shrink-0 self-center" />
                     </div>
-                  </button>
+                  </Link>
                 ))}
               </div>
             )}
