@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useCartStore } from "@/store/cartStore";
 import { toast } from "sonner";
-import { MapPin, CreditCard, Package, CheckCircle, ChevronLeft, Loader2, ShieldCheck, Edit2, X, Smartphone, Building, Wallet, QrCode, Lock, Check, AlertCircle } from "lucide-react";
+import { MapPin, CreditCard, Package, CheckCircle, ChevronLeft, Loader2, ShieldCheck, Edit2, X, Smartphone, Building, Wallet, QrCode, Lock, Check, AlertCircle, Wrench } from "lucide-react";
 import Link from "next/link";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
@@ -572,9 +572,6 @@ export default function CheckoutPage() {
                                             </p>
                                         </div>
                                     ))}
-                                </div>
-
-                                <div className="space-y-3 pt-4 border-t border-zinc-100">
                                     <div className="flex justify-between text-sm text-zinc-600">
                                         <span>Subtotal</span>
                                         <span className="font-medium text-zinc-900">₹{subtotal.toLocaleString()}</span>

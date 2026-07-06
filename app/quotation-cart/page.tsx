@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Package, ArrowLeft, Send, Loader2, FileSignature, Share2 } from "lucide-react";
+import { Package, ArrowLeft, Send, Loader2, FileSignature, Share2, Wrench, Trash2 } from "lucide-react";
 import { useQuotationCartStore } from "@/store/quotationCartStore";
 import { useCartStore } from "@/store/cartStore";
 import { useAuthStore } from "@/store/authStore";
@@ -160,7 +160,9 @@ export default function QuotationCartPage() {
             </button>
             <span className="text-zinc-300">|</span>
             <button
-              onClick={() => void clearCart()}
+              onClick={async () => {
+                await clearCart();
+              }}
               className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors disabled:opacity-50"
             >
               Clear all

@@ -230,6 +230,7 @@ export default function WishlistPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           {items.map((item) => {
             const key = `${item.productId}-${item.vendorId ?? "none"}`;
+            const detailHref = item.itemType === "service" ? `/services/${item.serviceId}` : `/product/${item.productId}`;
             return (
               <article key={key} className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-shadow hover:shadow-md">
                 <div className="flex gap-4 p-5 sm:p-6">
@@ -244,7 +245,7 @@ export default function WishlistPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <Link href={`/product/${item.productId}`} className="block truncate text-lg font-semibold text-zinc-900 transition-colors hover:text-[#1d4ed8]">
+                        <Link href={detailHref} className="block truncate text-lg font-semibold text-zinc-900 transition-colors hover:text-[#1d4ed8]">
                           {item.productName}
                         </Link>
                         <p className="mt-1 text-sm text-zinc-500">{item.description || "Saved for later review"}</p>
@@ -259,27 +260,32 @@ export default function WishlistPage() {
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
-                      <span className="rounded-full bg-zinc-100 px-3 py-1 font-medium text-zinc-700">MOQ: {item.moq} units</span>
-                      <span className="rounded-full bg-blue-50 px-3 py-1 font-medium text-blue-700">₹{item.price > 0 ? item.price.toLocaleString() : "Contact"}</span>
-
+                      <span className="rounded-full bg-zinc-100 px-3 py-1 font-medium text-zinc-700">
+                        {item.itemType === "service" ? "MOQ: 1 service" : `MOQ: ${item.moq} units`}
+                      </span>
+                      <span className="rounded-full bg-blue-50 px-3 py-1 font-medium text-blue-700">
+                        ₹{item.price > 0 ? item.price.toLocaleString() : "Contact"}
+                      </span>
                     </div>
 
                     <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="text-xs text-zinc-500">
-                        {item.vendorId
-                          ? "Ready to add back to cart with the saved supplier."
-                          : "Open the product page to compare suppliers and choose one for cart."}
+                        {item.itemType === "service"
+                          ? "Request quotation or connect with verified service providers."
+                          : item.vendorId
+                            ? "Ready to add back to cart with the saved supplier."
+                            : "Open the product page to compare suppliers and choose one for cart."}
                       </div>
 
                       <div className="flex items-center gap-3">
                         <Link
-                          href={`/product/${item.productId}`}
+                          href={detailHref}
                           className="inline-flex items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
                         >
-                          View Product
+                          {item.itemType === "service" ? "View Service" : "View Product"}
                         </Link>
 
-                        {item.vendorId ? (
+                        {item.itemType !== "service" && item.vendorId ? (
                           <button
                             onClick={() => handleMoveToCart(item.productId, item.vendorId, item.productName, item.image, item.price, item.moq, item.vendorName)}
                             disabled={movingToCartKey === key}

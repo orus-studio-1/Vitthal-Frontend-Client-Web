@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState, useRef, useLayoutEffect, useCallback } from "react";
-import { Menu, X, ShoppingCart, User, LogOut, ChevronDown, Bell } from "lucide-react";
+import { Menu, X, ShoppingCart, User, LogOut, ChevronDown, Bell, Wrench } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useCartStore } from "@/store/cartStore";
+import { useServiceCartStore } from "@/store/serviceCartStore";
 import { useNotificationStore } from "@/store/notificationStore";
 import { toast } from "sonner";
 import Image from "next/image";
@@ -17,7 +18,9 @@ export function Header() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLLIElement>(null);
   const { user, isAuthenticated, isLoading, fetchUser, logout } = useAuthStore();
-  const totalItems = useCartStore((s) => s.items.length);
+  const productCartCount = useCartStore((s) => s.items.length);
+  const serviceCartCount = useServiceCartStore((s) => s.items.length);
+  const totalItems = productCartCount + serviceCartCount;
   const { notifications, unreadCount, isLoading: notificationsLoading, isLoadingMore, hasMore, fetchNotifications, fetchMore, fetchUnreadCount, markRead, markAllRead, initSocket, disconnectSocket } = useNotificationStore();
   const router = useRouter();
 
@@ -38,13 +41,18 @@ export function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const fetchServiceCart = useServiceCartStore((s) => s.fetchCart);
+  const fetchProductCart = useCartStore((s) => s.fetchCart);
+
   useEffect(() => {
     if (isAuthenticated && user?.userId) {
       fetchUnreadCount();
       initSocket(user.userId);
+      fetchServiceCart("direct", true);
+      fetchProductCart(true);
       return () => disconnectSocket();
     }
-  }, [isAuthenticated, user?.userId, fetchUnreadCount, initSocket, disconnectSocket]);
+  }, [isAuthenticated, user?.userId, fetchUnreadCount, initSocket, disconnectSocket, fetchServiceCart, fetchProductCart]);
 
   function handleOpenNotifications() {
     setNotifDropdown(!notifDropdown);
@@ -106,6 +114,11 @@ export function Header() {
             <li>
               <Link href="/products" className="hover:text-zinc-900 transition-colors">
                 Products
+              </Link>
+            </li>
+            <li>
+              <Link href="/services" className="hover:text-zinc-900 transition-colors">
+                Services
               </Link>
             </li>
             <li>
@@ -217,6 +230,10 @@ export function Header() {
                                 setNotifDropdown(false);
                                 if (n.reference_type === "quotation" && n.reference_id) {
                                   router.push(`/quotations/${n.reference_id}`);
+                                } else if (n.reference_type === "service_quotation") {
+                                  router.push(`/quotations?tab=services`);
+                                } else if (n.reference_type === "service_booking") {
+                                  router.push(`/services/bookings`);
                                 }
                               }}
                               className={`w-full text-left px-4 py-3.5 hover:bg-zinc-50 transition-colors flex gap-3.5 ${!n.is_read ? "bg-blue-50/40" : ""}`}
@@ -277,6 +294,14 @@ export function Header() {
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"/></svg>
                           My Quotations
+                        </Link>
+                        <Link
+                          href="/services/bookings"
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"
+                          onClick={() => setProfileDropdown(false)}
+                        >
+                          <Wrench size={18} className="text-zinc-400" />
+                          My Services
                         </Link>
                         <Link
                           href="/cart"
@@ -363,6 +388,15 @@ export function Header() {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Products
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/services"
+                className="hover:text-zinc-900 hover:bg-zinc-50 transition-colors block py-3 px-3 rounded-lg"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Services
               </Link>
             </li>
             <li>

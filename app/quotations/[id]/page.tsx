@@ -6,7 +6,7 @@ import {
   Loader2, Send, CheckCircle2, XCircle, FileText, ArrowLeft,
   Package, User, ShieldCheck, Clock, Users, ChevronRight,
   ExternalLink, Truck, IndianRupee, Receipt, Calendar, Percent,
-  AlertTriangle, Info, CreditCard
+  AlertTriangle, Info, CreditCard, Wrench
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -55,6 +55,8 @@ type VendorQuotation = {
   updated_at: string;
   product_image?: string;
   messages: QuotationMessage[];
+  pricing_type?: string;
+  moq?: number;
 };
 
 type QuotationDocument = {
@@ -73,6 +75,7 @@ type QuotationGroupDetail = {
   requested_price: number | null;
   quotation_group_id: string;
   document: QuotationDocument | null;
+  isService?: boolean;
   vendor_quotations: VendorQuotation[];
 };
 
@@ -136,12 +139,19 @@ export default function QuotationDetailPage() {
   const selectedQuotation = groupData?.vendor_quotations.find(vq => vq.vendor_id === selectedVendorId) || null;
   const messages = selectedQuotation?.messages || [];
 
+  const isService = groupData?.isService ?? false;
+
   const isClosed = selectedQuotation
     ? ["client_accepted", "client_rejected", "vendor_rejected", "cancelled", "expired", "admin_confirmation_pending", "admin_confirmed", "admin_confirmation_rejected"].includes(selectedQuotation.status)
     : false;
 
-  const isWaitingForVendor = selectedQuotation ? selectedQuotation.current_offer_by !== "vendor" && !isClosed : true;
-  const canReplyToVendor = selectedQuotation ? selectedQuotation.current_offer_by === "vendor" && !isClosed : false;
+  // For service quotations: vendor has responded if status is vendor_offered/vendor_countered
+  const vendorHasResponded = selectedQuotation
+    ? selectedQuotation.current_offer_by === "vendor"
+    : false;
+
+  const isWaitingForVendor = selectedQuotation ? !vendorHasResponded && !isClosed : true;
+  const canReplyToVendor = selectedQuotation ? vendorHasResponded && !isClosed : false;
 
   const showAdminChat = selectedQuotation?.admin_confirmation_status !== null && selectedQuotation?.admin_confirmation_status !== undefined;
   const isAdminPending = selectedQuotation?.admin_confirmation_status === "pending";
@@ -182,8 +192,12 @@ export default function QuotationDetailPage() {
 
   const handleVendorAction = async (action: string) => {
     if (!selectedQuotation) return;
-    if (action === "counter" && (!offerPrice || !offerQuantity || !reason)) {
+    if (action === "counter" && !isService && (!offerPrice || !offerQuantity || !reason)) {
       toast.error("Please fill in price, quantity, and reason for your counter offer");
+      return;
+    }
+    if (action === "counter" && isService && (!offerPrice || !reason)) {
+      toast.error("Please fill in price and reason for your counter offer");
       return;
     }
     if (action === "reject" && !reason) {
@@ -193,14 +207,17 @@ export default function QuotationDetailPage() {
 
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE}/api/quotations/${selectedQuotation.id}/respond`, {
+      const endpoint = isService
+        ? `${API_BASE}/api/services/quotations/${selectedQuotation.id}/respond`
+        : `${API_BASE}/api/quotations/${selectedQuotation.id}/respond`;
+      const res = await fetch(endpoint, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json", "x-request-from": "client" },
         body: JSON.stringify({
           action,
           offerPrice: offerPrice ? Number(offerPrice) : undefined,
-          offerQuantity: offerQuantity ? Number(offerQuantity) : undefined,
+          offerQuantity: !isService && offerQuantity ? Number(offerQuantity) : undefined,
           reason: reason || undefined,
           note: note || undefined,
         }),
@@ -398,32 +415,47 @@ export default function QuotationDetailPage() {
 
             <div className="p-4 space-y-3">
               {/* Pricing Breakdown — only for offer/counter/request actions */}
-              {msg.offer_price != null && msg.offer_quantity != null && msg.action !== "request" && (
+              {msg.offer_price != null && (isService || msg.offer_quantity != null) && msg.action !== "request" && (
                 <div className={`rounded-xl p-3 space-y-2 ${isClient ? "bg-blue-700/40" : "bg-zinc-50 border border-zinc-100"}`}>
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div>
-                      <p className={`text-[10px] uppercase tracking-wider ${isClient ? "text-blue-200" : "text-zinc-400"}`}>Unit Price</p>
-                      <p className="text-sm font-bold">{formatINR(msg.offer_price)}</p>
+                  {isService ? (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className={`text-[10px] uppercase tracking-wider ${isClient ? "text-blue-200" : "text-zinc-400"}`}>Service Price</p>
+                        <p className="text-sm font-bold">{formatINR(msg.offer_price)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-[10px] uppercase tracking-wider ${isClient ? "text-blue-200" : "text-zinc-400"}`}>Total (incl. 18% GST)</p>
+                        <p className="text-sm font-extrabold">{formatINR(msg.offer_price * 1.18)}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className={`text-[10px] uppercase tracking-wider ${isClient ? "text-blue-200" : "text-zinc-400"}`}>Quantity</p>
-                      <p className="text-sm font-bold">{msg.offer_quantity?.toLocaleString("en-IN")} units</p>
-                    </div>
-                    <div>
-                      <p className={`text-[10px] uppercase tracking-wider ${isClient ? "text-blue-200" : "text-zinc-400"}`}>Subtotal</p>
-                      <p className="text-sm font-bold">{formatINR(subtotal)}</p>
-                    </div>
-                  </div>
-                  {total != null && (
-                    <div className={`flex items-center justify-between pt-2 mt-2 border-t ${isClient ? "border-blue-500/30" : "border-zinc-200"}`}>
-                      <span className={`text-xs ${isClient ? "text-blue-200" : "text-zinc-500"}`}>GST (18%): {formatINR(gst)}</span>
-                      <span className="text-sm font-extrabold">{formatINR(total)}</span>
-                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div>
+                          <p className={`text-[10px] uppercase tracking-wider ${isClient ? "text-blue-200" : "text-zinc-400"}`}>Unit Price</p>
+                          <p className="text-sm font-bold">{formatINR(msg.offer_price)}</p>
+                        </div>
+                        <div>
+                          <p className={`text-[10px] uppercase tracking-wider ${isClient ? "text-blue-200" : "text-zinc-400"}`}>Quantity</p>
+                          <p className="text-sm font-bold">{msg.offer_quantity?.toLocaleString("en-IN")} units</p>
+                        </div>
+                        <div>
+                          <p className={`text-[10px] uppercase tracking-wider ${isClient ? "text-blue-200" : "text-zinc-400"}`}>Subtotal</p>
+                          <p className="text-sm font-bold">{formatINR(subtotal)}</p>
+                        </div>
+                      </div>
+                      {total != null && (
+                        <div className={`flex items-center justify-between pt-2 mt-2 border-t ${isClient ? "border-blue-500/30" : "border-zinc-200"}`}>
+                          <span className={`text-xs ${isClient ? "text-blue-200" : "text-zinc-500"}`}>GST (18%): {formatINR(gst)}</span>
+                          <span className="text-sm font-extrabold">{formatINR(total)}</span>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}
 
-              {msg.action === "request" && msg.offer_quantity != null && (
+              {msg.action === "request" && !isService && msg.offer_quantity != null && (
                 <div className="rounded-xl p-3 bg-zinc-50 border border-zinc-100">
                   <div className="text-center">
                     <p className="text-[10px] uppercase tracking-wider text-zinc-400">Requested Quantity</p>
@@ -451,7 +483,7 @@ export default function QuotationDetailPage() {
               {msg.action === "accept" && (
                 <div className={`flex items-center gap-2 text-sm font-semibold ${isClient ? "text-emerald-200" : "text-emerald-700"}`}>
                   <CheckCircle2 size={16} />
-                  Offer has been accepted. Awaiting admin confirmation.
+                  {isService ? "Offer has been accepted. Deal finalized!" : "Offer has been accepted. Awaiting admin confirmation."}
                 </div>
               )}
 
@@ -472,10 +504,14 @@ export default function QuotationDetailPage() {
   // ─── Render: Vendor Terms Summary (shown above chat when vendor has offered) ───
   function renderVendorTermsSummary(vq: VendorQuotation) {
     if (!vq.current_offer_price) return null;
-    const subtotal = vq.current_offer_price * (vq.current_offer_quantity || vq.requested_quantity);
+    
+    const price = Number(vq.current_offer_price || 0);
+    const qty = Number(vq.current_offer_quantity || vq.requested_quantity || 1);
+    const subtotal = isService ? price : price * qty;
     const gst = subtotal * 0.18;
     const total = subtotal + gst;
-    const tokenAmount = vq.token_percentage != null ? (vq.token_percentage / 100) * total : null;
+    const tokenPercent = vq.token_percentage != null ? Number(vq.token_percentage) : null;
+    const tokenAmount = tokenPercent != null ? (tokenPercent / 100) * total : null;
 
     return (
       <div className="mx-4 mt-3 mb-1 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
@@ -483,25 +519,47 @@ export default function QuotationDetailPage() {
           <Receipt size={16} className="text-blue-600" />
           <h4 className="text-sm font-bold text-blue-900">Current Offer Summary</h4>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
           <div className="bg-white rounded-lg border border-blue-100 p-2.5 text-center">
-            <p className="text-[10px] text-zinc-400 uppercase font-semibold tracking-wider">Price × Qty</p>
-            <p className="text-sm font-bold text-zinc-900">{formatINR(vq.current_offer_price)} × {vq.current_offer_quantity}</p>
+            <p className="text-[10px] text-zinc-400 uppercase font-semibold tracking-wider">
+              {isService ? "Service Price" : "Price × Qty"}
+            </p>
+            <p className="text-sm font-bold text-zinc-900">
+              {isService ? formatINR(vq.current_offer_price) : `${formatINR(vq.current_offer_price)} × ${vq.current_offer_quantity}`}
+            </p>
           </div>
           <div className="bg-white rounded-lg border border-blue-100 p-2.5 text-center">
             <p className="text-[10px] text-zinc-400 uppercase font-semibold tracking-wider">Total (incl. GST)</p>
             <p className="text-sm font-bold text-emerald-700">{formatINR(total)}</p>
           </div>
-          {vq.delivery_days != null && (
+          {isService && vq.pricing_type && (
             <div className="bg-white rounded-lg border border-blue-100 p-2.5 text-center">
-              <p className="text-[10px] text-zinc-400 uppercase font-semibold tracking-wider flex items-center justify-center gap-1"><Truck size={10} /> Delivery</p>
-              <p className="text-sm font-bold text-zinc-900">{vq.delivery_days} Days</p>
+              <p className="text-[10px] text-zinc-400 uppercase font-semibold tracking-wider">Pricing Model</p>
+              <p className="text-sm font-bold text-zinc-900 capitalize">{vq.pricing_type} Rate</p>
             </div>
           )}
-          {vq.token_percentage != null && (
+          {isService && vq.moq != null && (
+            <div className="bg-white rounded-lg border border-blue-100 p-2.5 text-center">
+              <p className="text-[10px] text-zinc-400 uppercase font-semibold tracking-wider">Minimum Order</p>
+              <p className="text-sm font-bold text-zinc-900">{vq.moq} unit(s)</p>
+            </div>
+          )}
+          {(!isService ? vq.delivery_days != null : true) && (
+            <div className="bg-white rounded-lg border border-blue-100 p-2.5 text-center">
+              <p className="text-[10px] text-zinc-400 uppercase font-semibold tracking-wider flex items-center justify-center gap-1">
+                <Truck size={10} /> {isService ? "Execution Timeline" : "Delivery"}
+              </p>
+              <p className="text-sm font-bold text-zinc-900">
+                {vq.delivery_days != null ? `${vq.delivery_days} Days` : "Pending first offer"}
+              </p>
+            </div>
+          )}
+          {(!isService ? vq.token_percentage != null : true) && (
             <div className="bg-white rounded-lg border border-blue-100 p-2.5 text-center">
               <p className="text-[10px] text-zinc-400 uppercase font-semibold tracking-wider flex items-center justify-center gap-1"><Percent size={10} /> Token Money</p>
-              <p className="text-sm font-bold text-orange-700">{vq.token_percentage}% ({formatINR(tokenAmount)})</p>
+              <p className="text-sm font-bold text-orange-700">
+                {vq.token_percentage != null ? `${vq.token_percentage}% (${formatINR(tokenAmount)})` : "Pending first offer"}
+              </p>
             </div>
           )}
         </div>
@@ -543,15 +601,17 @@ export default function QuotationDetailPage() {
       {/* ─── Header ─── */}
       <div className="bg-white border-b border-zinc-200 px-4 py-5 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
-          <Link href="/quotations" className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-700 mb-4 transition-colors">
+          <Link href={isService ? "/quotations?tab=services" : "/quotations"} className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-700 mb-4 transition-colors">
             <ArrowLeft size={16} /> Back to Quotations
           </Link>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-zinc-100 overflow-hidden">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-zinc-100 overflow-hidden relative">
                 {groupData.product_image ? (
-                  <Image src={groupData.product_image} alt="Product" width={56} height={56} className="rounded-xl object-cover h-full w-full" />
+                  <Image src={groupData.product_image} alt={isService ? "Service" : "Product"} width={56} height={56} className="rounded-xl object-cover h-full w-full" />
+                ) : isService ? (
+                  <Wrench size={24} className="text-zinc-400" />
                 ) : (
                   <Package size={24} className="text-zinc-400" />
                 )}
@@ -559,7 +619,7 @@ export default function QuotationDetailPage() {
               <div>
                 <h1 className="text-xl font-bold text-zinc-900">{groupData.product_name}</h1>
                 <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-zinc-500">
-                  <span>Qty: <strong className="text-zinc-700">{groupData.requested_quantity.toLocaleString("en-IN")}</strong> units</span>
+                  {!isService && <span>Qty: <strong className="text-zinc-700">{groupData.requested_quantity.toLocaleString("en-IN")}</strong> units</span>}
                   <span className="w-px h-3 bg-zinc-300" />
                   <span className="flex items-center gap-1"><Users size={14} /> {groupData.vendor_quotations.length} vendor{groupData.vendor_quotations.length > 1 ? "s" : ""} bidding</span>
                   {groupData.document && (
@@ -663,7 +723,11 @@ export default function QuotationDetailPage() {
                 {groupData.vendor_quotations.map((vq) => {
                   const st = getStatusInfo(vq.status);
                   const isSelected = vq.vendor_id === selectedVendorId;
-                  const subtotal = vq.current_offer_price && vq.current_offer_quantity ? vq.current_offer_price * vq.current_offer_quantity : null;
+                  const price = vq.current_offer_price ? Number(vq.current_offer_price) : 0;
+                  const qty = vq.current_offer_quantity ? Number(vq.current_offer_quantity) : Number(vq.requested_quantity || 1);
+                  const subtotal = vq.current_offer_price 
+                    ? (isService ? price : price * qty)
+                    : null;
                   const total = subtotal ? subtotal + subtotal * 0.18 : null;
 
                   return (
@@ -696,7 +760,7 @@ export default function QuotationDetailPage() {
                             <p className="font-bold text-emerald-700">{formatINR(total)}</p>
                           </div>
                           <div className="bg-zinc-50 rounded px-2 py-1.5">
-                            <span className="text-zinc-400">Delivery</span>
+                            <span className="text-zinc-400">{isService ? "Timeline" : "Delivery"}</span>
                             <p className="font-bold text-zinc-800">{vq.delivery_days ? `${vq.delivery_days}d` : "—"}</p>
                           </div>
                         </div>
@@ -827,8 +891,12 @@ export default function QuotationDetailPage() {
                     <>
                       {isClosed && selectedQuotation.admin_confirmation_status === null ? (
                         <div className="flex items-center gap-3 rounded-xl bg-zinc-50 border border-zinc-200 p-4 text-zinc-600">
-                          <CheckCircle2 className="text-zinc-400 shrink-0" />
-                          <p className="text-sm font-medium">This negotiation is closed.</p>
+                          <CheckCircle2 className={`${selectedQuotation.status === "client_accepted" ? "text-emerald-500" : "text-zinc-400"} shrink-0`} />
+                          <p className="text-sm font-medium">
+                            {selectedQuotation.status === "client_accepted"
+                              ? "Deal finalized! You have accepted this offer."
+                              : "This negotiation is closed."}
+                          </p>
                         </div>
                       ) : isWaitingForVendor ? (
                         <div className="flex items-center gap-3 rounded-xl bg-amber-50 border border-amber-200 p-4 text-amber-800">
@@ -871,17 +939,19 @@ export default function QuotationDetailPage() {
                           {/* Counter Offer Form */}
                           <div className="bg-zinc-50 rounded-xl border border-zinc-200 p-4 space-y-3">
                             <p className="text-xs font-bold text-zinc-600 uppercase tracking-wider">↩️ Counter Offer</p>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className={isService ? "" : "grid grid-cols-2 gap-3"}>
                               <div>
                                 <label className="text-xs text-zinc-500 mb-1 block">Your Price (₹)</label>
                                 <input type="number" value={offerPrice} onChange={(e) => setOfferPrice(e.target.value)}
                                   className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="e.g. 250" />
                               </div>
-                              <div>
-                                <label className="text-xs text-zinc-500 mb-1 block">Quantity</label>
-                                <input type="number" value={offerQuantity} onChange={(e) => setOfferQuantity(e.target.value)}
-                                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="e.g. 500" />
-                              </div>
+                              {!isService && (
+                                <div>
+                                  <label className="text-xs text-zinc-500 mb-1 block">Quantity</label>
+                                  <input type="number" value={offerQuantity} onChange={(e) => setOfferQuantity(e.target.value)}
+                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="e.g. 500" />
+                                </div>
+                              )}
                             </div>
                             <div>
                               <label className="text-xs text-zinc-500 mb-1 block">Reason *</label>
@@ -895,7 +965,7 @@ export default function QuotationDetailPage() {
                             </div>
                             <button
                               onClick={() => handleVendorAction("counter")}
-                              disabled={submitting || !offerPrice || !offerQuantity || !reason}
+                              disabled={submitting || !offerPrice || (!isService && !offerQuantity) || !reason}
                               className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition-all hover:bg-blue-700 disabled:opacity-50 shadow-sm"
                             >
                               {submitting ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}

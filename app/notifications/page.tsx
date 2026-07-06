@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-type FilterTab = "all" | "unread" | "product" | "quotation";
+type FilterTab = "all" | "unread" | "product" | "quotation" | "service";
 
 const NOTIFICATION_CONFIG: Record<string, {
   icon: typeof Bell;
@@ -60,12 +60,24 @@ function isProductType(type: string) {
   ].includes(type);
 }
 
+function isServiceNotification(n: Notification) {
+  return (
+    n.reference_type === "service_quotation" ||
+    n.reference_type === "service_booking" ||
+    (n.type && (n.type.startsWith("service_") || n.type.startsWith("booking_")))
+  );
+}
+
 function isQuotationType(type: string) {
   return [
     "quotation_request_received", "quotation_offer_received",
     "quotation_counter_received", "quotation_accepted", "quotation_rejected",
     "admin_confirmation_sent", "admin_confirmation_accepted", "admin_confirmation_rejected",
   ].includes(type);
+}
+
+function isQuotationNotification(n: Notification) {
+  return isQuotationType(n.type) && !isServiceNotification(n);
 }
 
 function formatTimeAgo(dateStr: string) {
@@ -164,7 +176,8 @@ export default function NotificationsPage() {
     // Filter by tab
     if (activeTab === "unread") result = result.filter((n) => !n.is_read);
     else if (activeTab === "product") result = result.filter((n) => isProductType(n.type));
-    else if (activeTab === "quotation") result = result.filter((n) => isQuotationType(n.type));
+    else if (activeTab === "quotation") result = result.filter((n) => isQuotationNotification(n));
+    else if (activeTab === "service") result = result.filter((n) => isServiceNotification(n));
 
     // Filter by search
     if (searchQuery.trim()) {
@@ -182,7 +195,8 @@ export default function NotificationsPage() {
   const grouped = useMemo(() => groupByDate(filteredNotifications), [filteredNotifications]);
 
   const productCount = useMemo(() => notifications.filter((n) => isProductType(n.type)).length, [notifications]);
-  const quotationCount = useMemo(() => notifications.filter((n) => isQuotationType(n.type)).length, [notifications]);
+  const quotationCount = useMemo(() => notifications.filter((n) => isQuotationNotification(n)).length, [notifications]);
+  const serviceCount = useMemo(() => notifications.filter((n) => isServiceNotification(n)).length, [notifications]);
 
   function handleNotificationClick(n: Notification) {
     if (!n.is_read) markRead(n.id);
@@ -191,6 +205,10 @@ export default function NotificationsPage() {
       router.push(`/products`);
     } else if (n.reference_type === "quotation" && n.reference_id) {
       router.push(`/quotations/${n.reference_id}`);
+    } else if (n.reference_type === "service_quotation") {
+      router.push(`/quotations?tab=services`);
+    } else if (n.reference_type === "service_booking") {
+      router.push(`/services/bookings`);
     }
   }
 
@@ -210,6 +228,7 @@ export default function NotificationsPage() {
     { key: "unread", label: "Unread", count: unreadCount },
     { key: "product", label: "Product", count: productCount },
     { key: "quotation", label: "Quotation", count: quotationCount },
+    { key: "service", label: "Service", count: serviceCount },
   ];
 
   return (
@@ -336,6 +355,8 @@ export default function NotificationsPage() {
                 ? "No product notifications"
                 : activeTab === "quotation"
                 ? "No quotation notifications"
+                : activeTab === "service"
+                ? "No service notifications"
                 : searchQuery
                 ? "No matching notifications"
                 : "No notifications yet"}
@@ -343,6 +364,8 @@ export default function NotificationsPage() {
             <p className="mt-2 max-w-sm text-center text-sm text-zinc-500">
               {activeTab === "unread"
                 ? "There are no unread notifications. All updates have been reviewed."
+                : activeTab === "service"
+                ? "When there are updates about your service bookings or quotations, they'll appear here."
                 : "When there are updates about your products or quotations, they'll appear here."}
             </p>
           </div>
@@ -423,14 +446,16 @@ export default function NotificationsPage() {
                               </span>
                               <span
                                 className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-                                  isProductType(n.type)
+                                  isServiceNotification(n)
+                                    ? "bg-emerald-50 text-emerald-600"
+                                    : isProductType(n.type)
                                     ? "bg-violet-50 text-violet-600"
-                                    : isQuotationType(n.type)
+                                    : isQuotationNotification(n)
                                     ? "bg-indigo-50 text-indigo-600"
                                     : "bg-zinc-100 text-zinc-500"
                                 }`}
                               >
-                                {isProductType(n.type) ? "Product" : isQuotationType(n.type) ? "Quotation" : "General"}
+                                {isServiceNotification(n) ? "Service" : isProductType(n.type) ? "Product" : isQuotationNotification(n) ? "Quotation" : "General"}
                               </span>
                               {!n.is_read && (
                                 <button

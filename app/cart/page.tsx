@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Minus, Plus, Trash2, ShoppingCart, ArrowLeft, Package, Loader2, Heart, Share2 } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingCart, ArrowLeft, Package, Loader2, Heart, Share2, Wrench } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 import { useAuthStore } from "@/store/authStore";
 import { useWishlistStore } from "@/store/wishlistStore";
@@ -135,6 +135,9 @@ export default function CartPage() {
 
     setMovingToWishlistKey(null);
   };
+
+
+
 
   const handleShareCart = async () => {
     setIsSharing(true);
@@ -407,7 +410,8 @@ export default function CartPage() {
                     </div>
                   );
                 })}
-              </div>
+
+              </div>{/* end lg:col-span-2 */}
 
               <div className="lg:col-span-1">
                 <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm sticky top-24">
@@ -422,14 +426,18 @@ export default function CartPage() {
 
                     return (
                       <div className="space-y-3 text-sm">
-                        <div className="flex justify-between text-zinc-600">
-                          <span>Items ({items.length})</span>
-                          <span>₹{totalPrice().toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between text-zinc-600">
-                          <span>GST</span>
-                          <span>₹{Math.round(totalGst).toLocaleString()}</span>
-                        </div>
+                        {items.length > 0 && (
+                          <div className="flex justify-between text-zinc-600">
+                            <span>Products ({items.length})</span>
+                            <span>₹{totalPrice().toLocaleString()}</span>
+                          </div>
+                        )}
+                        {totalGst > 0 && (
+                          <div className="flex justify-between text-zinc-600">
+                            <span>GST</span>
+                            <span>₹{Math.round(totalGst).toLocaleString()}</span>
+                          </div>
+                        )}
                         <div className="border-t border-zinc-200 pt-3 flex justify-between font-semibold text-zinc-900">
                           <span>Total</span>
                           <span>₹{Math.round(grandTotal).toLocaleString()}</span>
