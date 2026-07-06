@@ -233,11 +233,14 @@ export default function ProductDetailPage() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; label: string } | null>(null);
   const [savedAddress, setSavedAddress] = useState<{ latitude: number; longitude: number; address: string; city: string } | null>(null);
   const [rankedVendors, setRankedVendors] = useState<RankedVendor[]>([]);
-  const displayVendors = product
+  const rawDisplayVendors = product
     ? ((product.variants && product.variants.length > 0)
       ? (rankedVendors.length > 0 ? rankedVendors : (selectedVariant?.vendors || []))
       : (rankedVendors.length > 0 ? rankedVendors : (product.vendors || [])))
     : [];
+  const displayVendors = Array.from(
+    new Map(rawDisplayVendors.map((v: any, index: number) => [v.vendor_id || v.id || `fallback-${index}`, v])).values()
+  ) as any[];
   const [isLocating, setIsLocating] = useState(false);
   const [isRanking, setIsRanking] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState<RelatedProduct[]>([]);
@@ -1048,7 +1051,7 @@ export default function ProductDetailPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-4 border-t border-zinc-100 mt-auto">
+              <div className="flex flex-col lg:flex-row items-stretch gap-3 pt-4 border-t border-zinc-100 mt-auto">
                 <button
                   onClick={handleSaveToWishlist}
                   disabled={savingWishlist}
@@ -1064,10 +1067,10 @@ export default function ProductDetailPage() {
                   <ShoppingCart size={18} />
                   View Suppliers & Add to Cart
                 </a>
-                <Link
-                  href="/cart"
-                  className="px-6 py-3.5 border-2 border-zinc-200 text-zinc-700 text-sm font-semibold rounded-xl hover:border-zinc-300 hover:bg-zinc-50 transition-all text-center flex items-center justify-center gap-2"
-                >
+                  <Link
+                    href="/cart"
+                    className="flex-1 px-6 py-3.5 border-2 border-zinc-200 text-zinc-700 text-sm font-semibold rounded-xl hover:border-zinc-300 hover:bg-zinc-50 transition-all text-center flex items-center justify-center gap-2"
+                  >
                   Go to Cart
                   <ArrowRight size={16} />
                 </Link>
@@ -1274,7 +1277,7 @@ export default function ProductDetailPage() {
 
                           <div className="divide-y divide-zinc-100">
                             {variantVendors.length > 0 ? (
-                              variantVendors.map((vendor: any) => {
+                              variantVendors.map((vendor: any, idx: number) => {
                                 const qtyKey = `${v.variant_id}-${vendor.vendor_id}`;
                                 const qty = quantities[qtyKey] || vendor.moq || 1;
                                 const rawPrice = typeof vendor.price === "string" ? parseFloat(vendor.price) || 0 : vendor.price || 0;
@@ -1288,7 +1291,7 @@ export default function ProductDetailPage() {
                                 const ranked = vendor as RankedVendor;
 
                                 return (
-                                  <div key={vendor.vendor_id} className="p-5 hover:bg-zinc-50/30 transition-colors">
+                                  <div key={`${vendor.vendor_id || idx}-${idx}`} className="p-5 hover:bg-zinc-50/30 transition-colors">
                                     <div className="flex flex-col lg:flex-row gap-4">
                                       {/* Supplier Info */}
                                       <div className="flex-1 min-w-0">
@@ -1482,7 +1485,7 @@ export default function ProductDetailPage() {
 
                     <div className="divide-y divide-zinc-100">
                       {displayVendors.length > 0 ? (
-                        displayVendors.map((v: any) => {
+                        displayVendors.map((v: any, idx: number) => {
                           const qty = quantities[`default-${v.vendor_id}`] || v.moq || 1;
                           const rawPrice = typeof v.price === "string" ? parseFloat(v.price) || 0 : v.price || 0;
                           const discountedPrice = v.discounted_price !== null && v.discounted_price !== undefined ? (typeof v.discounted_price === "string" ? parseFloat(v.discounted_price) : v.discounted_price) : null;
@@ -1493,7 +1496,7 @@ export default function ProductDetailPage() {
                           const requiresQuotation = quotationLimit !== null && qty >= quotationLimit;
 
                           return (
-                            <div key={v.vendor_id} className="p-5 hover:bg-zinc-50/50 transition-colors">
+                            <div key={`${v.vendor_id || idx}-${idx}`} className="p-5 hover:bg-zinc-50/50 transition-colors">
                               <div className="flex flex-col lg:flex-row gap-4">
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 mb-2">

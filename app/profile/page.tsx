@@ -17,6 +17,7 @@ import {
   Heart,
   AlertCircle,
   Loader2,
+  Wrench,
 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
@@ -283,7 +284,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Link
             href="/orders"
             className="group flex items-center justify-between rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition-all hover:border-zinc-300 hover:shadow-md"
@@ -309,8 +310,24 @@ export default function ProfilePage() {
                 <Heart size={24} />
               </div>
               <div>
-                <p className="font-semibold text-zinc-900">Saved Products</p>
+                <p className="font-semibold text-zinc-900">Saved Products & Services</p>
                 <p className="text-xs text-zinc-500">Your wishlist items</p>
+              </div>
+            </div>
+            <ChevronRight size={20} className="text-zinc-400 group-hover:text-zinc-600" />
+          </Link>
+
+          <Link
+            href="/services/bookings"
+            className="group flex items-center justify-between rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition-all hover:border-zinc-300 hover:shadow-md"
+          >
+            <div className="flex items-center gap-4">
+              <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600 transition-colors group-hover:bg-emerald-100">
+                <Wrench size={24} />
+              </div>
+              <div>
+                <p className="font-semibold text-zinc-900">My Services</p>
+                <p className="text-xs text-zinc-500">View your service bookings</p>
               </div>
             </div>
             <ChevronRight size={20} className="text-zinc-400 group-hover:text-zinc-600" />
