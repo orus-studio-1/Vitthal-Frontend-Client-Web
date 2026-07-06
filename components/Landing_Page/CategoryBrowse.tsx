@@ -8,7 +8,7 @@ type Category = {
   title: string;
   description: string;
   suppliers: string;
-  products: string;
+  subText: string;
   image: string;
   alt: string;
   slug: string;
@@ -16,57 +16,102 @@ type Category = {
 
 function getCategoryStats(code: string) {
   switch (code) {
-    case 'plastic':
+    case "plastic":
       return { suppliers: "1,140+ suppliers", products: "8,200+ products" };
-    case 'metal':
+    case "metal":
       return { suppliers: "920+ suppliers", products: "6,500+ products" };
-    case 'chemicals':
+    case "chemicals":
       return { suppliers: "840+ suppliers", products: "5,900+ products" };
-    case 'construction':
+    case "construction":
       return { suppliers: "720+ suppliers", products: "4,800+ products" };
-    case 'machinery':
+    case "machinery":
       return { suppliers: "610+ suppliers", products: "4,200+ products" };
-    case 'packaging':
+    case "packaging":
       return { suppliers: "530+ suppliers", products: "3,800+ products" };
-    case 'textiles':
+    case "textiles":
       return { suppliers: "480+ suppliers", products: "3,400+ products" };
-    case 'automotive':
+    case "automotive":
       return { suppliers: "410+ suppliers", products: "2,900+ products" };
-    case 'agriculture':
+    case "agriculture":
       return { suppliers: "390+ suppliers", products: "2,500+ products" };
-    case 'electrical':
+    case "electrical":
       return { suppliers: "350+ suppliers", products: "2,200+ products" };
     default:
       return { suppliers: "500+ suppliers", products: "3,500+ products" };
   }
 }
 
+function getServiceCategoryStats(code: string) {
+  switch (code) {
+    case "it_software_development":
+      return { suppliers: "120+ providers", listings: "SaaS & Web Dev" };
+    case "engineering_consulting":
+      return { suppliers: "80+ consultants", listings: "CAD/CAM & Design" };
+    case "manufacturing_contract_work":
+      return { suppliers: "240+ workshops", listings: "Fabrication & OEM" };
+    case "logistics_freight_transport":
+      return { suppliers: "310+ carriers", listings: "Freight & Storage" };
+    case "maintenance_repair_operations":
+      return { suppliers: "190+ partners", listings: "AMC & Servicing" };
+    case "civil_construction_services":
+      return { suppliers: "150+ teams", listings: "Civil & Interiors" };
+    default:
+      return { suppliers: "60+ experts", listings: "Verified Services" };
+  }
+}
+
 export function CategoryBrowse() {
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [activeTab, setActiveTab] = useState<"products" | "services">("products");
+  const [productCategories, setProductCategories] = useState<Category[]>([]);
+  const [serviceCategories, setServiceCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadCategories() {
       try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000"}/api/products/getCategories`
-        );
-        if (res.ok) {
-          const resData = await res.json();
-          if (resData.data) {
-            const mapped = resData.data.map((c: any) => {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
+        
+        // Fetch both product and service categories concurrently
+        const [prodRes, servRes] = await Promise.all([
+          fetch(`${baseUrl}/api/products/getCategories?type=product`),
+          fetch(`${baseUrl}/api/products/getCategories?type=service`),
+        ]);
+
+        if (prodRes.ok) {
+          const prodData = await prodRes.json();
+          if (prodData.data) {
+            const mapped = prodData.data.map((c: any) => {
               const stats = getCategoryStats(c.code);
               return {
                 title: c.label,
                 description: c.description || "",
                 suppliers: stats.suppliers,
-                products: stats.products,
+                subText: stats.products,
                 image: c.image || "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=600&auto=format&fit=crop&q=80",
                 alt: c.label,
                 slug: c.code,
               };
             });
-            setCategories(mapped.slice(0, 10));
+            setProductCategories(mapped.slice(0, 10));
+          }
+        }
+
+        if (servRes.ok) {
+          const servData = await servRes.json();
+          if (servData.data) {
+            const mapped = servData.data.map((c: any) => {
+              const stats = getServiceCategoryStats(c.code);
+              return {
+                title: c.label,
+                description: c.description || "",
+                suppliers: stats.suppliers,
+                subText: stats.listings,
+                image: c.image || "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=600&auto=format&fit=crop&q=80",
+                alt: c.label,
+                slug: c.code,
+              };
+            });
+            setServiceCategories(mapped.slice(0, 10));
           }
         }
       } catch (err) {
@@ -78,6 +123,8 @@ export function CategoryBrowse() {
     loadCategories();
   }, []);
 
+  const activeCategories = activeTab === "products" ? productCategories : serviceCategories;
+
   if (loading) {
     return (
       <section id="categories" className="border-t border-zinc-200 bg-white py-14">
@@ -88,32 +135,59 @@ export function CategoryBrowse() {
     );
   }
 
-  if (categories.length === 0) {
+  if (activeCategories.length === 0) {
     return null;
   }
 
   return (
     <section id="categories" className="border-t border-zinc-200 bg-white">
       <div className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-        <div className="mb-10 flex items-end justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">Browse by Category</h2>
-            <p className="mt-2 text-sm text-zinc-500 leading-relaxed">
-              Explore supplier depth across core industrial categories
-            </p>
+        {/* Title Block */}
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">Browse by Category</h2>
+          <p className="mt-2 text-sm text-zinc-500 leading-relaxed">
+            Explore supplier depth across core industrial categories
+          </p>
+        </div>
+        
+        {/* Tabs & View All Navigation Row (below title) */}
+        <div className="mt-6 mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-zinc-100">
+          <div className="flex bg-zinc-100 p-1 rounded-xl border border-zinc-200/50 w-fit">
+            <button
+              onClick={() => setActiveTab("products")}
+              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                activeTab === "products"
+                  ? "bg-white text-zinc-900 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-800"
+              }`}
+            >
+              Products
+            </button>
+            <button
+              onClick={() => setActiveTab("services")}
+              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                activeTab === "services"
+                  ? "bg-white text-zinc-900 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-800"
+              }`}
+            >
+              Services
+            </button>
           </div>
+
           <Link
-            href="/categories"
+            href={activeTab === "products" ? "/categories" : "/services"}
             className="text-sm font-semibold text-[#1d4ed8] hover:text-[#1e40af] transition-colors"
           >
-            View All Categories &rarr;
+            {activeTab === "products" ? "View All Categories" : "View All Services"} &rarr;
           </Link>
         </div>
+
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {categories.map((category) => (
+          {activeCategories.map((category) => (
             <Link
               key={category.title}
-              href={`/products/${category.slug}`}
+              href={activeTab === "products" ? `/products/${category.slug}` : `/services?category=${category.slug}`}
               className="group flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white hover:border-[#1d4ed8] hover:shadow-md transition-all duration-300"
             >
               <div className="relative h-32 w-full bg-zinc-100 overflow-hidden">
@@ -135,7 +209,7 @@ export function CategoryBrowse() {
                 <div className="flex gap-2 text-[10px] text-zinc-400 py-1.5 border-t border-zinc-100 mt-1">
                   <span>{category.suppliers}</span>
                   <span>•</span>
-                  <span>{category.products}</span>
+                  <span>{category.subText}</span>
                 </div>
               </div>
             </Link>
