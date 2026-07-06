@@ -892,7 +892,6 @@ export default function ProductDetailPage() {
             technicalSpecs={getTechnicalSpecifications()}
           />
         </section>
-        </section>
 
         {/* Delivery Location & Compare Suppliers Section */}
         <section className="max-w-7xl mx-auto px-4 pb-12 sm:px-6 lg:px-8">
