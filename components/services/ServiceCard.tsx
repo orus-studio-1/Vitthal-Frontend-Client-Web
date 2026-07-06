@@ -12,13 +12,6 @@ import type { ServiceListItem } from "@/store/serviceStore";
 
 const FALLBACK_IMAGE = "/placeholder-product.png";
 
-function formatPrice(price: string | null): string {
-  if (!price) return "Price on request";
-  const num = parseFloat(price);
-  if (isNaN(num)) return "Price on request";
-  return `₹${num.toLocaleString("en-IN")}`;
-}
-
 type ServiceCardProps = ServiceListItem;
 
 export function ServiceCard({ id, name, description, rating, review_count, category_label, vendor_count, starting_price, image_url }: ServiceCardProps) {
@@ -59,7 +52,7 @@ export function ServiceCard({ id, name, description, rating, review_count, categ
           serviceId: id,
           productName: name,
           description: description || "",
-          image: FALLBACK_IMAGE,
+          image: image_url || FALLBACK_IMAGE,
           vendorId: null,
           vendorName: "",
           price: starting_price ? parseFloat(starting_price) : 0,

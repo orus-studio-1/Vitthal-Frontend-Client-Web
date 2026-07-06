@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Loader2, CheckCircle, MessageSquare, IndianRupee } from "lucide-react";
+import { X, Loader2, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useServiceStore } from "@/store/serviceStore";
 import type { VendorOffering } from "@/store/serviceStore";
@@ -116,7 +116,7 @@ export function RequestQuoteModal({ isOpen, onClose, serviceId, serviceName, off
                 Would you like to send a service request for <strong>{serviceName}</strong> to all <strong>{offerings.length}</strong> available service providers?
               </p>
               <p className="mt-2.5 text-xs text-blue-500/90 font-medium">
-                Providers will receive your inquiry and respond to you directly with their respect price quotations and proposals.
+                Providers will receive your inquiry and respond to you directly with their respective price quotations and proposals.
               </p>
             </div>
 

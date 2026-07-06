@@ -2,21 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Star, Users, ArrowRight } from "lucide-react";
+import { Star, ArrowRight } from "lucide-react";
 import type { ServiceListItem } from "@/store/serviceStore";
 
 const FALLBACK_IMAGE = "/placeholder-product.png";
 
-function formatPrice(price: string | null): string {
-  if (!price) return "Price on request";
-  const num = parseFloat(price);
-  if (isNaN(num)) return "Price on request";
-  return `₹${num.toLocaleString("en-IN")}`;
-}
-
 type ServiceRowCardProps = ServiceListItem;
 
-export function ServiceRowCard({ id, name, description, rating, review_count, category_label, vendor_count, starting_price, image_url }: ServiceRowCardProps) {
+export function ServiceRowCard({ id, name, description, rating, review_count, category_label, vendor_count, image_url }: ServiceRowCardProps) {
   const ratingValue = rating ? parseFloat(rating) : 0;
   return (
     <article className="group relative flex items-center gap-6 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm transition-all hover:border-zinc-400 hover:shadow-md cursor-pointer">

@@ -239,7 +239,7 @@ export default function ProductDetailPage() {
       : (rankedVendors.length > 0 ? rankedVendors : (product.vendors || [])))
     : [];
   const displayVendors = Array.from(
-    new Map(rawDisplayVendors.map((v: any) => [v.vendor_id || v.id || Math.random(), v])).values()
+    new Map(rawDisplayVendors.map((v: any, index: number) => [v.vendor_id || v.id || `fallback-${index}`, v])).values()
   ) as any[];
   const [isLocating, setIsLocating] = useState(false);
   const [isRanking, setIsRanking] = useState(false);

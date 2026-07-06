@@ -41,13 +41,18 @@ export function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const fetchServiceCart = useServiceCartStore((s) => s.fetchCart);
+  const fetchProductCart = useCartStore((s) => s.fetchCart);
+
   useEffect(() => {
     if (isAuthenticated && user?.userId) {
       fetchUnreadCount();
       initSocket(user.userId);
+      fetchServiceCart("direct", true);
+      fetchProductCart(true);
       return () => disconnectSocket();
     }
-  }, [isAuthenticated, user?.userId, fetchUnreadCount, initSocket, disconnectSocket]);
+  }, [isAuthenticated, user?.userId, fetchUnreadCount, initSocket, disconnectSocket, fetchServiceCart, fetchProductCart]);
 
   function handleOpenNotifications() {
     setNotifDropdown(!notifDropdown);
