@@ -4,6 +4,7 @@ export { MarketStats } from "./MarketStats";
 export { CategoryBrowse } from "./CategoryBrowse";
 export { ProductCard } from "./ProductCard";
 export { ProductSection } from "./ProductSection";
+export { ServiceSection } from "./ServiceSection";
 export { SectionHeading } from "./SectionHeading";
 export { WhyChooseUs } from "./WhyChooseUs";
 export { CTASection } from "./CTASection";

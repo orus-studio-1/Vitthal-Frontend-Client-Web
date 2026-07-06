@@ -3,126 +3,33 @@ import {
   MarketStats,
   CategoryBrowse,
   ProductSection,
+  ServiceSection,
   WhyChooseUs,
   CTASection,
 } from "@/components/Landing_Page";
-
-type Product = {
-  name: string;
-  minPrice: number;
-  maxPrice: number;
-  minOriginalPrice?: number;
-  maxOriginalPrice?: number;
-  moq: number;
-  sellerCount: number;
-  image: string;
-  id: string;
-};
-
-// Map backend response to the frontend Product shape
-function mapBackendProduct(bp: any): Product {
-  const vendorsCount = Number(bp.seller_count || bp.vendor_count || 0);
-  const minPrice = Number(bp.min_price) || 0;
-  const maxPrice = Number(bp.max_price) || 0;
-  const minMoq = Number(bp.min_moq) || 1;
-  const minOriginalPrice = bp.min_original_price ? Number(bp.min_original_price) : undefined;
-  const maxOriginalPrice = bp.max_original_price ? Number(bp.max_original_price) : undefined;
-
-  return {
-    name: bp.product_name || "Unknown Product",
-    minPrice,
-    maxPrice,
-    minOriginalPrice,
-    maxOriginalPrice,
-    moq: minMoq,
-    sellerCount: vendorsCount,
-    image:
-      bp.primary_image ||
-      "https://www.shutterstock.com/image-photo/neatly-stacked-light-green-gypsum-600nw-2690641841.jpg",
-    id: bp.product_id || bp.id || "unknown",
-  };
-}
-
-// Fetch helper
-async function fetchProducts(url: string): Promise<Product[]> {
-  try {
-    const res = await fetch(url, {
-      cache: "no-store", // Always fetch fresh data during development
-    });
-    if (!res.ok) {
-      console.error(`Failed to fetch ${url}: ${res.statusText}`);
-      return [];
-    }
-    const json = await res.json();
-    if (json.data && Array.isArray(json.data)) {
-      return json.data.map(mapBackendProduct);
-    }
-    return [];
-  } catch (error) {
-    console.error(`Fetch error for ${url}:`, error);
-    return [];
-  }
-}
-
-type Category = {
-  id: string;
-  code: string;
-  label: string;
-  description: string;
-  image: string;
-  min_commision_percentage: number;
-  max_commision_percentage: number;
-  sort_order: number;
-};
-
-// Fetch categories helper
-async function fetchCategories(url: string): Promise<Category[]> {
-  try {
-    const res = await fetch(url, {
-      cache: "no-store",
-    });
-    if (!res.ok) {
-      console.error(`Failed to fetch categories: ${res.statusText}`);
-      return [];
-    }
-    const json = await res.json();
-    if (json.data && Array.isArray(json.data)) {
-      return json.data;
-    }
-    return [];
-  } catch (error) {
-    console.error("Fetch categories error:", error);
-    return [];
-  }
-}
+import { fetchAllProducts, fetchCategories } from "@/lib/api/products";
+import { fetchServices } from "@/lib/api/services";
 
 export default async function Home() {
-  const BASE_URL = process.env.NEXT_PUBLIC_API_URL
-    ? `${process.env.NEXT_PUBLIC_API_URL}/api/products`
-    : "http://localhost:9000/api/products";
+  // Fetch categories first to determine which sections to show
+  const categories = await fetchCategories();
 
-  // Fetch categories first to determine which ones we are showing
-  const categories = await fetchCategories(`${BASE_URL}/getCategories`);
-
-  // Pick any two categories. We prefer 'metal_fabrication_parts' and 'plastic_polymer_components'
-  // because we have populated products for them. If not found, fall back to the first two.
+  // Prefer specific categories we have populated data for
   const cat1 = categories.find((c) => c.code === "metal_fabrication_parts") || categories[0];
   const cat2 = categories.find((c) => c.code === "plastic_polymer_components") || categories[1];
 
-  // Fetch products concurrently
-  const [featuredProducts, cat1Products, cat2Products] = await Promise.all([
-    fetchProducts(`${BASE_URL}/getAllProducts?offset=0&limit=4`),
-    cat1
-      ? fetchProducts(`${BASE_URL}/getProductsByCategory/${cat1.code}?offset=0&limit=4`)
-      : Promise.resolve([]),
-    cat2
-      ? fetchProducts(`${BASE_URL}/getProductsByCategory/${cat2.code}?offset=0&limit=4`)
-      : Promise.resolve([]),
+  const { fetchProductsByCategory } = await import("@/lib/api/products");
+
+  // Fetch products and services concurrently
+  const [featuredProducts, cat1Products, cat2Products, featuredServices] = await Promise.all([
+    fetchAllProducts(0, 4),
+    cat1 ? fetchProductsByCategory(cat1.code, 0, 4) : Promise.resolve({ products: [], totalCount: 0 }),
+    cat2 ? fetchProductsByCategory(cat2.code, 0, 4) : Promise.resolve({ products: [], totalCount: 0 }),
+    fetchServices(1, 4),
   ]);
 
   return (
     <div className="min-h-screen bg-white text-zinc-900">
-
       <main>
         <Hero />
         <MarketStats />
@@ -141,7 +48,7 @@ export default async function Home() {
           <ProductSection
             title={cat1.label}
             subtitle={cat1.description || "High-quality inputs and fabricated components"}
-            products={cat1Products.length > 0 ? cat1Products : []}
+            products={cat1Products.products.length > 0 ? cat1Products.products : []}
             showViewAll
             viewAllHref={`/products/${cat1.code}`}
             bg="zinc"
@@ -152,19 +59,27 @@ export default async function Home() {
           <ProductSection
             title={cat2.label}
             subtitle={cat2.description || "Resins, compounds, and industrial plastic components"}
-            products={cat2Products.length > 0 ? cat2Products : []}
+            products={cat2Products.products.length > 0 ? cat2Products.products : []}
             showViewAll
             viewAllHref={`/products/${cat2.code}`}
             bg="white"
           />
         )}
-        <CategoryBrowse />
 
+        <ServiceSection
+          id="featured-services"
+          title="Featured Services"
+          subtitle="Industrial installation, maintenance, logistics, and consulting from verified providers"
+          services={featuredServices.services}
+          showViewAll
+          viewAllHref="/services"
+          bg="zinc"
+        />
+
+        <CategoryBrowse />
         <WhyChooseUs />
         <CTASection />
       </main>
-
     </div>
   );
 }
-
