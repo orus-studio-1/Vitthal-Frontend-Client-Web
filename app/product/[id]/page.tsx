@@ -152,7 +152,9 @@ export default function ProductDetailPage() {
               <VariantSelector
                 product={product}
                 selectedVariant={selectedVariant}
+                selectedSpecs={selectedSpecs}
                 onSelectVariant={handleSelectVariant}
+                onSpecChange={handleSpecChange}
               />
 
               {/* Spec Selector */}
@@ -263,8 +265,8 @@ export default function ProductDetailPage() {
         {/* Related Products */}
         <RelatedProducts
           category={product.category}
-          products={relatedProducts}
-          isLoading={isLoadingRelated}
+          relatedProducts={relatedProducts}
+          isLoadingRelated={isLoadingRelated}
         />
       </main>
 

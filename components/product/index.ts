@@ -1,5 +1,5 @@
 export { ProductBreadcrumb } from "./ProductBreadcrumb";
-export { VariantSelector } from "./VariantSelector";
+export { default as VariantSelector } from "./VariantSelector";
 export { SpecSelector } from "./SpecSelector";
 export { QuotationAlert } from "./QuotationAlert";
 export { ProductFeatures } from "./ProductFeatures";
@@ -17,5 +17,5 @@ export { ReviewsList } from "./ReviewsList";
 export { RatingBreakdown } from "./RatingBreakdown";
 export { ReviewsSection } from "./ReviewsSection";
 export { RelatedProductCard } from "./RelatedProductCard";
-export { RelatedProducts } from "./RelatedProducts";
+export { default as RelatedProducts } from "./RelatedProducts";
 export { ReviewLightbox } from "./ReviewLightbox";
