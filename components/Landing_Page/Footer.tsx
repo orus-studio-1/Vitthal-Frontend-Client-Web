@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 export function Footer() {
   const currentYear = new Date().getFullYear();
 
@@ -121,9 +123,9 @@ export function Footer() {
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <p className="text-sm text-zinc-500">&copy; {currentYear} MTWO. All rights reserved.</p>
             <div className="flex gap-6 text-sm text-zinc-500">
-              <a href="#" className="hover:text-white transition-colors">
+              <Link href="/privacy-policy" className="hover:text-white transition-colors">
                 Privacy Policy
-              </a>
+              </Link>
               <a href="#" className="hover:text-white transition-colors">
                 Terms of Service
               </a>
