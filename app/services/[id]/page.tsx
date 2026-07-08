@@ -73,7 +73,7 @@ async function fetchClientAddress(): Promise<{ latitude: number; longitude: numb
 
 function formatDistance(distance: number | null | undefined): string {
   if (distance === null || distance === undefined) return "Regional Provider";
-  return distance < 1 
+  return distance < 1
     ? `${Math.round(distance * 1000)} m away`
     : `${distance.toFixed(1)} km away`;
 }
@@ -466,7 +466,7 @@ export default function ServiceDetailPage() {
         {/* Service Availability & Providers comparing */}
         <section className="bg-white border-b border-zinc-200">
           <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-            
+
             {/* Service Availability Card */}
             <div className="border border-zinc-200 bg-white rounded-2xl shadow-sm overflow-hidden mb-8">
               <div className="px-6 py-4 border-b border-zinc-100 bg-zinc-50/50 flex items-center gap-2">

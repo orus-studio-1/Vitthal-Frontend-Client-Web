@@ -22,11 +22,11 @@ import { useServiceStore } from "@/store/serviceStore";
 import type { ServiceBooking } from "@/store/serviceStore";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  pending:     { label: "Pending",     color: "bg-amber-50 text-amber-700 border-amber-200",   icon: Clock },
-  confirmed:   { label: "Confirmed",   color: "bg-blue-50 text-blue-700 border-blue-200",      icon: CheckCircle2 },
+  pending: { label: "Pending", color: "bg-amber-50 text-amber-700 border-amber-200", icon: Clock },
+  confirmed: { label: "Confirmed", color: "bg-blue-50 text-blue-700 border-blue-200", icon: CheckCircle2 },
   in_progress: { label: "In Progress", color: "bg-indigo-50 text-indigo-700 border-indigo-200", icon: Loader2 },
-  completed:   { label: "Completed",   color: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: CheckCircle2 },
-  cancelled:   { label: "Cancelled",   color: "bg-zinc-100 text-zinc-500 border-zinc-200",    icon: X },
+  completed: { label: "Completed", color: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: CheckCircle2 },
+  cancelled: { label: "Cancelled", color: "bg-zinc-100 text-zinc-500 border-zinc-200", icon: X },
 };
 
 function StatusBadge({ status }: { status: string }) {
