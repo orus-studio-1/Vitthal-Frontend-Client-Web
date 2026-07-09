@@ -18,6 +18,7 @@ import {
   AlertCircle,
   Loader2,
   Wrench,
+  Trash2,
 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
@@ -49,7 +50,7 @@ type ClientDetails = {
 };
 
 export default function ProfilePage() {
-  const { user, fetchUser, logout, checkClientSetupStatus } = useAuthStore();
+  const { user, fetchUser, logout, deleteAccount, checkClientSetupStatus } = useAuthStore();
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
@@ -115,6 +116,17 @@ export default function ProfilePage() {
     await logout();
     toast.success("Logged out successfully");
     router.push("/");
+  }
+
+  async function handleDeleteAccount() {
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete your account? This will deactivate your account immediately and permanently delete all your data in 14 days."
+    );
+    if (confirmDelete) {
+      await deleteAccount();
+      toast.success("Account deletion requested successfully");
+      router.push("/");
+    }
   }
 
   function handleEdit() {
@@ -245,6 +257,13 @@ export default function ProfilePage() {
           >
             <LogOut size={18} />
             Sign Out
+          </button>
+          <button
+            onClick={handleDeleteAccount}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+          >
+            <Trash2 size={18} />
+            Delete Account
           </button>
         </div>
       </main>
@@ -525,6 +544,13 @@ export default function ProfilePage() {
         >
           <LogOut size={18} />
           Sign Out
+        </button>
+        <button
+          onClick={handleDeleteAccount}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+        >
+          <Trash2 size={18} />
+          Delete Account
         </button>
       </div>
     </main>

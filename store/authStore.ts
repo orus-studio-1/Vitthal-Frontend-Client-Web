@@ -5,6 +5,7 @@ export type User = {
   username: string;
   email: string;
   role: string;
+  deletionRequestedAt?: string | null;
 };
 
 type AuthState = {
@@ -16,16 +17,25 @@ type AuthState = {
   fetchUser: () => Promise<void>;
   checkClientSetupStatus: () => Promise<boolean>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
+  recoverAccount: () => Promise<void>;
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
   isLoading: true,
 
-  setUser: (user) => set({ user, isAuthenticated: true, isLoading: false }),
+  setUser: (user) => set({
+    user: {
+      ...user,
+      deletionRequestedAt: (user as any).deletion_requested_at || user.deletionRequestedAt || null
+    },
+    isAuthenticated: true,
+    isLoading: false
+  }),
 
   clearUser: () => set({ user: null, isAuthenticated: false, isLoading: false }),
 
@@ -41,7 +51,14 @@ export const useAuthStore = create<AuthState>((set) => ({
       });
       if (res.ok) {
         const data = await res.json();
-        set({ user: data.user, isAuthenticated: true, isLoading: false });
+        set({
+          user: {
+            ...data.user,
+            deletionRequestedAt: data.user.deletion_requested_at || data.user.deletionRequestedAt || null
+          },
+          isAuthenticated: true,
+          isLoading: false
+        });
       } else {
         set({ user: null, isAuthenticated: false, isLoading: false });
       }
@@ -85,5 +102,47 @@ export const useAuthStore = create<AuthState>((set) => ({
       // ignore
     }
     set({ user: null, isAuthenticated: false, isLoading: false });
+  },
+
+  deleteAccount: async () => {
+    try {
+      await fetch(`${API_URL}/api/auth/delete-account`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "x-request-from": "client",
+        },
+      });
+    } catch {
+      // ignore
+    }
+    set({ user: null, isAuthenticated: false, isLoading: false });
+  },
+
+  recoverAccount: async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/auth/recover-account`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "x-request-from": "client",
+        },
+      });
+      if (res.ok) {
+        const currentUser = get().user;
+        if (currentUser) {
+          set({
+            user: {
+              ...currentUser,
+              deletionRequestedAt: null
+            }
+          });
+        }
+      }
+    } catch {
+      // ignore
+    }
   },
 }));

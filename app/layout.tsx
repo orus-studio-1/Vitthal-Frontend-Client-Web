@@ -6,6 +6,7 @@ import { Footer, Header } from "@/components/Landing_Page";
 import PreFooter from "@/components/shared/PreFooter";
 import { Toaster } from "@/components/ui/sonner";
 import { consoleGuardScript, isProduction } from "@/lib/consoleGuard";
+import DeletionRecoveryOverlay from "@/components/shared/DeletionRecoveryOverlay";
 
 const outfit = Outfit({
   variable: "--font-heading",
@@ -47,7 +48,9 @@ export default function RootLayout({
         ) : null}
         <Toaster position="top-right" richColors/>
         <Header />
-        {children}
+        <DeletionRecoveryOverlay>
+          {children}
+        </DeletionRecoveryOverlay>
         <PreFooter />
         <Footer />
       </body>
