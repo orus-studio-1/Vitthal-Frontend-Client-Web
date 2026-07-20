@@ -66,7 +66,7 @@ export default function DeleteAccountPage() {
                 Request Submitted
               </h1>
               <p className="mt-4 text-zinc-600 leading-relaxed max-w-md">
-                Your request to delete the account associated with <strong className="text-zinc-900">{email}</strong> has been received. Our support team will verify details and process your request within 14 days.
+                Your request to delete the account associated with <strong className="text-zinc-900">{email}</strong> has been received. Please note that your data will be permanently deleted after checking and verification by our admin. The admin will send you an email regarding this request; please respond to that email to confirm and proceed with the deletion.
               </p>
               <div className="mt-8">
                 <a
@@ -100,7 +100,7 @@ export default function DeleteAccountPage() {
                 <div>
                   <h3 className="text-sm font-semibold text-amber-900">Important Notice</h3>
                   <p className="text-xs text-amber-700 mt-1 leading-relaxed">
-                    This request will result in the permanent deletion of your profile, purchase history, saved addresses, and active quotations. This action cannot be undone once processed.
+                    This request will result in the permanent deletion of your profile, purchase history, saved addresses, and active quotations. Please note that your data will be permanently deleted only after checking and verification by our admin. The admin will send you an email regarding this request; you must respond to that email to confirm and proceed with the deletion.
                   </p>
                 </div>
               </div>
