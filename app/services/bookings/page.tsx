@@ -16,10 +16,11 @@ import {
   Key,
   Wrench,
   X,
+  MessageSquare,
 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { useServiceStore } from "@/store/serviceStore";
-import type { ServiceBooking } from "@/store/serviceStore";
+import type { ServiceBooking, ServiceQuotation } from "@/store/serviceStore";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   pending: { label: "Pending", color: "bg-amber-50 text-amber-700 border-amber-200", icon: Clock },
@@ -27,6 +28,16 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
   in_progress: { label: "In Progress", color: "bg-indigo-50 text-indigo-700 border-indigo-200", icon: Loader2 },
   completed: { label: "Completed", color: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: CheckCircle2 },
   cancelled: { label: "Cancelled", color: "bg-zinc-100 text-zinc-500 border-zinc-200", icon: X },
+};
+
+const QUOTATION_STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+  pending_vendor:   { label: "Proposal Negotiation - Awaiting Vendor", color: "bg-amber-50 text-amber-700 border-amber-200", icon: Clock },
+  vendor_offered:   { label: "Proposal Negotiation - Offer Received",  color: "bg-blue-50 text-blue-700 border-blue-200", icon: ChevronRight },
+  client_countered: { label: "Proposal Negotiation - Counter Sent",    color: "bg-indigo-50 text-indigo-700 border-indigo-200", icon: Loader2 },
+  vendor_countered: { label: "Proposal Negotiation - Vendor Countered", color: "bg-purple-55 text-purple-700 border-purple-200", icon: ChevronRight },
+  client_rejected:  { label: "Proposal Negotiation - Rejected by Client", color: "bg-red-50 text-red-750 border-red-250", icon: X },
+  vendor_rejected:  { label: "Proposal Negotiation - Rejected by Vendor", color: "bg-red-50 text-red-750 border-red-250", icon: X },
+  cancelled:        { label: "Proposal Negotiation - Cancelled",        color: "bg-zinc-100 text-zinc-500 border-zinc-200", icon: X },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -275,10 +286,69 @@ function BookingCard({ booking }: { booking: ServiceBooking }) {
   );
 }
 
+function QuotationCard({ quotation }: { quotation: ServiceQuotation }) {
+  const cfg = QUOTATION_STATUS_CONFIG[quotation.status] ?? {
+    label: "Proposal Negotiation",
+    color: "bg-zinc-50 text-zinc-700 border-zinc-200",
+    icon: Clock,
+  };
+  const Icon = cfg.icon;
+
+  const price = quotation.agreed_price || quotation.requested_price;
+
+  return (
+    <article className="rounded-xl border border-dashed border-blue-200 bg-blue-50/20 p-5 space-y-4 hover:border-blue-300 hover:shadow-xs transition-all flex flex-col justify-between">
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold text-zinc-900 text-sm">{quotation.service_name}</h3>
+            <p className="text-xs text-zinc-500 mt-0.5">by {quotation.vendor_name}</p>
+          </div>
+          <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${cfg.color}`}>
+            <Icon size={12} />
+            {cfg.label}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div>
+            <p className="text-zinc-400 mb-0.5">Offer Price</p>
+            <p className="font-semibold text-zinc-900">
+              {price ? `₹${parseFloat(price).toLocaleString("en-IN")}` : "Negotiable"}
+            </p>
+          </div>
+          <div>
+            <p className="text-zinc-400 mb-0.5">Stage</p>
+            <p className="font-medium text-zinc-700">Proposal & Negotiation</p>
+          </div>
+        </div>
+
+        {quotation.scope_of_work && (
+          <div className="rounded-lg border border-zinc-100 bg-white/80 px-3 py-2">
+            <p className="text-xs text-zinc-500 italic line-clamp-3">"{quotation.scope_of_work}"</p>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-3 pt-3">
+        <div className="flex gap-2">
+          <Link
+            href="/services/quotations"
+            className="flex items-center gap-1.5 rounded-lg border border-blue-600 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-600 hover:text-white transition-colors bg-white"
+          >
+            <MessageSquare size={13} /> View Discussion / Negotiate
+          </Link>
+        </div>
+        <p className="text-xs text-zinc-400">Requested {formatDate(quotation.created_at)}</p>
+      </div>
+    </article>
+  );
+}
+
 export default function MyServiceBookingsPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
-  const { bookings, isLoadingBookings, fetchMyBookings } = useServiceStore();
+  const { bookings, isLoadingBookings, fetchMyBookings, quotations, isLoadingQuotations, fetchMyQuotations } = useServiceStore();
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -289,8 +359,26 @@ export default function MyServiceBookingsPage() {
   useEffect(() => {
     if (isAuthenticated) {
       fetchMyBookings();
+      fetchMyQuotations();
     }
-  }, [isAuthenticated, fetchMyBookings]);
+  }, [isAuthenticated, fetchMyBookings, fetchMyQuotations]);
+
+  const unifiedItems = [
+    ...bookings.map((b) => ({
+      type: "booking" as const,
+      id: b.id,
+      date: b.created_at,
+      item: b,
+    })),
+    ...quotations
+      .filter((q) => q.status !== "client_accepted") // skip accepted ones as they are now confirmed bookings
+      .map((q) => ({
+        type: "quotation" as const,
+        id: q.id,
+        date: q.created_at,
+        item: q,
+      })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   if (authLoading || (!isAuthenticated && !authLoading)) {
     return (
@@ -321,13 +409,13 @@ export default function MyServiceBookingsPage() {
 
         <section className="bg-white">
           <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-            {isLoadingBookings ? (
+            {isLoadingBookings || isLoadingQuotations ? (
               <div className="space-y-3">
                 {[...Array(3)].map((_, i) => (
                   <div key={i} className="h-44 animate-pulse rounded-xl border border-zinc-100 bg-zinc-50" />
                 ))}
               </div>
-            ) : bookings.length === 0 ? (
+            ) : unifiedItems.length === 0 ? (
               <div className="py-24 text-center">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-100">
                   <Wrench size={28} className="text-zinc-400" strokeWidth={1.5} />
@@ -340,9 +428,13 @@ export default function MyServiceBookingsPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {bookings.map((booking) => (
-                  <BookingCard key={booking.id} booking={booking} />
-                ))}
+                {unifiedItems.map((ui) => {
+                  if (ui.type === "booking") {
+                    return <BookingCard key={ui.id} booking={ui.item} />;
+                  } else {
+                    return <QuotationCard key={ui.id} quotation={ui.item} />;
+                  }
+                })}
               </div>
             )}
           </div>

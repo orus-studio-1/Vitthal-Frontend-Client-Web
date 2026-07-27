@@ -4,6 +4,7 @@ import { Search, Wrench, ChevronRight } from "lucide-react";
 import { ServiceCard } from "@/components/services/ServiceCard";
 import { ServiceRowCard } from "@/components/services/ServiceRowCard";
 import { ServiceSortToggle } from "@/components/services/ServiceSortToggle";
+import { ServiceFilters } from "@/components/services/ServiceFilters";
 import { Pagination } from "@/components/Pagination";
 import type { ServiceListItem } from "@/store/serviceStore";
 
@@ -28,12 +29,14 @@ type FetchResult = {
 async function fetchServices(
   page: number,
   search?: string,
-  category?: string
+  category?: string,
+  subcategory?: string
 ): Promise<FetchResult> {
   try {
     const params = new URLSearchParams({ page: String(page), limit: String(SERVICES_PER_PAGE) });
     if (search) params.set("search", search);
     if (category) params.set("category", category);
+    if (subcategory) params.set("subcategory", subcategory);
 
     const res = await fetch(`${API_BASE}?${params.toString()}`, {
       cache: "no-store",
@@ -49,6 +52,21 @@ async function fetchServices(
     };
   } catch {
     return { services: [], total: 0 };
+  }
+}
+
+async function fetchSubcategories(categoryId: string): Promise<{ id: string; name: string }[]> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
+    const res = await fetch(`${baseUrl}/api/services/subcategories?categoryId=${categoryId}`, {
+      cache: "no-store",
+      headers: { "x-request-from": "client" },
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return Array.isArray(json.data) ? json.data : [];
+  } catch {
+    return [];
   }
 }
 
@@ -109,6 +127,7 @@ interface ServicesPageProps {
     page?: string;
     search?: string;
     category?: string;
+    subcategory?: string;
     sort?: string;
     view?: string;
   }>;
@@ -119,12 +138,14 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
   const currentPage = Math.max(1, parseInt(params.page ?? "1", 10));
   const search = params.search || "";
   const category = params.category || "";
+  const subcategory = params.subcategory || "";
   const sort = params.sort || "all";
   const view = params.view || "cards";
 
-  const [{ services, total }, categories] = await Promise.all([
-    fetchServices(currentPage, search || undefined, category || undefined),
+  const [{ services, total }, categories, subcategories] = await Promise.all([
+    fetchServices(currentPage, search || undefined, category || undefined, subcategory || undefined),
     fetchCategories(),
+    category ? fetchSubcategories(category) : Promise.resolve([]),
   ]);
 
   const sortedServices = sortServices(services, sort);
@@ -162,7 +183,13 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
         <section className="border-b border-zinc-100 bg-white sticky top-16 z-30">
           <div className="mx-auto w-full max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
             <Suspense fallback={<div className="h-10 animate-pulse bg-zinc-100 rounded-lg" />}>
-              <ServiceFilters categories={categories} search={search} category={category} />
+              <ServiceFilters
+                categories={categories}
+                subcategories={subcategories}
+                search={search}
+                category={category}
+                subcategory={subcategory}
+              />
             </Suspense>
           </div>
         </section>
@@ -249,47 +276,3 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
   );
 }
 
-function ServiceFilters({
-  categories,
-  search,
-  category,
-}: {
-  categories: { id: string; label: string }[];
-  search: string;
-  category: string;
-}) {
-  return (
-    <form method="get" action="/services" className="flex flex-wrap items-center gap-3">
-      <div className="relative flex-1 min-w-48">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-        <input
-          name="search"
-          type="search"
-          defaultValue={search}
-          placeholder="Search services..."
-          className="w-full rounded-lg border border-zinc-300 bg-white pl-9 pr-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-[#1d4ed8] focus:outline-none focus:ring-1 focus:ring-[#1d4ed8]/30 transition-colors"
-        />
-      </div>
-
-      {categories.length > 0 && (
-        <select
-          name="category"
-          defaultValue={category}
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 focus:border-[#1d4ed8] focus:outline-none focus:ring-1 focus:ring-[#1d4ed8]/30 transition-colors"
-        >
-          <option value="">All Categories</option>
-          {categories.map((cat) => (
-            <option key={cat.id} value={cat.id}>{cat.label}</option>
-          ))}
-        </select>
-      )}
-
-      <button
-        type="submit"
-        className="rounded-lg bg-[#1d4ed8] px-4 py-2 text-sm font-medium text-white hover:bg-[#1e40af] transition-colors"
-      >
-        Search
-      </button>
-    </form>
-  );
-}

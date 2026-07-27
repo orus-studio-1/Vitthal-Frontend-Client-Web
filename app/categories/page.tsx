@@ -46,7 +46,6 @@ function getCategoryStats(code: string) {
 export default function CategoriesPage() {
     const [productCategories, setProductCategories] = useState<Category[]>([]);
     const [serviceCategories, setServiceCategories] = useState<Category[]>([]);
-    const [activeTab, setActiveTab] = useState<"products" | "services">("products");
     const [searchQuery, setSearchQuery] = useState("");
     const [loading, setLoading] = useState(true);
 
@@ -103,9 +102,12 @@ export default function CategoriesPage() {
         loadCategories();
     }, []);
 
-    const categories = activeTab === "products" ? productCategories : serviceCategories;
+    const filteredProductCategories = productCategories.filter((cat) =>
+        cat.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        cat.description.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
-    const filteredCategories = categories.filter((cat) =>
+    const filteredServiceCategories = serviceCategories.filter((cat) =>
         cat.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
         cat.description.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -135,7 +137,7 @@ export default function CategoriesPage() {
                             </div>
                             <input
                                 type="text"
-                                placeholder={`Search ${activeTab} categories...`}
+                                placeholder="Search categories..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full rounded-2xl border border-zinc-700 bg-zinc-800/80 py-3.5 pl-11 pr-4 text-sm text-white placeholder-zinc-500 outline-none backdrop-blur-sm transition focus:border-blue-500 focus:bg-zinc-800"
@@ -144,103 +146,151 @@ export default function CategoriesPage() {
                     </div>
                 </section>
 
-                {/* Tab Switcher */}
-                <div className="border-b border-zinc-200 bg-white">
-                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                        <div className="flex h-14 items-center justify-center gap-6">
-                            <button
-                                onClick={() => { setActiveTab("products"); setSearchQuery(""); }}
-                                className={`h-full border-b-2 px-4 text-sm font-semibold transition-all ${
-                                    activeTab === "products"
-                                        ? "border-blue-600 text-blue-600"
-                                        : "border-transparent text-zinc-500 hover:text-zinc-800"
-                                }`}
-                            >
-                                Product Categories
-                            </button>
-                            <button
-                                onClick={() => { setActiveTab("services"); setSearchQuery(""); }}
-                                className={`h-full border-b-2 px-4 text-sm font-semibold transition-all ${
-                                    activeTab === "services"
-                                        ? "border-blue-600 text-blue-600"
-                                        : "border-transparent text-zinc-500 hover:text-zinc-800"
-                                }`}
-                            >
-                                Service Categories
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
                 {/* Categories Grid */}
                 <section className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
                     {loading ? (
                         <div className="flex min-h-[30vh] items-center justify-center">
                             <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
                         </div>
-                    ) : filteredCategories.length > 0 ? (
-                        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-                            {filteredCategories.map((category) => (
-                                <article
-                                    key={category.id}
-                                    className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xs transition hover:-translate-y-1 hover:shadow-md duration-300"
-                                >
-                                    <div>
-                                        {/* Cover Image */}
-                                        <div className="relative aspect-video w-full overflow-hidden bg-zinc-100">
-                                            <Image
-                                                src={category.image}
-                                                alt={category.label}
-                                                fill
-                                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                                                className="object-cover transition duration-500 group-hover:scale-105"
-                                            />
-                                        </div>
-                                        {/* Card Content */}
-                                        <div className="p-6">
-                                            <h3 className="text-xl font-bold text-zinc-950 group-hover:text-blue-600 transition-colors">
-                                                {category.label}
-                                            </h3>
-                                            <p className="mt-2 text-sm leading-relaxed text-zinc-600 line-clamp-3">
-                                                {category.description}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="border-t border-zinc-100 p-6 pt-4">
-                                        {/* Stats */}
-                                        <div className="mb-4 grid grid-cols-2 gap-4 rounded-xl bg-zinc-50 p-3 text-center">
-                                            <div>
-                                                <span className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                                                    {activeTab === "products" ? "Suppliers" : "Providers"}
-                                                </span>
-                                                <span className="text-sm font-bold text-zinc-800">{category.suppliers}</span>
-                                            </div>
-                                            <div>
-                                                <span className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                                                    {activeTab === "products" ? "Products" : "Type"}
-                                                </span>
-                                                <span className="text-sm font-bold text-zinc-800">{category.products}</span>
-                                            </div>
-                                        </div>
-
-                                        <Link
-                                            href={
-                                                activeTab === "products"
-                                                    ? `/products/${category.code}`
-                                                    : `/services?category=${category.id}`
-                                            }
-                                            className="flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 transition"
-                                        >
-                                            Explore catalog <ArrowRight size={16} className="transition group-hover:translate-x-1" />
-                                        </Link>
-                                    </div>
-                                </article>
-                            ))}
-                        </div>
                     ) : (
-                        <div className="text-center py-16">
-                            <p className="text-zinc-500">No categories found matching &quot;{searchQuery}&quot;.</p>
+                        <div className="space-y-16">
+                            {/* Products Section */}
+                            <div className="space-y-6">
+                                <div className="border-b border-zinc-200 pb-4">
+                                    <h2 className="text-2xl font-bold tracking-tight text-zinc-900">Browse Products by Category</h2>
+                                    <p className="text-sm text-zinc-500 mt-1">High-quality inputs and fabricated components from verified suppliers.</p>
+                                </div>
+                                {filteredProductCategories.length > 0 ? (
+                                    <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                                        {filteredProductCategories.map((category) => (
+                                            <article
+                                                key={category.id}
+                                                className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xs transition hover:-translate-y-1 hover:shadow-md duration-300"
+                                            >
+                                                <div>
+                                                    {/* Cover Image */}
+                                                    <div className="relative aspect-video w-full overflow-hidden bg-zinc-100">
+                                                        <Image
+                                                            src={category.image}
+                                                            alt={category.label}
+                                                            fill
+                                                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                                            className="object-cover transition duration-500 group-hover:scale-105"
+                                                        />
+                                                    </div>
+                                                    {/* Card Content */}
+                                                    <div className="p-6">
+                                                        <h3 className="text-xl font-bold text-zinc-950 group-hover:text-blue-600 transition-colors">
+                                                            {category.label}
+                                                        </h3>
+                                                        <p className="mt-2 text-sm leading-relaxed text-zinc-600 line-clamp-3">
+                                                            {category.description}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="border-t border-zinc-100 p-6 pt-4">
+                                                    {/* Stats */}
+                                                    <div className="mb-4 grid grid-cols-2 gap-4 rounded-xl bg-zinc-50 p-3 text-center">
+                                                        <div>
+                                                            <span className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                                                                Suppliers
+                                                            </span>
+                                                            <span className="text-sm font-bold text-zinc-800">{category.suppliers}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                                                                Products
+                                                            </span>
+                                                            <span className="text-sm font-bold text-zinc-800">{category.products}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <Link
+                                                        href={`/products/${category.code}`}
+                                                        className="flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 transition"
+                                                    >
+                                                        Explore catalog <ArrowRight size={16} className="transition group-hover:translate-x-1" />
+                                                    </Link>
+                                                </div>
+                                            </article>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-12 border border-dashed border-zinc-200 rounded-2xl bg-white">
+                                        <p className="text-zinc-500 text-sm">No product categories found matching &quot;{searchQuery}&quot;.</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Services Section */}
+                            <div className="space-y-6">
+                                <div className="border-b border-zinc-200 pb-4">
+                                    <h2 className="text-2xl font-bold tracking-tight text-zinc-900">Browse Services by Category</h2>
+                                    <p className="text-sm text-zinc-500 mt-1">Industrial installation, maintenance, logistics, and consulting from verified providers.</p>
+                                </div>
+                                {filteredServiceCategories.length > 0 ? (
+                                    <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                                        {filteredServiceCategories.map((category) => (
+                                            <article
+                                                key={category.id}
+                                                className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xs transition hover:-translate-y-1 hover:shadow-md duration-300"
+                                            >
+                                                <div>
+                                                    {/* Cover Image */}
+                                                    <div className="relative aspect-video w-full overflow-hidden bg-zinc-100">
+                                                        <Image
+                                                            src={category.image}
+                                                            alt={category.label}
+                                                            fill
+                                                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                                            className="object-cover transition duration-500 group-hover:scale-105"
+                                                        />
+                                                    </div>
+                                                    {/* Card Content */}
+                                                    <div className="p-6">
+                                                        <h3 className="text-xl font-bold text-zinc-950 group-hover:text-blue-600 transition-colors">
+                                                            {category.label}
+                                                        </h3>
+                                                        <p className="mt-2 text-sm leading-relaxed text-zinc-600 line-clamp-3">
+                                                            {category.description}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="border-t border-zinc-100 p-6 pt-4">
+                                                    {/* Stats */}
+                                                    <div className="mb-4 grid grid-cols-2 gap-4 rounded-xl bg-zinc-50 p-3 text-center">
+                                                        <div>
+                                                            <span className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                                                                Providers
+                                                            </span>
+                                                            <span className="text-sm font-bold text-zinc-800">{category.suppliers}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                                                                Type
+                                                            </span>
+                                                            <span className="text-sm font-bold text-zinc-800">{category.products}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <Link
+                                                        href={`/services?category=${category.id}`}
+                                                        className="flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 transition"
+                                                    >
+                                                        Explore catalog <ArrowRight size={16} className="transition group-hover:translate-x-1" />
+                                                    </Link>
+                                                </div>
+                                            </article>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-12 border border-dashed border-zinc-200 rounded-2xl bg-white">
+                                        <p className="text-zinc-500 text-sm">No service categories found matching &quot;{searchQuery}&quot;.</p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                 </section>

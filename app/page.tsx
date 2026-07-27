@@ -3,12 +3,10 @@ import {
   MarketStats,
   CategoryBrowse,
   ProductSection,
-  ServiceSection,
   WhyChooseUs,
   CTASection,
 } from "@/components/Landing_Page";
 import { fetchAllProducts, fetchCategories } from "@/lib/api/products";
-import { fetchServices } from "@/lib/api/services";
 
 export default async function Home() {
   // Fetch categories first to determine which sections to show
@@ -20,12 +18,11 @@ export default async function Home() {
 
   const { fetchProductsByCategory } = await import("@/lib/api/products");
 
-  // Fetch products and services concurrently
-  const [featuredProducts, cat1Products, cat2Products, featuredServices] = await Promise.all([
+  // Fetch products concurrently
+  const [featuredProducts, cat1Products, cat2Products] = await Promise.all([
     fetchAllProducts(0, 4),
     cat1 ? fetchProductsByCategory(cat1.code, 0, 4) : Promise.resolve({ products: [], totalCount: 0 }),
     cat2 ? fetchProductsByCategory(cat2.code, 0, 4) : Promise.resolve({ products: [], totalCount: 0 }),
-    fetchServices(1, 4),
   ]);
 
   return (
@@ -65,16 +62,6 @@ export default async function Home() {
             bg="white"
           />
         )}
-
-        <ServiceSection
-          id="featured-services"
-          title="Featured Services"
-          subtitle="Industrial installation, maintenance, logistics, and consulting from verified providers"
-          services={featuredServices.services}
-          showViewAll
-          viewAllHref="/services"
-          bg="zinc"
-        />
 
         <CategoryBrowse />
         <WhyChooseUs />

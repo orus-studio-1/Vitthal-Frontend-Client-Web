@@ -61,7 +61,6 @@ function getServiceCategoryStats(code: string) {
 }
 
 export function CategoryBrowse() {
-  const [activeTab, setActiveTab] = useState<"products" | "services">("products");
   const [productCategories, setProductCategories] = useState<Category[]>([]);
   const [serviceCategories, setServiceCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,7 +107,7 @@ export function CategoryBrowse() {
                 subText: stats.listings,
                 image: c.image || "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=600&auto=format&fit=crop&q=80",
                 alt: c.label,
-                slug: c.code,
+                slug: c.id,
               };
             });
             setServiceCategories(mapped.slice(0, 10));
@@ -123,8 +122,6 @@ export function CategoryBrowse() {
     loadCategories();
   }, []);
 
-  const activeCategories = activeTab === "products" ? productCategories : serviceCategories;
-
   if (loading) {
     return (
       <section id="categories" className="border-t border-zinc-200 bg-white py-14">
@@ -135,86 +132,120 @@ export function CategoryBrowse() {
     );
   }
 
-  if (activeCategories.length === 0) {
+  if (productCategories.length === 0 && serviceCategories.length === 0) {
     return null;
   }
 
   return (
     <section id="categories" className="border-t border-zinc-200 bg-white">
-      <div className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-        {/* Title Block */}
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">Browse by Category</h2>
-          <p className="mt-2 text-sm text-zinc-500 leading-relaxed">
-            Explore supplier depth across core industrial categories
-          </p>
-        </div>
+      <div className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:px-8 space-y-16">
         
-        {/* Tabs & View All Navigation Row (below title) */}
-        <div className="mt-6 mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-zinc-100">
-          <div className="flex bg-zinc-100 p-1 rounded-xl border border-zinc-200/50 w-fit">
-            <button
-              onClick={() => setActiveTab("products")}
-              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                activeTab === "products"
-                  ? "bg-white text-zinc-900 shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-800"
-              }`}
-            >
-              Products
-            </button>
-            <button
-              onClick={() => setActiveTab("services")}
-              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                activeTab === "services"
-                  ? "bg-white text-zinc-900 shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-800"
-              }`}
-            >
-              Services
-            </button>
-          </div>
-
-          <Link
-            href={activeTab === "products" ? "/categories" : "/services"}
-            className="text-sm font-semibold text-[#1d4ed8] hover:text-[#1e40af] transition-colors"
-          >
-            {activeTab === "products" ? "View All Categories" : "View All Services"} &rarr;
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {activeCategories.map((category) => (
-            <Link
-              key={category.title}
-              href={activeTab === "products" ? `/products/${category.slug}` : `/services?category=${category.slug}`}
-              className="group flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white hover:border-[#1d4ed8] hover:shadow-md transition-all duration-300"
-            >
-              <div className="relative h-32 w-full bg-zinc-100 overflow-hidden">
-                <Image
-                  src={category.image}
-                  alt={category.alt}
-                  fill
-                  sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-              </div>
-              <div className="flex flex-col flex-1 p-3.5 space-y-2">
-                <h3 className="text-sm font-semibold text-zinc-900 line-clamp-1 group-hover:text-[#1d4ed8] transition-colors leading-tight">
-                  {category.title}
-                </h3>
-                <p className="text-xs text-zinc-500 line-clamp-2 flex-1 leading-relaxed">
-                  {category.description}
+        {/* Products Categories Section */}
+        {productCategories.length > 0 && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-zinc-100">
+              <div>
+                <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">Browse Product Categories</h2>
+                <p className="mt-1 text-sm text-zinc-500 leading-relaxed">
+                  Explore supplier depth across core industrial product categories
                 </p>
-                <div className="flex gap-2 text-[10px] text-zinc-400 py-1.5 border-t border-zinc-100 mt-1">
-                  <span>{category.suppliers}</span>
-                  <span>•</span>
-                  <span>{category.subText}</span>
-                </div>
               </div>
-            </Link>
-          ))}
-        </div>
+              <Link
+                href="/categories"
+                className="text-sm font-semibold text-[#1d4ed8] hover:text-[#1e40af] transition-colors"
+              >
+                View All Categories &rarr;
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {productCategories.map((category) => (
+                <Link
+                  key={category.title}
+                  href={`/products/${category.slug}`}
+                  className="group flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white hover:border-[#1d4ed8] hover:shadow-md transition-all duration-300"
+                >
+                  <div className="relative h-32 w-full bg-zinc-100 overflow-hidden">
+                    <Image
+                      src={category.image}
+                      alt={category.alt}
+                      fill
+                      sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  </div>
+                  <div className="flex flex-col flex-1 p-3.5 space-y-2">
+                    <h3 className="text-sm font-semibold text-zinc-900 line-clamp-1 group-hover:text-[#1d4ed8] transition-colors leading-tight">
+                      {category.title}
+                    </h3>
+                    <p className="text-xs text-zinc-500 line-clamp-2 flex-1 leading-relaxed">
+                      {category.description}
+                    </p>
+                    <div className="flex gap-2 text-[10px] text-zinc-400 py-1.5 border-t border-zinc-100 mt-1">
+                      <span>{category.suppliers}</span>
+                      <span>•</span>
+                      <span>{category.subText}</span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Services Categories Section */}
+        {serviceCategories.length > 0 && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-zinc-100">
+              <div>
+                <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">Browse Service Categories</h2>
+                <p className="mt-1 text-sm text-zinc-500 leading-relaxed">
+                  Industrial installation, maintenance, logistics, and consulting from verified providers
+                </p>
+              </div>
+              <Link
+                href="/services"
+                className="text-sm font-semibold text-[#1d4ed8] hover:text-[#1e40af] transition-colors"
+              >
+                View All Services &rarr;
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {serviceCategories.map((category) => (
+                <Link
+                  key={category.title}
+                  href={`/services?category=${category.slug}`}
+                  className="group flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white hover:border-[#1d4ed8] hover:shadow-md transition-all duration-300"
+                >
+                  <div className="relative h-32 w-full bg-zinc-100 overflow-hidden">
+                    <Image
+                      src={category.image}
+                      alt={category.alt}
+                      fill
+                      sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  </div>
+                  <div className="flex flex-col flex-1 p-3.5 space-y-2">
+                    <h3 className="text-sm font-semibold text-zinc-900 line-clamp-1 group-hover:text-[#1d4ed8] transition-colors leading-tight">
+                      {category.title}
+                    </h3>
+                    <p className="text-xs text-zinc-500 line-clamp-2 flex-1 leading-relaxed">
+                      {category.description}
+                    </p>
+                    <div className="flex gap-2 text-[10px] text-zinc-400 py-1.5 border-t border-zinc-100 mt-1">
+                      <span>{category.suppliers}</span>
+                      <span>•</span>
+                      <span>{category.subText}</span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
       </div>
     </section>
   );

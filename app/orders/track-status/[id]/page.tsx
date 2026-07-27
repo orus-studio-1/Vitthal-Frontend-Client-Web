@@ -24,6 +24,10 @@ import {
   ArrowRight,
   ChevronRight,
   Calendar,
+  ShieldCheck,
+  Key,
+  Copy,
+  Check,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -105,6 +109,8 @@ interface OrderData {
   vendor_state: string | null;
   vendor_latitude: number | null;
   vendor_longitude: number | null;
+  pickup_otp?: string | null;
+  delivery_otp?: string | null;
 }
 
 interface TrackingData {
@@ -490,6 +496,7 @@ export default function OrderTrackingPage() {
 
   const [loading, setLoading] = useState(true);
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
+  const [copiedOtp, setCopiedOtp] = useState(false);
 
   useEffect(() => {
     fetchUser();
@@ -945,6 +952,45 @@ export default function OrderTrackingPage() {
 
           {/* ── Right Column (Sidebar) ──────────────────────────────────── */}
           <div className="space-y-6">
+
+            {/* ── Delivery OTP Card (Simple & Plain) ──────────────────────── */}
+            {order.delivery_otp && (
+              <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Delivery OTP</span>
+                  <span className="text-xs text-zinc-400">Share at dropoff</span>
+                </div>
+
+                <div className="flex items-center justify-between bg-zinc-50 rounded-xl p-3 border border-zinc-200">
+                  <span className="text-2xl font-mono font-bold tracking-widest text-zinc-900">
+                    {order.delivery_otp}
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (order.delivery_otp) {
+                        navigator.clipboard.writeText(order.delivery_otp);
+                        setCopiedOtp(true);
+                        toast.success("Delivery OTP copied!");
+                        setTimeout(() => setCopiedOtp(false), 2000);
+                      }
+                    }}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700 bg-white border border-zinc-200 hover:bg-zinc-100 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    {copiedOtp ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-green-600" />
+                        <span>Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 text-zinc-500" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* ── Quick Info Card ──────────────────────────────────────── */}
             <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-5">

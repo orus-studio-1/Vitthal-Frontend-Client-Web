@@ -350,6 +350,26 @@ export default function ServiceDetailPage() {
                 <li className="text-zinc-300"><ChevronRight size={12} /></li>
                 <li><Link href="/services" className="hover:text-[#1d4ed8] transition-colors">Services</Link></li>
                 <li className="text-zinc-300"><ChevronRight size={12} /></li>
+                {service.category_label && (
+                  <>
+                    <li>
+                      <Link href={`/services?category=${service.category_id}`} className="hover:text-[#1d4ed8] transition-colors">
+                        {service.category_label}
+                      </Link>
+                    </li>
+                    <li className="text-zinc-300"><ChevronRight size={12} /></li>
+                  </>
+                )}
+                {service.subcategory_name && (
+                  <>
+                    <li>
+                      <Link href={`/services?category=${service.category_id}&subcategory=${service.subcategory_id}`} className="hover:text-[#1d4ed8] transition-colors">
+                        {service.subcategory_name}
+                      </Link>
+                    </li>
+                    <li className="text-zinc-300"><ChevronRight size={12} /></li>
+                  </>
+                )}
                 <li className="text-zinc-800 font-semibold line-clamp-1 max-w-xs">{service.name}</li>
               </ol>
             </nav>
@@ -371,7 +391,7 @@ export default function ServiceDetailPage() {
                   {service.category_label && (
                     <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-[#1d4ed8]">
                       <Tag size={12} />
-                      {service.category_label}
+                      {service.subcategory_name ? `${service.category_label} › ${service.subcategory_name}` : service.category_label}
                     </div>
                   )}
 

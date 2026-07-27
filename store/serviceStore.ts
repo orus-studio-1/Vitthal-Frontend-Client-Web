@@ -66,6 +66,8 @@ export type ServiceDetail = {
   category_label: string | null;
   category_code?: string | null;
   category_image?: string | null;
+  subcategory_id?: string | null;
+  subcategory_name?: string | null;
   media: ServiceMedia[];
   vendor_offerings: VendorOffering[];
   specifications?: Record<string, string> | null;

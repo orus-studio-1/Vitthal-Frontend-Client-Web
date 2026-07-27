@@ -12,9 +12,22 @@ import type { ServiceListItem } from "@/store/serviceStore";
 
 const FALLBACK_IMAGE = "/placeholder-product.png";
 
-type ServiceCardProps = ServiceListItem;
+type ServiceCardProps = ServiceListItem & {
+  subcategory_name?: string | null;
+};
 
-export function ServiceCard({ id, name, description, rating, review_count, category_label, vendor_count, starting_price, image_url }: ServiceCardProps) {
+export function ServiceCard({
+  id,
+  name,
+  description,
+  rating,
+  review_count,
+  category_label,
+  subcategory_name,
+  vendor_count,
+  starting_price,
+  image_url,
+}: ServiceCardProps) {
   const ratingValue = rating ? parseFloat(rating) : 0;
   const { isAuthenticated } = useAuthStore();
   const router = useRouter();
@@ -134,8 +147,8 @@ export function ServiceCard({ id, name, description, rating, review_count, categ
           <div className="pt-2 border-t border-zinc-100 space-y-1.5">
             <div className="flex justify-between items-center text-xs">
               <span className="text-zinc-500">Category</span>
-              <span className="font-medium text-zinc-700 truncate max-w-[150px]" title={category_label || "Services"}>
-                {category_label || "Services"}
+              <span className="font-medium text-zinc-700 truncate max-w-[150px]" title={subcategory_name ? `${category_label} > ${subcategory_name}` : (category_label || "Services")}>
+                {subcategory_name ? `${category_label} > ${subcategory_name}` : (category_label || "Services")}
               </span>
             </div>
             <div className="flex justify-between items-center text-xs">

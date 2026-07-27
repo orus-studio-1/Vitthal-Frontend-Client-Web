@@ -7,9 +7,21 @@ import type { ServiceListItem } from "@/store/serviceStore";
 
 const FALLBACK_IMAGE = "/placeholder-product.png";
 
-type ServiceRowCardProps = ServiceListItem;
+type ServiceRowCardProps = ServiceListItem & {
+  subcategory_name?: string | null;
+};
 
-export function ServiceRowCard({ id, name, description, rating, review_count, category_label, vendor_count, image_url }: ServiceRowCardProps) {
+export function ServiceRowCard({
+  id,
+  name,
+  description,
+  rating,
+  review_count,
+  category_label,
+  subcategory_name,
+  vendor_count,
+  image_url,
+}: ServiceRowCardProps) {
   const ratingValue = rating ? parseFloat(rating) : 0;
   return (
     <article className="group relative flex items-center gap-6 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm transition-all hover:border-zinc-400 hover:shadow-md cursor-pointer">
@@ -44,7 +56,7 @@ export function ServiceRowCard({ id, name, description, rating, review_count, ca
             </h3>
             {category_label && (
               <span className="inline-flex items-center rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600">
-                {category_label}
+                {subcategory_name ? `${category_label} > ${subcategory_name}` : category_label}
               </span>
             )}
           </div>
