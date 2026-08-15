@@ -90,7 +90,7 @@ export function Hero() {
           {/* Main image */}
           <div className="relative overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 shadow-md">
             <Image
-              src="https://supplyx.info/wp-content/uploads/2023/05/2305_warehousing_solutions_lager_adrian_sulyok_unsplash-scaled-2.jpg"
+              src="/hero_image.avif"
               alt="Industrial supply chain — logistics and manufacturing warehouse"
               width={1000}
               height={720}
