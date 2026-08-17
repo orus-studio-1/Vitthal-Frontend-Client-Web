@@ -84,7 +84,8 @@ export function QuantityStepper({
       <button
         type="button"
         onClick={handleIncrement}
-        className="p-1.5 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 rounded transition-colors"
+        className="p-1.5 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        disabled={stock !== undefined && stock !== null && stock > 0 && value >= stock}
         aria-label="Increase quantity"
       >
         <Plus size={16} />

@@ -1,19 +1,20 @@
 import React from 'react'
-import { 
-    Headphones, 
-    Award, 
-    RotateCcw, 
-    PackageCheck, 
-    CreditCard, 
+import {
+    Headphones,
+    Award,
+    RotateCcw,
+    PackageCheck,
+    CreditCard,
     ShieldCheck
 } from 'lucide-react'
+import Link from 'next/link'
 
 const PreFooter = () => {
     return (
         <section className="w-full bg-[#0d2238] border-t border-slate-800 text-white font-body">
             <div className="mx-auto max-w-7xl px-6 py-12 md:py-16">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-12 gap-y-10">
-                    
+
                     {/* Column 1 */}
                     <div className="flex flex-col gap-10">
                         {/* Helpline Number */}
@@ -97,8 +98,8 @@ const PreFooter = () => {
                         <div className="flex flex-col gap-3">
                             <h3 className="font-bold text-white text-[15px] tracking-wide">Experience MTWO App</h3>
                             <div className="flex flex-row items-center gap-2.5 sm:gap-3">
-                                <a 
-                                    href="#" 
+                                <Link
+                                    href="https://play.google.com/store/apps/details?id=com.mtwo.buy"
                                     className="flex items-center gap-2 bg-black border border-slate-700 hover:border-slate-500 rounded px-2.5 py-1.5 transition-all duration-200"
                                     aria-label="Get it on Google Play"
                                 >
@@ -109,9 +110,9 @@ const PreFooter = () => {
                                         <span className="text-[9px] text-slate-400 block font-medium uppercase tracking-tight">GET IT ON</span>
                                         <span className="text-xs font-semibold text-white block mt-0.5">Google Play</span>
                                     </div>
-                                </a>
-                                <a 
-                                    href="#" 
+                                </Link>
+                                <a
+                                    href="#"
                                     className="flex items-center gap-2 bg-black border border-slate-700 hover:border-slate-500 rounded px-2.5 py-1.5 transition-all duration-200"
                                     aria-label="Download on the App Store"
                                 >

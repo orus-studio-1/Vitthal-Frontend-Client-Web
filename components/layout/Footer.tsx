@@ -13,6 +13,22 @@ export function Footer() {
             <p className="mt-4 text-sm text-zinc-400 leading-relaxed">
               B2B industrial sourcing and procurement marketplace connecting manufacturers with verified suppliers.
             </p>
+            <div className="mt-5">
+              <a
+                href="https://play.google.com/store/apps/details?id=com.mtwo.buy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2.5 rounded-xl border border-zinc-700 bg-zinc-800/90 px-3.5 py-2 text-white hover:border-zinc-500 hover:bg-zinc-700/80 transition shadow-sm group"
+              >
+                <svg viewBox="0 0 24 24" width="20" height="20" className="fill-current text-zinc-300 group-hover:text-white transition shrink-0">
+                  <path d="M3.609 1.814L13.792 12 3.61 22.186a2.38 2.38 0 0 1-.61-.986V2.8c0-.369.227-.723.609-.986zm11.238 11.24L17.7 15.908l-12.02 6.87 9.167-9.724zm0-2.108L5.68 1.222l12.02 6.87-2.853 2.852zm1.055 1.054l2.766-1.58c1.173-.67 1.173-1.769 0-2.439l-2.766-1.58-1.503 1.503 1.503 1.503z" />
+                </svg>
+                <div className="text-left">
+                  <p className="text-[9px] uppercase tracking-wider text-zinc-400 font-semibold leading-none">GET IT ON</p>
+                  <p className="text-xs font-bold text-white leading-tight mt-0.5">Google Play</p>
+                </div>
+              </a>
+            </div>
           </div>
 
           {/* Product */}

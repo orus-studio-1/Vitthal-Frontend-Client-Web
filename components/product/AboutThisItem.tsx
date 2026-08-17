@@ -1,6 +1,7 @@
 import { Info, ChevronRight } from "lucide-react";
 import type { ProductDetail, ProductVariant } from "@/types";
 import { isValidValue, getKeyProperties } from "@/lib/utils/product";
+import { RichDescriptionRenderer } from "./RichDescriptionRenderer";
 
 interface AboutThisItemProps {
   product: ProductDetail;
@@ -35,10 +36,7 @@ export function AboutThisItem({
       </div>
       <div className="p-6">
         <div className="prose prose-zinc max-w-none">
-          <p className="text-zinc-700 leading-relaxed text-base">
-            {product.description ||
-              "This industrial-grade product meets stringent quality standards and is suitable for various commercial and industrial applications. Sourced from verified suppliers with competitive pricing and reliable delivery options."}
-          </p>
+          <RichDescriptionRenderer content={product.description} />
 
           {hasProperties && (
             <div className="mt-6 p-4 bg-zinc-50 rounded-lg">

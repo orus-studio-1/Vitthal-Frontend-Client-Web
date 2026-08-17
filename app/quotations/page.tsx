@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
-import { Loader2, ArrowRight, FileText, Search, Clock, CheckCircle2, XCircle, TrendingUp, Package, Users, Wrench } from "lucide-react";
+import { Loader2, ArrowRight, FileText, Search, Clock, CheckCircle2, XCircle, TrendingUp, Package, Users, Wrench, Download } from "lucide-react";
 import { useServiceStore } from "@/store/serviceStore";
 import type { ServiceQuotation } from "@/store/serviceStore";
 import { useAuthStore } from "@/store/authStore";
 import Image from "next/image";
+import { downloadPdfReport } from "@/lib/export-utils";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
 
@@ -277,13 +278,71 @@ export default function QuotationsPage() {
     );
   }
 
+  const handleExportQuotationsPDF = () => {
+    if (activeCategory === "products") {
+      if (filteredGroups.length === 0) return;
+      const rows = filteredGroups.map((g) => [
+        g.product_name,
+        g.requested_quantity?.toLocaleString("en-IN") || "—",
+        g.requested_price ? `INR ${g.requested_price}` : "Open",
+        g.best_offer_price ? `INR ${g.best_offer_price}` : "Pending",
+        `${g.vendors_responded} / ${g.total_vendors}`,
+        g.group_status.toUpperCase(),
+        new Date(g.created_at).toLocaleDateString("en-IN"),
+      ]);
+
+      downloadPdfReport(
+        "Client Quotation Requests (Products)",
+        [
+          {
+            heading: `Quotation Inquiries (${filteredGroups.length} Products)`,
+            headers: ["Product Name", "Qty", "Target Price", "Best Offer", "Bids", "Status", "Date"],
+            rows,
+          },
+        ],
+        `MTWO_Product_Quotations_${new Date().toISOString().split("T")[0]}.pdf`
+      );
+    } else {
+      if (filteredServiceGroups.length === 0) return;
+      const rows = filteredServiceGroups.map((g) => [
+        g.service_name,
+        `${g.vendors_responded} / ${g.total_vendors}`,
+        g.group_status.toUpperCase(),
+        new Date(g.created_at).toLocaleDateString("en-IN"),
+      ]);
+
+      downloadPdfReport(
+        "Client Quotation Requests (Services)",
+        [
+          {
+            heading: `Service Inquiries (${filteredServiceGroups.length} Services)`,
+            headers: ["Service Name", "Bids Received", "Status", "Date"],
+            rows,
+          },
+        ],
+        `MTWO_Service_Quotations_${new Date().toISOString().split("T")[0]}.pdf`
+      );
+    }
+  };
+
   return (
     <div className="min-h-screen bg-zinc-50/50 pb-20">
       {/* Header Section */}
       <div className="bg-white border-b border-zinc-200 px-4 py-8 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl">
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 mb-2">My Quotations</h1>
-          <p className="text-zinc-500">Track and manage your bulk order negotiations across multiple vendors.</p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-zinc-900 mb-1">My Quotations</h1>
+              <p className="text-zinc-500 text-sm">Track and manage your bulk order negotiations across multiple vendors.</p>
+            </div>
+            <button
+              onClick={handleExportQuotationsPDF}
+              className="inline-flex items-center gap-2 rounded-xl bg-white border border-zinc-200 px-4 py-2.5 text-xs font-semibold text-zinc-800 shadow-xs hover:bg-zinc-50 transition cursor-pointer self-start sm:self-auto"
+            >
+              <Download size={14} className="text-blue-600" />
+              Export Quotations (PDF)
+            </button>
+          </div>
 
           {/* Category Toggle Tabs */}
           <div className="flex border-b border-zinc-200 mt-6 mb-2">

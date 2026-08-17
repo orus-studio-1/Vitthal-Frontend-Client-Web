@@ -71,16 +71,16 @@ export function VendorList({
                 className="bg-white rounded-2xl border-2 border-[#1d4ed8] shadow-sm overflow-hidden ring-4 ring-blue-50"
               >
                 {/* Variant Sub-header */}
-                <div className="px-6 py-4 flex items-center justify-between bg-blue-50/30 border-b border-zinc-150">
-                  <div className="flex items-center gap-2.5">
+                <div className="px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap items-center justify-between gap-2 bg-blue-50/40 border-b border-zinc-150">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Layers size={16} className="text-[#1d4ed8]" />
-                    <span className="text-md font-bold text-[#1d4ed8]">{variantLabel}</span>
-                    <span className="px-2.5 py-0.5 bg-blue-100 text-blue-800 text-[10px] font-bold uppercase tracking-wider rounded-full border border-blue-200 shadow-2xs">
+                    <span className="text-sm sm:text-base font-bold text-[#1d4ed8]">{variantLabel}</span>
+                    <span className="px-2.5 py-0.5 bg-blue-100 text-blue-800 text-[10px] font-bold uppercase tracking-wider rounded-full border border-blue-200 shadow-3xs">
                       Active Selection
                     </span>
                   </div>
-                  <span className="text-xs font-semibold text-zinc-500 bg-white px-2.5 py-1 rounded-full border border-zinc-250 shadow-3xs">
-                    {displayVendors.length} {displayVendors.length === 1 ? "Supplier" : "Suppliers"}
+                  <span className="text-xs font-semibold text-zinc-600 bg-white px-2.5 py-1 rounded-full border border-zinc-200 shadow-3xs">
+                    {displayVendors.length} {displayVendors.length === 1 ? "Verified Supplier" : "Verified Suppliers"}
                   </span>
                 </div>
 

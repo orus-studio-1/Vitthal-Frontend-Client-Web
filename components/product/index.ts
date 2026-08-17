@@ -19,3 +19,4 @@ export { ReviewsSection } from "./ReviewsSection";
 export { RelatedProductCard } from "./RelatedProductCard";
 export { default as RelatedProducts } from "./RelatedProducts";
 export { ReviewLightbox } from "./ReviewLightbox";
+export { RichDescriptionRenderer } from "./RichDescriptionRenderer";

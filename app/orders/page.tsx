@@ -12,9 +12,12 @@ import {
   Loader2,
   Truck,
   AlertCircle,
+  Download,
+  FileText,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { downloadPdfReport } from "@/lib/export-utils";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
 
@@ -46,6 +49,7 @@ export default function OrdersPage() {
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [fetchingOrders, setFetchingOrders] = useState(true);
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
 
   useEffect(() => {
     fetchUser();
@@ -151,6 +155,114 @@ export default function OrdersPage() {
     }
   };
 
+  // Status Filter Counts & List
+  const filterTabs = [
+    { id: "all", label: "All Orders", count: orders.length },
+    {
+      id: "pending",
+      label: "Pending",
+      count: orders.filter((o) => o.status.toLowerCase() === "pending").length,
+    },
+    {
+      id: "confirmed",
+      label: "Confirmed",
+      count: orders.filter(
+        (o) =>
+          o.status.toLowerCase() === "confirmed" ||
+          o.status.toLowerCase() === "processing",
+      ).length,
+    },
+    {
+      id: "shipped",
+      label: "Shipped",
+      count: orders.filter((o) => o.status.toLowerCase() === "shipped").length,
+    },
+    {
+      id: "delivered",
+      label: "Delivered",
+      count: orders.filter((o) => o.status.toLowerCase() === "delivered").length,
+    },
+    {
+      id: "cancelled",
+      label: "Cancelled",
+      count: orders.filter((o) => o.status.toLowerCase() === "cancelled").length,
+    },
+  ];
+
+  const filteredOrders = orders.filter((order) => {
+    if (selectedStatus === "all") return true;
+    if (selectedStatus === "confirmed") {
+      return (
+        order.status.toLowerCase() === "confirmed" ||
+        order.status.toLowerCase() === "processing"
+      );
+    }
+    return order.status.toLowerCase() === selectedStatus;
+  });
+
+  const handleExportOrdersPDF = () => {
+    if (filteredOrders.length === 0) {
+      toast.error("No orders to export.");
+      return;
+    }
+
+    const rows = filteredOrders.map((o) => [
+      `#${o.order_id.slice(0, 8).toUpperCase()}`,
+      new Date(o.created_at).toLocaleDateString("en-IN"),
+      o.vendor_name || "Direct Supplier",
+      o.status.toUpperCase(),
+      o.payment_status.toUpperCase(),
+      (o.items || []).map((it) => `${it.product_name} (x${it.quantity})`).join(", "),
+      `INR ${Number(o.total_amount).toLocaleString("en-IN")}`,
+    ]);
+
+    const sections = [
+      {
+        heading: `Client Orders Summary (${filteredOrders.length} Orders)`,
+        headers: ["Order ID", "Date", "Vendor", "Status", "Payment", "Items", "Total"],
+        rows,
+      },
+    ];
+
+    downloadPdfReport("My Purchase Orders Report", sections, `MTWO_My_Orders_${new Date().toISOString().split("T")[0]}.pdf`);
+    toast.success("Order summary PDF downloaded successfully!");
+  };
+
+  const handleDownloadInvoicePDF = (order: Order) => {
+    const itemRows = (order.items || []).map((it) => [
+      it.product_name + (it.variant_name ? ` (${it.variant_name})` : ""),
+      it.quantity,
+      `INR ${Number(it.price).toLocaleString("en-IN")}`,
+      `INR ${(Number(it.price) * it.quantity).toLocaleString("en-IN")}`,
+    ]);
+
+    const sections = [
+      {
+        heading: `Order Details - #${order.order_id.slice(0, 8).toUpperCase()}`,
+        rows: [
+          ["Order Reference", `#${order.order_id.toUpperCase()}`],
+          ["Order Date", new Date(order.created_at).toLocaleString("en-IN")],
+          ["Fulfillment Vendor", order.vendor_name || "MTWO Direct Merchant"],
+          ["Order Status", order.status.toUpperCase()],
+          ["Payment Status", order.payment_status.toUpperCase()],
+          ["Grand Total", `INR ${Number(order.total_amount).toLocaleString("en-IN")}`],
+        ],
+      },
+      {
+        heading: "Purchased Items",
+        headers: ["Item Description", "Qty", "Unit Price", "Total"],
+        rows: itemRows,
+      },
+    ];
+
+    downloadPdfReport(
+      `Order Receipt / Invoice - #${order.order_id.slice(0, 8).toUpperCase()}`,
+      sections,
+      `Invoice_${order.order_id.slice(0, 8).toUpperCase()}.pdf`
+    );
+    toast.success(`Invoice for #${order.order_id.slice(0, 8).toUpperCase()} downloaded!`);
+  };
+
   if (authLoading || fetchingOrders) {
     return (
       <div className="flex h-screen items-center justify-center bg-zinc-50">
@@ -163,15 +275,61 @@ export default function OrdersPage() {
     <div className="min-h-screen bg-zinc-50 pb-20 pt-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.push("/profile")}
+              className="p-2 hover:bg-zinc-200 rounded-full transition-colors cursor-pointer"
+              title="Back to Profile"
+            >
+              <ChevronLeft className="w-5 h-5 text-zinc-600" />
+            </button>
+            <div>
+              <h1 className="text-3xl font-bold text-zinc-900">My Orders</h1>
+              <p className="text-xs text-zinc-500 mt-0.5">Manage and track your product orders</p>
+            </div>
+          </div>
+
           <button
-            onClick={() => router.push("/")}
-            className="p-2 hover:bg-zinc-200 rounded-full transition-colors"
+            onClick={handleExportOrdersPDF}
+            disabled={filteredOrders.length === 0}
+            className="inline-flex items-center gap-2 rounded-xl bg-white border border-zinc-200 px-4 py-2.5 text-xs font-semibold text-zinc-800 shadow-xs hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
           >
-            <ChevronLeft className="w-5 h-5 text-zinc-600" />
+            <Download size={14} className="text-blue-600" />
+            Export Orders (PDF)
           </button>
-          <h1 className="text-3xl font-bold text-zinc-900">My Orders</h1>
         </div>
+
+        {/* Status Filter Tabs */}
+        {orders.length > 0 && (
+          <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+            {filterTabs.map((tab) => {
+              const isActive = selectedStatus === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setSelectedStatus(tab.id)}
+                  className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+                    isActive
+                      ? "bg-blue-600 text-white shadow-sm shadow-blue-500/20"
+                      : "bg-white text-zinc-600 border border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900"
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                      isActive
+                        ? "bg-white/20 text-white"
+                        : "bg-zinc-100 text-zinc-600"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {orders.length === 0 ? (
           <div className="bg-white rounded-2xl border border-zinc-200 p-12 text-center shadow-sm">
@@ -190,9 +348,25 @@ export default function OrdersPage() {
               Start Shopping
             </Link>
           </div>
+        ) : filteredOrders.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-zinc-200 p-10 text-center shadow-sm">
+            <AlertCircle className="mx-auto h-12 w-12 text-zinc-300 mb-3" />
+            <h3 className="text-lg font-semibold text-zinc-900 mb-1">
+              No {selectedStatus} orders
+            </h3>
+            <p className="text-xs text-zinc-500 mb-5">
+              There are currently no orders with status &ldquo;{selectedStatus}&rdquo;.
+            </p>
+            <button
+              onClick={() => setSelectedStatus("all")}
+              className="inline-flex items-center rounded-lg bg-zinc-900 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800 transition"
+            >
+              View All Orders
+            </button>
+          </div>
         ) : (
           <div className="space-y-6">
-            {orders.map((order) => (
+            {filteredOrders.map((order) => (
               <div
                 key={order.order_id}
                 className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden transition-all hover:shadow-md"
@@ -239,13 +413,22 @@ export default function OrdersPage() {
                         #{order.order_id.split("-")[0]}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Link
-                        href={`/orders/track-status/${order.order_id}`}
-                        className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                      >
-                        Track
-                      </Link>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => handleDownloadInvoicePDF(order)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 transition shadow-2xs cursor-pointer"
+                          title="Download Invoice PDF"
+                        >
+                          <FileText size={13} className="text-blue-600" />
+                          Invoice PDF
+                        </button>
+                        <Link
+                          href={`/orders/track-status/${order.order_id}`}
+                          className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition"
+                        >
+                          Track Order
+                        </Link>
+                      </div>
                       <Link
                         href={`/orders/review/${order.order_id}`}
                         className={`inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
@@ -262,7 +445,6 @@ export default function OrdersPage() {
                       </Link>
                     </div>
                   </div>
-                </div>
 
                 <div className="p-6">
                   <div className="flex justify-between items-center mb-6 border-b border-zinc-100 pb-4">

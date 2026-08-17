@@ -15,7 +15,6 @@ import { getPriceRangeLabel } from "@/lib/utils/price";
 import {
   ProductBreadcrumb,
   VariantSelector,
-  SpecSelector,
   QuotationAlert,
   ProductFeatures,
   ProductRating,
@@ -108,15 +107,15 @@ export default function ProductDetailPage() {
 
         {/* Product Overview Section */}
         <section className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-2xl shadow-sm border border-zinc-200 overflow-hidden flex flex-col lg:flex-row">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
-            {/* Left: Image Gallery */}
-            <div className="lg:w-1/2 bg-zinc-50/50 p-4 lg:p-6 min-h-[400px] lg:min-h-[600px]">
+            {/* Left: Sticky Image Gallery */}
+            <div className="lg:col-span-6 lg:sticky lg:top-24 self-start bg-white rounded-2xl shadow-sm border border-zinc-200 p-4 sm:p-6">
               <ProductImageGallery images={activeImages} productName={product.product_name} />
             </div>
 
             {/* Right: Core Details */}
-            <div className="lg:w-1/2 p-6 lg:p-8 flex flex-col">
+            <div className="lg:col-span-6 bg-white rounded-2xl shadow-sm border border-zinc-200 p-6 sm:p-8 flex flex-col">
               {/* Category & Badges */}
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 text-xs font-semibold uppercase tracking-wider rounded-full">
@@ -148,7 +147,7 @@ export default function ProductDetailPage() {
                 </div>
               )}
 
-              {/* Variant Selector */}
+              {/* Variant Selector & Attribute Configurator */}
               <VariantSelector
                 product={product}
                 selectedVariant={selectedVariant}
@@ -156,15 +155,6 @@ export default function ProductDetailPage() {
                 onSelectVariant={handleSelectVariant}
                 onSpecChange={handleSpecChange}
               />
-
-              {/* Spec Selector */}
-              {product.variants && product.variants.length > 0 && (
-                <SpecSelector
-                  variants={product.variants}
-                  selectedSpecs={selectedSpecs}
-                  onSpecChange={handleSpecChange}
-                />
-              )}
 
               {/* Quotation Alert */}
               {product.quotation_limit && (
@@ -196,9 +186,34 @@ export default function ProductDetailPage() {
           </div>
         </section>
 
-        {/* Lower Content Grid */}
-        <section className="max-w-7xl mx-auto px-4 pb-16 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 gap-8">
+        {/* Primary Action Section: Delivery Location + Verified Suppliers Comparison */}
+        <section className="max-w-7xl mx-auto px-4 pb-12 sm:px-6 lg:px-8">
+          <div className="space-y-6">
+            <DeliveryLocation
+              userLocation={userLocation}
+              savedAddress={savedAddress}
+              isLocating={isLocating}
+              onUseCurrentLocation={handleUseCurrentLocation}
+              onUseSavedAddress={handleUseSavedAddress}
+            />
+            <VendorList
+              product={product}
+              selectedVariant={selectedVariant}
+              displayVendors={displayVendors}
+              rankedVendors={rankedVendors}
+              isRanking={isRanking}
+              quantities={quantities}
+              addingVendorId={addingVendorId}
+              onAddToCart={handleAddToCart}
+              onUpdateQuantity={updateQuantity}
+              onQuantityChange={handleQuantityChange}
+            />
+          </div>
+        </section>
+
+        {/* Specifications & Properties Grid */}
+        <section className="max-w-7xl mx-auto px-4 pb-12 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Key Properties */}
             <KeyProperties
               product={product}
@@ -211,34 +226,11 @@ export default function ProductDetailPage() {
 
             {/* Technical Specs */}
             <TechnicalSpecs product={product} />
-
-            {/* Delivery Location + Vendor List */}
-            <div className="space-y-4">
-              <DeliveryLocation
-                userLocation={userLocation}
-                savedAddress={savedAddress}
-                isLocating={isLocating}
-                onUseCurrentLocation={handleUseCurrentLocation}
-                onUseSavedAddress={handleUseSavedAddress}
-              />
-              <VendorList
-                product={product}
-                selectedVariant={selectedVariant}
-                displayVendors={displayVendors}
-                rankedVendors={rankedVendors}
-                isRanking={isRanking}
-                quantities={quantities}
-                addingVendorId={addingVendorId}
-                onAddToCart={handleAddToCart}
-                onUpdateQuantity={updateQuantity}
-                onQuantityChange={handleQuantityChange}
-              />
-            </div>
           </div>
         </section>
 
         {/* About This Item */}
-        <section className="max-w-7xl mx-auto px-4 pb-16 sm:px-6 lg:px-8">
+        <section className="max-w-7xl mx-auto px-4 pb-12 sm:px-6 lg:px-8">
           <AboutThisItem
             product={product}
             selectedVariant={selectedVariant}
@@ -269,6 +261,33 @@ export default function ProductDetailPage() {
           isLoadingRelated={isLoadingRelated}
         />
       </main>
+
+      {/* Mobile Sticky Floating Action Bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-zinc-200 px-4 py-3 shadow-2xl flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Unit Price</p>
+          <p className="text-base font-bold text-[#1d4ed8] truncate">
+            {priceRange || "Contact for Price"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleSaveToWishlist}
+            disabled={savingWishlist}
+            className="p-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-600 hover:text-rose-600 hover:border-rose-200 active:scale-95 transition-all"
+            aria-label="Wishlist"
+          >
+            <span className="text-base">❤️</span>
+          </button>
+          <a
+            href="#vendors-list"
+            className="px-4 py-2.5 bg-[#1d4ed8] text-white text-xs font-bold rounded-xl shadow-md active:scale-95 transition-all flex items-center gap-1.5 whitespace-nowrap"
+          >
+            Compare Suppliers
+          </a>
+        </div>
+      </div>
 
       {/* Review Image Lightbox */}
       <ReviewLightbox

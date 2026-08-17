@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { AlertCircle, Loader2, MapPin, Phone } from "lucide-react";
+import MapPicker, { MapLocationData } from "@/components/shared/MapPicker";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
 
@@ -447,37 +448,47 @@ export default function AddAddressClient() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-zinc-800">
-                Location Coordinates
-              </label>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={getCurrentLocation}
-                  disabled={isGettingLocation}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isGettingLocation ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Getting location...
-                    </>
-                  ) : (
-                    <>
-                      <MapPin className="h-4 w-4" />
-                      {latitude && longitude ? "Update Location" : "Capture Location"}
-                    </>
-                  )}
-                </button>
+              <div className="mb-2 flex items-center justify-between">
+                <label className="block text-sm font-medium text-zinc-800">
+                  Select Location on Map
+                </label>
+                <span className="text-xs text-zinc-500">
+                  Search, click, or drag the pin to set delivery coordinates
+                </span>
               </div>
-              {latitude && longitude && (
-                <div className="mt-2 rounded-md bg-green-50 p-3 text-sm text-green-700">
-                  <p>
-                    <strong>Latitude:</strong> {latitude.toFixed(6)}
-                  </p>
-                  <p>
-                    <strong>Longitude:</strong> {longitude.toFixed(6)}
-                  </p>
+              <MapPicker
+                latitude={latitude}
+                longitude={longitude}
+                height="280px"
+                onChange={(lat, lng, locData) => {
+                  setLatitude(lat);
+                  setLongitude(lng);
+
+                  // Helper: If user selects a place with address details and local fields are empty, autofill
+                  if (locData?.addressDetails) {
+                    const details = locData.addressDetails;
+                    if (!addressLine1 && (details.road || details.suburb)) {
+                      setAddressLine1([details.road, details.suburb].filter(Boolean).join(", "));
+                    }
+                    if (!pincode && details.postcode && /^\d{6}$/.test(details.postcode)) {
+                      setPincode(details.postcode);
+                    }
+                    if (!city && details.city) {
+                      setCity(details.city);
+                    }
+                    if (!state && details.state) {
+                      setState(details.state);
+                    }
+                  }
+                }}
+              />
+              {latitude !== null && longitude !== null && (
+                <div className="mt-2.5 flex items-center justify-between rounded-lg bg-blue-50/80 px-3.5 py-2 text-xs text-blue-800 border border-blue-200/60">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <MapPin className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                    Selected Coordinates: {latitude.toFixed(6)}, {longitude.toFixed(6)}
+                  </span>
+                  <span className="text-emerald-700 font-semibold text-[11px]">✓ Coordinates Set</span>
                 </div>
               )}
             </div>

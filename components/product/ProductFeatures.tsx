@@ -88,15 +88,15 @@ export function ProductFeatures({
   if (featuresList.length === 0) return null;
 
   return (
-    <div className="mb-6 bg-zinc-50 border border-zinc-200/80 rounded-2xl p-5 space-y-4">
-      <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Product Features</h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3.5 gap-x-6 text-sm">
+    <div className="mb-6 bg-zinc-50/70 border border-zinc-200/80 rounded-2xl p-4 sm:p-5 space-y-3 shadow-2xs">
+      <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Product Highlights</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 text-sm">
         {featuresList.slice(0, 6).map((feat, idx) => (
-          <div key={idx} className="flex items-center gap-2.5 py-1 border-b border-zinc-100 last:border-0 sm:border-0">
-            <div className="shrink-0 p-1.5 bg-blue-50/50 text-blue-600 rounded-lg">{feat.icon}</div>
-            <div className="flex flex-col">
-              <span className="text-[11px] text-zinc-400 font-semibold uppercase tracking-wider">{feat.label}</span>
-              <span className="font-bold text-zinc-800 capitalize mt-0.5">{feat.value}</span>
+          <div key={idx} className="flex items-center gap-3 p-2.5 bg-white rounded-xl border border-zinc-200/60 shadow-3xs">
+            <div className="shrink-0 p-2 bg-blue-50 text-[#1d4ed8] rounded-lg">{feat.icon}</div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider truncate">{feat.label}</span>
+              <span className="font-bold text-zinc-900 capitalize text-xs sm:text-sm truncate mt-0.5">{feat.value}</span>
             </div>
           </div>
         ))}

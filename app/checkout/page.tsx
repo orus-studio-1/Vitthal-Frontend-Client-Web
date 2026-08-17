@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useCartStore } from "@/store/cartStore";
 import { toast } from "sonner";
-import { MapPin, CreditCard, Package, CheckCircle, ChevronLeft, Loader2, ShieldCheck, Edit2, X, Smartphone, Building, Wallet, QrCode, Lock, Check, AlertCircle, Wrench } from "lucide-react";
+import { MapPin, CreditCard, Package, CheckCircle, ChevronLeft, Loader2, ShieldCheck, Edit2, X, Smartphone, Building, Wallet, QrCode, Lock, Check, AlertCircle, Wrench, Banknote } from "lucide-react";
 import Link from "next/link";
+import MapPicker from "@/components/shared/MapPicker";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
 
@@ -461,18 +462,43 @@ export default function CheckoutPage() {
                                             </div>
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1">Location Coordinates</label>
-                                            <button
-                                                type="button"
-                                                onClick={getCurrentLocation}
-                                                disabled={isGettingLocation}
-                                                className="flex items-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 transition-colors"
-                                            >
-                                                {isGettingLocation ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
-                                                {addressForm.latitude ? "Update Location" : "Capture Location"}
-                                            </button>
+                                            <div className="mb-2 flex items-center justify-between">
+                                                <label className="block text-sm font-medium text-zinc-700">
+                                                    Select Location on Map
+                                                </label>
+                                                <span className="text-xs text-zinc-500">
+                                                    Pin your exact delivery location
+                                                </span>
+                                            </div>
+                                            <MapPicker
+                                                latitude={addressForm.latitude}
+                                                longitude={addressForm.longitude}
+                                                height="240px"
+                                                onChange={(lat, lng, locData) => {
+                                                    setAddressForm((prev) => {
+                                                        const updated = { ...prev, latitude: lat, longitude: lng };
+                                                        if (locData?.addressDetails) {
+                                                            const d = locData.addressDetails;
+                                                            if (!prev.address && (d.road || d.suburb)) {
+                                                                updated.address = [d.road, d.suburb].filter(Boolean).join(", ");
+                                                            }
+                                                            if (!prev.pincode && d.postcode && /^\d{6}$/.test(d.postcode)) {
+                                                                updated.pincode = d.postcode;
+                                                            }
+                                                            if (!prev.city && d.city) {
+                                                                updated.city = d.city;
+                                                            }
+                                                            if (!prev.state && d.state) {
+                                                                updated.state = d.state;
+                                                            }
+                                                        }
+                                                        return updated;
+                                                    });
+                                                }}
+                                            />
                                             {addressForm.latitude && addressForm.longitude && (
-                                                <p className="mt-2 text-xs text-green-600 font-medium">
+                                                <p className="mt-2 text-xs text-emerald-600 font-semibold flex items-center gap-1">
+                                                    <Check className="w-3.5 h-3.5" />
                                                     Coordinates: {addressForm.latitude.toFixed(6)}, {addressForm.longitude.toFixed(6)}
                                                 </p>
                                             )}
@@ -501,27 +527,25 @@ export default function CheckoutPage() {
                                 <h2 className="text-lg font-semibold text-zinc-900">Payment Method</h2>
                             </div>
                             <div className="p-6 space-y-4">
-                                <label className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'razorpay' ? 'border-blue-600 bg-blue-50/30' : 'border-zinc-200 hover:border-zinc-300'}`}>
-                                    <input type="radio" name="payment" value="razorpay" checked={paymentMethod === 'razorpay'} onChange={(e) => setPaymentMethod(e.target.value)} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                                <label className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'razorpay' ? 'border-blue-600 bg-blue-50/30 ring-1 ring-blue-600/30' : 'border-zinc-200 hover:border-zinc-300'}`}>
+                                    <input type="radio" name="payment" value="razorpay" checked={paymentMethod === 'razorpay'} onChange={(e) => setPaymentMethod(e.target.value)} className="mt-1 w-4 h-4 text-blue-600 focus:ring-blue-500" />
                                     <div className="flex-1">
-                                        <p className="font-medium text-zinc-900">Online Payment (UPI, Card, NetBanking)</p>
-                                        <p className="text-sm text-zinc-500">Pay securely using Razorpay gateway.</p>
+                                        <div className="flex items-center justify-between">
+                                            <p className="font-semibold text-zinc-900 text-sm">Online Payment</p>
+                                            <span className="rounded bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">Recommended</span>
+                                        </div>
+                                        <p className="text-xs text-zinc-500 mt-0.5">Pay securely via UPI (Google Pay, PhonePe, Paytm), Debit/Credit Cards, Net Banking & Wallets powered by Razorpay.</p>
                                     </div>
                                 </label>
 
-                                <label className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'bank_transfer' ? 'border-blue-600 bg-blue-50/30' : 'border-zinc-200 hover:border-zinc-300'}`}>
-                                    <input type="radio" name="payment" value="bank_transfer" checked={paymentMethod === 'bank_transfer'} onChange={(e) => setPaymentMethod(e.target.value)} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                                <label className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'cod' ? 'border-blue-600 bg-blue-50/30 ring-1 ring-blue-600/30' : 'border-zinc-200 hover:border-zinc-300'}`}>
+                                    <input type="radio" name="payment" value="cod" checked={paymentMethod === 'cod'} onChange={(e) => setPaymentMethod(e.target.value)} className="mt-1 w-4 h-4 text-blue-600 focus:ring-blue-500" />
                                     <div className="flex-1">
-                                        <p className="font-medium text-zinc-900">NEFT / RTGS Bank Transfer</p>
-                                        <p className="text-sm text-zinc-500">Direct transfer to our business account. Details provided after order.</p>
-                                    </div>
-                                </label>
-
-                                <label className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'credit' ? 'border-blue-600 bg-blue-50/30' : 'border-zinc-200 hover:border-zinc-300'}`}>
-                                    <input type="radio" name="payment" value="credit" checked={paymentMethod === 'credit'} onChange={(e) => setPaymentMethod(e.target.value)} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
-                                    <div className="flex-1">
-                                        <p className="font-medium text-zinc-900">Business Credit Line</p>
-                                        <p className="text-sm text-zinc-500">Pay within 30 days (Subject to credit approval).</p>
+                                        <div className="flex items-center justify-between">
+                                            <p className="font-semibold text-zinc-900 text-sm">Cash on Delivery (COD)</p>
+                                            <Banknote className="h-4 w-4 text-emerald-600" />
+                                        </div>
+                                        <p className="text-xs text-zinc-500 mt-0.5">Pay with cash or UPI directly when your shipment is delivered to your address.</p>
                                     </div>
                                 </label>
                             </div>

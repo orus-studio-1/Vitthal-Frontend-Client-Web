@@ -133,8 +133,7 @@ export default function QuotationDetailPage() {
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
-
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const selectedQuotation = groupData?.vendor_quotations.find(vq => vq.vendor_id === selectedVendorId) || null;
   const messages = selectedQuotation?.messages || [];
@@ -187,7 +186,9 @@ export default function QuotationDetailPage() {
   }, [groupId]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
   }, [messages, activeTab]);
 
   const handleVendorAction = async (action: string) => {
@@ -813,20 +814,124 @@ export default function QuotationDetailPage() {
                     )}
                   </div>
 
+                  {/* Quotation Workflow Progress Stepper */}
+                  {selectedQuotation && (
+                    <div className="mt-3 bg-zinc-50 border border-zinc-200/80 rounded-xl p-3">
+                      <div className="flex items-center justify-between text-[11px] font-semibold">
+                        <div className={`flex items-center gap-1.5 ${
+                          selectedQuotation.status === "client_accepted" || selectedQuotation.status === "admin_confirmation_pending" || selectedQuotation.status === "admin_confirmed"
+                            ? "text-emerald-700 font-bold"
+                            : "text-zinc-500"
+                        }`}>
+                          <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${
+                            selectedQuotation.status === "client_accepted" || selectedQuotation.status === "admin_confirmation_pending" || selectedQuotation.status === "admin_confirmed"
+                              ? "bg-emerald-600 text-white"
+                              : "bg-zinc-200 text-zinc-600"
+                          }`}>1</div>
+                          <span>Deal Agreed</span>
+                        </div>
+
+                        <div className="h-0.5 w-6 sm:w-10 bg-zinc-200" />
+
+                        <div className={`flex items-center gap-1.5 ${
+                          selectedQuotation.admin_confirmation_status === "accepted" || selectedQuotation.status === "admin_confirmed"
+                            ? "text-emerald-700 font-bold"
+                            : selectedQuotation.status === "admin_confirmation_pending" || selectedQuotation.status === "client_accepted"
+                              ? "text-amber-700 font-bold animate-pulse"
+                              : "text-zinc-400"
+                        }`}>
+                          <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${
+                            selectedQuotation.admin_confirmation_status === "accepted" || selectedQuotation.status === "admin_confirmed"
+                              ? "bg-emerald-600 text-white"
+                              : selectedQuotation.status === "admin_confirmation_pending" || selectedQuotation.status === "client_accepted"
+                                ? "bg-amber-500 text-white"
+                                : "bg-zinc-200 text-zinc-500"
+                          }`}>2</div>
+                          <span>Admin Review</span>
+                        </div>
+
+                        <div className="h-0.5 w-6 sm:w-10 bg-zinc-200" />
+
+                        <div className={`flex items-center gap-1.5 ${
+                          selectedQuotation.status === "admin_confirmed"
+                            ? "text-emerald-700 font-bold"
+                            : (selectedQuotation.admin_confirmation_status === "pending" || selectedQuotation.status === "admin_confirmation_pending")
+                              ? "text-orange-700 font-bold"
+                              : "text-zinc-400"
+                        }`}>
+                          <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${
+                            selectedQuotation.status === "admin_confirmed"
+                              ? "bg-emerald-600 text-white"
+                              : (selectedQuotation.admin_confirmation_status === "pending" || selectedQuotation.status === "admin_confirmation_pending")
+                                ? "bg-orange-500 text-white animate-bounce"
+                                : "bg-zinc-200 text-zinc-500"
+                          }`}>3</div>
+                          <span>Token Payment</span>
+                        </div>
+
+                        <div className="h-0.5 w-6 sm:w-10 bg-zinc-200" />
+
+                        <div className={`flex items-center gap-1.5 ${
+                          selectedQuotation.status === "admin_confirmed" ? "text-emerald-700 font-bold" : "text-zinc-400"
+                        }`}>
+                          <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${
+                            selectedQuotation.status === "admin_confirmed" ? "bg-emerald-600 text-white" : "bg-zinc-200 text-zinc-500"
+                          }`}>4</div>
+                          <span>Confirmed Order</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Contextual Guidance Banner for Client */}
+                  {selectedQuotation && (selectedQuotation.status === "client_accepted" || selectedQuotation.status === "admin_confirmation_pending") && !showAdminChat && (
+                    <div className="mt-3 flex items-start gap-3 rounded-xl bg-amber-50 border border-amber-200 p-3.5 text-xs text-amber-900 shadow-xs">
+                      <Clock className="h-4 w-4 text-amber-600 shrink-0 mt-0.5 animate-spin" />
+                      <div>
+                        <p className="font-bold text-amber-950">Deal Accepted with Vendor! ⏳ Admin Review in Progress</p>
+                        <p className="text-amber-800 mt-0.5 leading-relaxed">
+                          Our platform administrator is currently reviewing the quotation terms and vendor fulfillment logistics. Once verified by admin, you will receive an instant action button right here to pay the token amount of <strong>{formatINR(selectedQuotation.token_amount || (selectedQuotation.accepted_price ? Number(selectedQuotation.accepted_price) * 0.1 : 0))}</strong> to finalize your order.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Admin Approval Ready Banner */}
+                  {showAdminChat && isAdminPending && activeTab === "vendor" && (
+                    <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 p-3.5 text-white shadow-md animate-in slide-in-from-top duration-300">
+                      <div className="flex items-center gap-2.5">
+                        <ShieldCheck className="h-5 w-5 text-white shrink-0" />
+                        <div>
+                          <p className="text-xs font-extrabold uppercase tracking-wide text-orange-100">Step 3: Action Required</p>
+                          <p className="text-sm font-bold">Admin Approved! Proceed to Token Payment</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setActiveTab("admin")}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white px-4 py-2 text-xs font-bold text-orange-900 hover:bg-orange-50 transition shadow-xs cursor-pointer whitespace-nowrap"
+                      >
+                        <CreditCard size={14} /> View Approval & Pay Token Money
+                      </button>
+                    </div>
+                  )}
+
                   {/* Tab switcher */}
                   {showAdminChat && (
                     <div className="flex mt-3 gap-1 bg-zinc-100 rounded-lg p-1">
                       <button
                         onClick={() => setActiveTab("vendor")}
-                        className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-colors ${activeTab === "vendor" ? "bg-white shadow text-zinc-900" : "text-zinc-500 hover:text-zinc-700"}`}
+                        className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-colors cursor-pointer ${activeTab === "vendor" ? "bg-white shadow text-zinc-900 font-bold" : "text-zinc-500 hover:text-zinc-700"}`}
                       >
                         Vendor Negotiation
                       </button>
                       <button
                         onClick={() => setActiveTab("admin")}
-                        className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-colors ${activeTab === "admin" ? "bg-white shadow text-zinc-900" : "text-zinc-500 hover:text-zinc-700"}`}
+                        className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-colors cursor-pointer relative ${activeTab === "admin" ? "bg-white shadow text-zinc-900 font-bold" : "text-orange-700 hover:text-orange-900 font-semibold"}`}
                       >
-                        Admin Confirmation
+                        Admin Confirmation & Payment
+                        {isAdminPending && (
+                          <span className="ml-1.5 inline-block w-2 h-2 rounded-full bg-orange-500 animate-ping" />
+                        )}
                       </button>
                     </div>
                   )}
@@ -836,7 +941,7 @@ export default function QuotationDetailPage() {
                 {activeTab === "vendor" && renderVendorTermsSummary(selectedQuotation)}
 
                 {/* Messages Area */}
-                <div className="flex-1 overflow-y-auto px-5 py-4 bg-gradient-to-b from-zinc-50/50 to-white" style={{ minHeight: 200 }}>
+                <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-5 py-4 bg-gradient-to-b from-zinc-50/50 to-white" style={{ minHeight: 200 }}>
                   <div className="max-w-4xl mx-auto w-full space-y-5">
                     {activeTab === "vendor" ? (
                       <>
@@ -881,7 +986,6 @@ export default function QuotationDetailPage() {
                         )}
                       </div>
                     )}
-                    <div ref={messagesEndRef} />
                   </div>
                 </div>
 
@@ -1008,12 +1112,12 @@ export default function QuotationDetailPage() {
                           placeholder="e.g. Paid token money, looking forward to delivery..." />
                       </div>
                       <div className="flex gap-3">
-                        <button onClick={() => handleAdminResponse("accept")} disabled={submitting}
-                          className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-orange-600 py-3 text-sm font-bold text-white hover:bg-orange-700 disabled:opacity-50 shadow-sm transition-colors">
-                          <CreditCard size={16} /> Pay Token Money & Confirm
+                        <button onClick={() => void handleAdminAcceptWithPayment()} disabled={submitting}
+                          className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-orange-600 py-3 text-sm font-bold text-white hover:bg-orange-700 disabled:opacity-50 shadow-sm transition-colors cursor-pointer">
+                          <CreditCard size={16} /> Pay Token Money & Confirm Deal
                         </button>
                         <button onClick={() => handleAdminResponse("reject")} disabled={submitting}
-                          className="flex-1 flex items-center justify-center gap-2 rounded-xl border-2 border-rose-200 py-3 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 transition-colors">
+                          className="flex-1 flex items-center justify-center gap-2 rounded-xl border-2 border-rose-200 py-3 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 transition-colors cursor-pointer">
                           <XCircle size={16} /> Reject Deal
                         </button>
                       </div>

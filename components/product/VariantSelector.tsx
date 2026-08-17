@@ -142,20 +142,20 @@ export default function VariantSelector({
   const variantAttributes = getVariantAttributes(product.variants);
 
   return (
-    <div className="space-y-6 w-full">
+    <div className="space-y-4 w-full mb-6">
       {/* Horizontal Scroller Carousel */}
-      <div className="bg-white rounded-2xl border border-zinc-200/80 p-6 shadow-sm">
-        <div className="flex items-center justify-between pb-3 border-b border-zinc-100 mb-5">
+      <div className="bg-zinc-50/70 rounded-2xl border border-zinc-200/80 p-4 sm:p-5 shadow-2xs">
+        <div className="flex items-center justify-between pb-2.5 border-b border-zinc-200/60 mb-3.5">
           <div className="flex items-center gap-2">
-            <Layers className="text-blue-600" size={20} />
-            <h3 className="text-base font-bold text-zinc-900">Select Variant</h3>
+            <Layers className="text-[#1d4ed8]" size={18} />
+            <h3 className="text-sm font-bold text-zinc-900">Available Variants ({product.variants.length})</h3>
           </div>
-          <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 bg-zinc-50 border border-zinc-200 px-2 py-0.5 rounded">
-            Swipe / Scroll
+          <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500 bg-white border border-zinc-200 px-2 py-0.5 rounded-full shadow-3xs">
+            Swipe to explore
           </span>
         </div>
 
-        <div className="flex gap-4 overflow-x-auto pb-4 pt-1 snap-x scroll-smooth scrollbar-thin scrollbar-thumb-zinc-200 scrollbar-track-transparent">
+        <div className="flex gap-3 overflow-x-auto pb-2 pt-1 snap-x scroll-smooth scrollbar-thin scrollbar-thumb-zinc-200 scrollbar-track-transparent">
           {product.variants.map((v) => {
             const isSelected = selectedVariant?.variant_id === v.variant_id;
             const thumbnail = getVariantThumbnail(v);
@@ -170,15 +170,16 @@ export default function VariantSelector({
             return (
               <button
                 key={v.variant_id}
+                type="button"
                 onClick={() => onSelectVariant(v)}
-                className={`flex-none w-56 p-4 rounded-xl border-2 text-left transition-all snap-start flex gap-4 ${
+                className={`flex-none w-48 sm:w-52 p-3 sm:p-3.5 rounded-xl border-2 text-left transition-all snap-start flex gap-3 cursor-pointer ${
                   isSelected
-                    ? "border-blue-600 bg-blue-50/10 shadow-md ring-4 ring-blue-50"
-                    : "border-zinc-200 hover:border-zinc-300 bg-white hover:bg-zinc-50/40"
+                    ? "border-[#1d4ed8] bg-blue-50/40 shadow-sm ring-2 ring-blue-100"
+                    : "border-zinc-200 hover:border-zinc-300 bg-white hover:bg-zinc-50"
                 }`}
               >
                 {/* Variant Image */}
-                <div className="w-16 h-16 rounded-xl bg-zinc-100 border border-zinc-200 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-zinc-100 border border-zinc-200/80 flex-shrink-0 overflow-hidden flex items-center justify-center">
                   {thumbnail ? (
                     <img
                       src={thumbnail}
@@ -186,26 +187,26 @@ export default function VariantSelector({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <Package className="text-zinc-400" size={24} />
+                    <Package className="text-zinc-400" size={20} />
                   )}
                 </div>
 
                 {/* Info */}
                 <div className="min-w-0 flex-1 flex flex-col justify-between">
                   <span
-                    className={`text-sm font-bold truncate block ${
+                    className={`text-xs sm:text-sm font-bold truncate block ${
                       isSelected ? "text-blue-900" : "text-zinc-800"
                     }`}
                   >
                     {name}
                   </span>
-                  <div>
+                  <div className="mt-1">
                     <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block">
-                      {priceStr.startsWith("₹") ? "Starting At" : ""}
+                      {priceStr.startsWith("₹") ? "From" : ""}
                     </span>
                     <span
-                      className={`text-sm font-bold block truncate mt-0.5 ${
-                        isSelected ? "text-blue-600" : "text-zinc-700"
+                      className={`text-xs sm:text-sm font-bold block truncate ${
+                        isSelected ? "text-[#1d4ed8]" : "text-zinc-700"
                       }`}
                     >
                       {priceStr}
@@ -218,38 +219,39 @@ export default function VariantSelector({
         </div>
       </div>
 
-      {/* Grid of properties (e.g. Size, Color) */}
+      {/* Grid of configurable properties (e.g. Size, Color, Grade) */}
       {Object.keys(variantAttributes).length > 0 && (
-        <div className="bg-white rounded-2xl border border-zinc-200/80 p-6 shadow-sm">
-          <div className="flex items-center gap-2 pb-3 border-b border-zinc-100 mb-4">
-            <Layers className="text-blue-600" size={18} />
-            <h4 className="text-sm font-bold text-zinc-900">
-              Configure Attributes
+        <div className="bg-zinc-50/70 rounded-2xl border border-zinc-200/80 p-4 sm:p-5 shadow-2xs space-y-3.5">
+          <div className="flex items-center gap-2 pb-2 border-b border-zinc-200/60">
+            <Layers className="text-[#1d4ed8]" size={16} />
+            <h4 className="text-xs sm:text-sm font-bold text-zinc-900">
+              Configure Specifications
             </h4>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {Object.entries(variantAttributes).map(([specKey, values]) => {
               const activeValue = selectedSpecs[specKey];
               return (
-                <div key={specKey} className="space-y-2">
-                  <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                <div key={specKey} className="space-y-1.5">
+                  <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
                     {specKey}:{" "}
-                    <span className="text-zinc-800 font-bold capitalize">
+                    <span className="text-zinc-900 font-bold capitalize">
                       {activeValue || "None"}
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {values.map((val) => {
                       const isSelected = activeValue === val;
                       return (
                         <button
                           key={val}
+                          type="button"
                           onClick={() => onSpecChange(specKey, val)}
-                          className={`px-4 py-2.5 text-xs font-bold rounded-lg border transition-all ${
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
                             isSelected
-                              ? "bg-blue-600 text-white border-blue-600 shadow-md"
-                              : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
+                              ? "bg-[#1d4ed8] text-white border-[#1d4ed8] shadow-2xs"
+                              : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-300 hover:bg-zinc-100"
                           }`}
                         >
                           {val}

@@ -7,15 +7,18 @@ interface ProductRatingProps {
 
 export function ProductRating({ rating, reviewCount }: ProductRatingProps) {
   return (
-    <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200 mb-4">
+    <a
+      href="#reviews"
+      className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-50/80 hover:bg-amber-100/80 rounded-xl border border-amber-200/80 mb-4 transition-colors cursor-pointer w-fit"
+    >
       <div className="flex items-center gap-1">
-        <Star className="fill-amber-400 text-amber-400" size={16} />
-        <span className="font-bold text-amber-900">{rating || 0}</span>
+        <Star className="fill-amber-400 text-amber-400" size={14} />
+        <span className="text-xs font-bold text-amber-900">{Number(rating || 0).toFixed(1)}</span>
       </div>
-      <span className="text-sm text-amber-700">
-        {reviewCount || 0} {reviewCount === 1 ? "review" : "reviews"}
+      <span className="text-xs text-amber-800 font-medium">
+        ({reviewCount || 0} {reviewCount === 1 ? "review" : "reviews"})
       </span>
-      <span className="text-xs text-amber-600">• Verified by our quality team</span>
-    </div>
+      <span className="text-[11px] text-amber-600 font-medium hidden sm:inline">• Verified Quality</span>
+    </a>
   );
 }

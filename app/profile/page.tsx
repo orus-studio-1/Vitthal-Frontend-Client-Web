@@ -58,7 +58,13 @@ export default function ProfilePage() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [clientDetails, setClientDetails] = useState<ClientDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [isSetupComplete, setIsSetupComplete] = useState(true);
+
+  // Delete Account Modal State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmed, setDeleteConfirmed] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchUser();
@@ -92,6 +98,9 @@ export default function ProfilePage() {
           if (data.data?.phone) {
             setEditPhone(data.data.phone);
           }
+          if (data.data?.user_name && !user?.username) {
+            setEditName(data.data.user_name);
+          }
         } else {
           setIsSetupComplete(false);
         }
@@ -104,13 +113,13 @@ export default function ProfilePage() {
     }
 
     void fetchClientDetails();
-  }, [checkClientSetupStatus]);
+  }, [checkClientSetupStatus, user?.username]);
 
   useEffect(() => {
-    if (user) {
+    if (user?.username) {
       setEditName(user.username);
     }
-  }, [user]);
+  }, [user?.username]);
 
   async function handleLogout() {
     await logout();
@@ -118,24 +127,46 @@ export default function ProfilePage() {
     router.push("/");
   }
 
-  async function handleDeleteAccount() {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete your account? This will deactivate your account immediately and permanently delete all your data in 14 days."
-    );
-    if (confirmDelete) {
+  function openDeleteModal() {
+    setDeleteConfirmed(false);
+    setShowDeleteModal(true);
+  }
+
+  function closeDeleteModal() {
+    if (!isDeleting) {
+      setShowDeleteModal(false);
+      setDeleteConfirmed(false);
+    }
+  }
+
+  async function handleConfirmDeleteAccount() {
+    if (!deleteConfirmed) {
+      toast.error("Please confirm acknowledgment before proceeding");
+      return;
+    }
+    setIsDeleting(true);
+    try {
       await deleteAccount();
-      toast.success("Account deletion requested successfully");
+      toast.success("Account deletion requested. Your account has been deactivated.");
+      setShowDeleteModal(false);
       router.push("/");
+    } catch (err) {
+      console.error("Error deleting account:", err);
+      toast.error("Failed to request account deletion. Please try again.");
+    } finally {
+      setIsDeleting(false);
     }
   }
 
   function handleEdit() {
+    setEditName(user?.username || clientDetails?.user_name || "");
+    setEditPhone(clientDetails?.phone || "");
     setIsEditing(true);
   }
 
   function handleCancel() {
     setIsEditing(false);
-    setEditName(user?.username || "");
+    setEditName(user?.username || clientDetails?.user_name || "");
     setEditPhone(clientDetails?.phone || "");
   }
 
@@ -145,10 +176,11 @@ export default function ProfilePage() {
       return;
     }
 
+    setIsSaving(true);
     try {
       let updated = false;
 
-      if (editPhone !== clientDetails?.phone) {
+      if (editPhone.trim() && editPhone.trim() !== clientDetails?.phone) {
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/client/updateClientNumber`,
           {
@@ -158,17 +190,17 @@ export default function ProfilePage() {
               "x-request-from": "client",
             },
             credentials: "include",
-            body: JSON.stringify({ phone: editPhone }),
+            body: JSON.stringify({ phone: editPhone.trim() }),
           },
         );
 
         if (!response.ok) throw new Error("Failed to update phone number");
 
-        setClientDetails((prev) => (prev ? { ...prev, phone: editPhone } : null));
+        setClientDetails((prev) => (prev ? { ...prev, phone: editPhone.trim() } : null));
         updated = true;
       }
 
-      if (editName !== user?.username) {
+      if (editName.trim() && editName.trim() !== user?.username) {
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/auth/update-name`,
           {
@@ -178,14 +210,22 @@ export default function ProfilePage() {
               "x-request-from": "client",
             },
             credentials: "include",
-            body: JSON.stringify({ name: editName }),
+            body: JSON.stringify({ name: editName.trim() }),
           },
         );
 
-        if (!response.ok) throw new Error("Failed to update name");
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.message || "Failed to update name");
+        }
 
-        await fetchUser();
-        setClientDetails((prev) => (prev ? { ...prev, user_name: editName } : null));
+        const data = await response.json();
+        if (data.user) {
+          useAuthStore.getState().setUser(data.user);
+        } else {
+          await fetchUser();
+        }
+        setClientDetails((prev) => (prev ? { ...prev, user_name: editName.trim() } : null));
         updated = true;
       }
 
@@ -193,8 +233,10 @@ export default function ProfilePage() {
       if (updated) {
         toast.success("Profile updated successfully");
       }
-    } catch (error) {
-      toast.error("Error updating profile");
+    } catch (error: any) {
+      toast.error(error?.message || "Error updating profile");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -259,12 +301,132 @@ export default function ProfilePage() {
             Sign Out
           </button>
           <button
-            onClick={handleDeleteAccount}
+            onClick={openDeleteModal}
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
           >
             <Trash2 size={18} />
             Delete Account
           </button>
+
+          {/* Delete Account Policy Modal */}
+          {showDeleteModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+              <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl">
+                {/* Modal Header */}
+                <div className="flex items-center justify-between border-b border-zinc-100 bg-red-50/70 px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-full bg-red-100 p-2 text-red-600">
+                      <Trash2 size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-red-950">Delete Account & Privacy Policy</h3>
+                      <p className="text-xs text-red-700">Please read our 14-day deletion lifecycle policy</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeDeleteModal}
+                    disabled={isDeleting}
+                    className="rounded-lg p-1.5 text-zinc-400 hover:bg-white hover:text-zinc-700 transition"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Modal Body: Detailed Deletion Lifecycle */}
+                <div className="p-6 space-y-4 text-sm">
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-amber-900">
+                    <p className="font-semibold text-xs uppercase tracking-wider text-amber-800 mb-1">Important Notice</p>
+                    <p className="text-xs leading-relaxed">
+                      Selecting account deletion initiates a <strong>14-day grace and recovery cycle</strong> before permanent data removal.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3 text-zinc-700">
+                    <div className="flex items-start gap-3 rounded-lg border border-zinc-100 bg-zinc-50 p-3">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
+                        1
+                      </span>
+                      <div>
+                        <p className="font-semibold text-zinc-900 text-xs">Immediate Deactivation</p>
+                        <p className="text-xs text-zinc-600 mt-0.5">
+                          Your account will be logged out and immediately hidden from public access and marketplace interactions.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3 rounded-lg border border-zinc-100 bg-zinc-50 p-3">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-700">
+                        2
+                      </span>
+                      <div>
+                        <p className="font-semibold text-zinc-900 text-xs">14-Day Retrieval & Recovery Cycle</p>
+                        <p className="text-xs text-zinc-600 mt-0.5">
+                          If you change your mind within 14 days, you can log back in and request account retrieval to restore all your details without data loss.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3 rounded-lg border border-red-100 bg-red-50/50 p-3">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-100 text-xs font-bold text-red-700">
+                        3
+                      </span>
+                      <div>
+                        <p className="font-semibold text-red-950 text-xs">Permanent Data Purge after 14 Days</p>
+                        <p className="text-xs text-red-800 mt-0.5">
+                          After 14 days have passed, all your personal information, delivery addresses, order records, and saved items will be <strong>permanently and irreversibly deleted</strong> from our systems.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Confirmation Checkbox */}
+                  <label className="flex items-start gap-3 pt-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={deleteConfirmed}
+                      onChange={(e) => setDeleteConfirmed(e.target.checked)}
+                      disabled={isDeleting}
+                      className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-500"
+                    />
+                    <span className="text-xs text-zinc-700">
+                      I understand the 14-day deletion policy and confirm that my data will be permanently lost after 14 days if not retrieved.
+                    </span>
+                  </label>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="flex items-center justify-end gap-3 border-t border-zinc-100 bg-zinc-50 px-6 py-4">
+                  <button
+                    type="button"
+                    onClick={closeDeleteModal}
+                    disabled={isDeleting}
+                    className="rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 transition disabled:opacity-50"
+                  >
+                    Cancel / Keep Account
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmDeleteAccount}
+                    disabled={!deleteConfirmed || isDeleting}
+                    className="flex items-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-red-700 transition disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isDeleting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="h-4 w-4" />
+                        Confirm Deletion
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     );
@@ -378,22 +540,28 @@ export default function ProfilePage() {
                     type="text"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="w-full bg-transparent text-center text-xl font-bold text-white placeholder-white/50 focus:outline-none sm:w-auto sm:text-left"
+                    className="w-full rounded-lg bg-white/20 px-3 py-1.5 text-center text-xl font-bold text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 sm:w-auto sm:text-left"
                     placeholder="Your Name"
                   />
                 ) : (
-                  <h1 className="text-xl font-bold text-white">{user?.username || "Guest User"}</h1>
+                  <h1 className="text-xl font-bold text-white">{user?.username || clientDetails?.user_name || "Guest User"}</h1>
                 )}
-                <p className="mt-0.5 text-sm text-zinc-500">{user?.email || "—"}</p>
+                <p className="mt-0.5 text-sm text-zinc-500">{user?.email || clientDetails?.email || "—"}</p>
               </div>
 
               <button
                 onClick={isEditing ? handleSave : handleEdit}
-                disabled={!isSetupComplete}
+                disabled={!isSetupComplete || isSaving}
                 className="flex items-center gap-2 rounded-lg bg-[#1d4ed8] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1e40af] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isEditing ? <Check size={16} /> : <Edit2 size={16} />}
-                {isEditing ? "Save Changes" : "Edit Profile"}
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : isEditing ? (
+                  <Check size={16} />
+                ) : (
+                  <Edit2 size={16} />
+                )}
+                {isSaving ? "Saving..." : isEditing ? "Save Changes" : "Edit Profile"}
               </button>
             </div>
 
@@ -403,9 +571,9 @@ export default function ProfilePage() {
                 {isEditing && isSetupComplete && (
                   <button
                     onClick={handleCancel}
+                    disabled={isSaving}
                     className="flex items-center gap-1.5 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-50"
                   >
-                    <Check size={14} className="hidden" />
                     <span>Cancel</span>
                   </button>
                 )}
@@ -434,7 +602,7 @@ export default function ProfilePage() {
                       placeholder="Your Name"
                     />
                   ) : (
-                    <p className="text-sm font-medium text-zinc-900">{user?.username || "—"}</p>
+                    <p className="text-sm font-medium text-zinc-900">{user?.username || clientDetails?.user_name || "—"}</p>
                   )}
                 </div>
 
@@ -443,7 +611,7 @@ export default function ProfilePage() {
                     <Mail size={14} />
                     Email Address
                   </div>
-                  <p className="text-sm font-medium text-zinc-900">{user?.email || "—"}</p>
+                  <p className="text-sm font-medium text-zinc-900">{user?.email || clientDetails?.email || "—"}</p>
                 </div>
 
                 <div className="rounded-lg border border-zinc-200 bg-zinc-50/50 p-4 sm:col-span-2">
@@ -546,12 +714,132 @@ export default function ProfilePage() {
           Sign Out
         </button>
         <button
-          onClick={handleDeleteAccount}
+          onClick={openDeleteModal}
           className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
         >
           <Trash2 size={18} />
           Delete Account
         </button>
+
+        {/* Delete Account Policy Modal for Main Profile View */}
+        {showDeleteModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-zinc-100 bg-red-50/70 px-6 py-4">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-full bg-red-100 p-2 text-red-600">
+                    <Trash2 size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-red-950">Delete Account & Privacy Policy</h3>
+                    <p className="text-xs text-red-700">Please read our 14-day deletion lifecycle policy</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeDeleteModal}
+                  disabled={isDeleting}
+                  className="rounded-lg p-1.5 text-zinc-400 hover:bg-white hover:text-zinc-700 transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Modal Body: Detailed Deletion Lifecycle */}
+              <div className="p-6 space-y-4 text-sm">
+                <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-amber-900">
+                  <p className="font-semibold text-xs uppercase tracking-wider text-amber-800 mb-1">Important Notice</p>
+                  <p className="text-xs leading-relaxed">
+                    Selecting account deletion initiates a <strong>14-day grace and recovery cycle</strong> before permanent data removal.
+                  </p>
+                </div>
+
+                <div className="space-y-3 text-zinc-700">
+                  <div className="flex items-start gap-3 rounded-lg border border-zinc-100 bg-zinc-50 p-3">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
+                      1
+                    </span>
+                    <div>
+                      <p className="font-semibold text-zinc-900 text-xs">Immediate Deactivation</p>
+                      <p className="text-xs text-zinc-600 mt-0.5">
+                        Your account will be logged out and immediately hidden from public access and marketplace interactions.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 rounded-lg border border-zinc-100 bg-zinc-50 p-3">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-700">
+                      2
+                    </span>
+                    <div>
+                      <p className="font-semibold text-zinc-900 text-xs">14-Day Retrieval & Recovery Cycle</p>
+                      <p className="text-xs text-zinc-600 mt-0.5">
+                        If you change your mind within 14 days, you can log back in and request account retrieval to restore all your details without data loss.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 rounded-lg border border-red-100 bg-red-50/50 p-3">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-100 text-xs font-bold text-red-700">
+                      3
+                    </span>
+                    <div>
+                      <p className="font-semibold text-red-950 text-xs">Permanent Data Purge after 14 Days</p>
+                      <p className="text-xs text-red-800 mt-0.5">
+                        After 14 days have passed, all your personal information, delivery addresses, order records, and saved items will be <strong>permanently and irreversibly deleted</strong> from our systems.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Confirmation Checkbox */}
+                <label className="flex items-start gap-3 pt-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={deleteConfirmed}
+                    onChange={(e) => setDeleteConfirmed(e.target.checked)}
+                    disabled={isDeleting}
+                    className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-500"
+                  />
+                  <span className="text-xs text-zinc-700">
+                    I understand the 14-day deletion policy and confirm that my data will be permanently lost after 14 days if not retrieved.
+                  </span>
+                </label>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end gap-3 border-t border-zinc-100 bg-zinc-50 px-6 py-4">
+                <button
+                  type="button"
+                  onClick={closeDeleteModal}
+                  disabled={isDeleting}
+                  className="rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 transition disabled:opacity-50"
+                >
+                  Cancel / Keep Account
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteAccount}
+                  disabled={!deleteConfirmed || isDeleting}
+                  className="flex items-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-red-700 transition disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4" />
+                      Confirm Deletion
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );

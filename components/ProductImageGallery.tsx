@@ -38,9 +38,9 @@ export default function ProductImageGallery({ images, productName }: ProductImag
   const currentMedia = selectedMedia || orderedImages[0] || null;
 
   return (
-    <div className="w-full h-full flex flex-col">
-      {/* Main Media - Full width, larger display */}
-      <div className="relative flex-1 w-full min-h-75 sm:min-h-100 lg:min-h-125 rounded-xl overflow-hidden bg-white border border-zinc-200 shadow-sm flex items-center justify-center">
+    <div className="w-full flex flex-col">
+      {/* Main Media - Fixed aspect ratio preventing vertical stretching */}
+      <div className="relative w-full aspect-square max-h-[460px] sm:max-h-[500px] rounded-xl overflow-hidden bg-white border border-zinc-200/80 shadow-2xs flex items-center justify-center">
         {currentMedia?.media_type === "video" ? (
           <video
             src={currentMedia.image_url}
@@ -62,9 +62,9 @@ export default function ProductImageGallery({ images, productName }: ProductImag
         )}
       </div>
 
-      {/* Thumbnails - Larger size */}
+      {/* Thumbnails - Clean, compact responsive row */}
       {orderedImages.length > 1 && (
-        <div className="flex gap-3 mt-4 overflow-x-auto pb-2 px-1">
+        <div className="flex gap-2.5 mt-3.5 overflow-x-auto pb-2 px-0.5 scrollbar-thin scrollbar-thumb-zinc-200">
           {orderedImages.map((img, idx) => {
             const isActive = currentMedia?.image_url === img.image_url;
             return (
@@ -72,20 +72,28 @@ export default function ProductImageGallery({ images, productName }: ProductImag
                 key={`${img.image_url}-${idx}`}
                 type="button"
                 onClick={() => setSelectedMedia(img)}
-                className={`relative w-24 h-24 sm:w-28 sm:h-28 rounded-lg overflow-hidden shrink-0 cursor-pointer border-2 transition-all ${
-                  isActive ? "border-blue-600 ring-2 ring-blue-200 shadow-md" : "border-zinc-200 hover:border-blue-500 hover:shadow-sm"
+                className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden shrink-0 cursor-pointer border-2 transition-all ${
+                  isActive
+                    ? "border-[#1d4ed8] ring-2 ring-blue-100 shadow-sm scale-[1.02]"
+                    : "border-zinc-200 hover:border-zinc-300 opacity-80 hover:opacity-100"
                 }`}
                 aria-label={`View ${productName} image ${idx + 1}`}
               >
                 {img.media_type === "video" ? (
-                  <div className="relative w-full h-full">
+                  <div className="relative w-full h-full bg-zinc-900">
                     <video src={img.image_url} className="w-full h-full object-cover" muted playsInline />
-                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                      <Play className="w-6 h-6 text-white drop-shadow-md" />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <Play className="w-5 h-5 text-white drop-shadow" />
                     </div>
                   </div>
                 ) : (
-                  <Image src={img.image_url} alt={`${productName} angle ${idx + 1}`} fill className="object-cover" />
+                  <Image
+                    src={img.image_url}
+                    alt={`${productName} angle ${idx + 1}`}
+                    fill
+                    className="object-contain p-1"
+                    sizes="80px"
+                  />
                 )}
               </button>
             );
