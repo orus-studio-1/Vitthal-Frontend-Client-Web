@@ -15,6 +15,10 @@ export function mapBackendProduct(bp: any): Product {
   return {
     id: bp.product_id || bp.id || "unknown",
     name: bp.product_name || "Unknown Product",
+    category: bp.category || undefined,
+    category_label: bp.category_label || undefined,
+    subcategory_id: bp.subcategory_id || undefined,
+    subcategory_name: bp.subcategory_name || undefined,
     minPrice,
     maxPrice,
     minOriginalPrice,

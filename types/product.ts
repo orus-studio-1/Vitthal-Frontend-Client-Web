@@ -17,11 +17,23 @@ export type ProductVariant = {
   vendors: Vendor[];
 };
 
+export type Subcategory = {
+  id: string;
+  category_id: string;
+  name: string;
+  description?: string | null;
+  category_code?: string;
+  category_label?: string;
+};
+
 export type ProductDetail = {
   product_id: string;
   product_name: string;
   description: string;
   category: string;
+  category_label?: string;
+  subcategory_id?: string;
+  subcategory_name?: string;
   product_type: string;
   grade?: string;
   material?: string;
@@ -41,6 +53,10 @@ export type ProductDetail = {
 export type Product = {
   id: string;
   name: string;
+  category?: string;
+  category_label?: string;
+  subcategory_id?: string;
+  subcategory_name?: string;
   minPrice: number;
   maxPrice: number;
   minOriginalPrice?: number;
@@ -53,6 +69,10 @@ export type Product = {
 export type RelatedProduct = {
   product_id: string;
   product_name: string;
+  category?: string;
+  category_label?: string;
+  subcategory_id?: string;
+  subcategory_name?: string;
   primary_image?: string | null;
   seller_count: number;
   rating: number;
@@ -71,4 +91,7 @@ export type Category = {
   min_commision_percentage: number;
   max_commision_percentage: number;
   sort_order: number;
+  category_type?: 'product' | 'service' | 'both';
+  subcategories?: Subcategory[];
+  subcategory_count?: number;
 };

@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import {
   ChevronRight,
   Package,
-  Star,
   Clock,
   CalendarDays,
   CheckCircle2,
@@ -16,430 +15,324 @@ import {
   Key,
   Wrench,
   X,
-  MessageSquare,
+  Lock,
+  LogIn,
+  UserPlus,
+  ArrowLeft,
+  Plus,
+  RefreshCw,
+  Copy,
+  Check,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
-import { useServiceStore } from "@/store/serviceStore";
-import type { ServiceBooking, ServiceQuotation } from "@/store/serviceStore";
+import { fetchMyServiceTickets, type ServiceTicket } from "@/lib/api/serviceHub";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  pending: { label: "Pending", color: "bg-amber-50 text-amber-700 border-amber-200", icon: Clock },
-  confirmed: { label: "Confirmed", color: "bg-blue-50 text-blue-700 border-blue-200", icon: CheckCircle2 },
+  draft: { label: "Draft", color: "bg-zinc-100 text-zinc-700 border-zinc-200", icon: Clock },
+  broadcasted: { label: "Open RFQ", color: "bg-blue-50 text-blue-700 border-blue-200", icon: Clock },
+  quote_pending: { label: "Quote Pending", color: "bg-amber-50 text-amber-700 border-amber-200", icon: Clock },
+  quoted: { label: "Quotes Received", color: "bg-purple-50 text-purple-700 border-purple-200", icon: ChevronRight },
+  accepted: { label: "Accepted / Assigned", color: "bg-blue-50 text-blue-700 border-blue-200", icon: CheckCircle2 },
   in_progress: { label: "In Progress", color: "bg-indigo-50 text-indigo-700 border-indigo-200", icon: Loader2 },
   completed: { label: "Completed", color: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: CheckCircle2 },
   cancelled: { label: "Cancelled", color: "bg-zinc-100 text-zinc-500 border-zinc-200", icon: X },
 };
 
-const QUOTATION_STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  pending_vendor:   { label: "Proposal Negotiation - Awaiting Vendor", color: "bg-amber-50 text-amber-700 border-amber-200", icon: Clock },
-  vendor_offered:   { label: "Proposal Negotiation - Offer Received",  color: "bg-blue-50 text-blue-700 border-blue-200", icon: ChevronRight },
-  client_countered: { label: "Proposal Negotiation - Counter Sent",    color: "bg-indigo-50 text-indigo-700 border-indigo-200", icon: Loader2 },
-  vendor_countered: { label: "Proposal Negotiation - Vendor Countered", color: "bg-purple-55 text-purple-700 border-purple-200", icon: ChevronRight },
-  client_rejected:  { label: "Proposal Negotiation - Rejected by Client", color: "bg-red-50 text-red-750 border-red-250", icon: X },
-  vendor_rejected:  { label: "Proposal Negotiation - Rejected by Vendor", color: "bg-red-50 text-red-750 border-red-250", icon: X },
-  cancelled:        { label: "Proposal Negotiation - Cancelled",        color: "bg-zinc-100 text-zinc-500 border-zinc-200", icon: X },
-};
-
 function StatusBadge({ status }: { status: string }) {
-  const cfg = STATUS_CONFIG[status] ?? { label: status, color: "bg-zinc-100 text-zinc-600 border-zinc-200", icon: Package };
+  const cfg = STATUS_CONFIG[status] ?? {
+    label: status.replace(/_/g, " "),
+    color: "bg-zinc-100 text-zinc-600 border-zinc-200",
+    icon: Package,
+  };
   const Icon = cfg.icon;
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${cfg.color}`}>
-      <Icon size={12} />
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${cfg.color}`}>
+      <Icon size={11} />
       {cfg.label}
     </span>
   );
 }
 
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-type OtpDialogProps = {
-  bookingId: string;
-  onClose: () => void;
-};
-
-function OtpDialog({ bookingId, onClose }: OtpDialogProps) {
-  const generateOtp = useServiceStore((s) => s.generateOtp);
-  const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
-
-  async function handleGenerate() {
-    setSending(true);
-    const success = await generateOtp(bookingId);
-    setSending(false);
-    if (success) {
-      setSent(true);
-      toast.success("OTP sent to your registered email");
-    } else {
-      toast.error("Failed to generate OTP. Try again.");
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
-          <h2 className="text-sm font-semibold text-zinc-900">Generate Completion OTP</h2>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 transition-colors">
-            <X size={18} />
-          </button>
-        </div>
-        <div className="px-6 py-5 space-y-4">
-          {sent ? (
-            <div className="flex flex-col items-center gap-3 text-center py-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50">
-                <Key size={24} className="text-emerald-600" />
-              </div>
-              <p className="text-sm font-medium text-zinc-900">OTP Sent!</p>
-              <p className="text-xs text-zinc-500">Check your registered email. Share the OTP with your vendor to confirm service completion. It expires in 10 minutes.</p>
-              <button onClick={onClose} className="mt-2 w-full rounded-lg bg-[#1d4ed8] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1e40af] transition-colors">Close</button>
-            </div>
-          ) : (
-            <>
-              <div className="rounded-xl border border-amber-100 bg-amber-50 p-3.5 text-xs text-amber-700">
-                <p className="font-medium">How it works</p>
-                <p className="mt-1 text-amber-600">An OTP will be sent to your registered email. Share it with the vendor once you are satisfied with the service to confirm completion.</p>
-              </div>
-              <button
-                onClick={handleGenerate}
-                disabled={sending}
-                className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#1d4ed8] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1e40af] disabled:opacity-60 transition-colors"
-              >
-                {sending ? <><Loader2 size={15} className="animate-spin" /> Sending...</> : <><Key size={15} /> Generate & Send OTP</>}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-type ReviewDialogProps = {
-  bookingId: string;
-  serviceName: string;
-  onClose: () => void;
-  onSubmitted: () => void;
-};
-
-function ReviewDialog({ bookingId, serviceName, onClose, onSubmitted }: ReviewDialogProps) {
-  const submitReview = useServiceStore((s) => s.submitReview);
-  const [rating, setRating] = useState(0);
-  const [hoverRating, setHoverRating] = useState(0);
-  const [reviewTitle, setReviewTitle] = useState("");
-  const [reviewText, setReviewText] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (rating === 0) { toast.error("Please select a rating"); return; }
-    setIsSubmitting(true);
-    const success = await submitReview({ bookingId, rating, reviewTitle: reviewTitle || undefined, reviewText: reviewText || undefined });
-    setIsSubmitting(false);
-    if (success) {
-      toast.success("Review submitted!");
-      onSubmitted();
-    } else {
-      toast.error("Failed to submit review. You may have already reviewed this booking.");
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
-          <div>
-            <h2 className="text-sm font-semibold text-zinc-900">Leave a Review</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">{serviceName}</p>
-          </div>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 transition-colors"><X size={18} /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-xs text-zinc-600">How was your experience?</p>
-            <div className="flex gap-1">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  onMouseEnter={() => setHoverRating(star)}
-                  onMouseLeave={() => setHoverRating(0)}
-                  onClick={() => setRating(star)}
-                  className="p-1"
-                >
-                  <Star
-                    size={28}
-                    className={star <= (hoverRating || rating) ? "fill-amber-400 text-amber-400" : "text-zinc-200"}
-                  />
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label htmlFor="reviewTitle" className="block text-xs font-medium text-zinc-700 mb-1.5">Title <span className="text-zinc-400">(optional)</span></label>
-            <input id="reviewTitle" type="text" value={reviewTitle} onChange={(e) => setReviewTitle(e.target.value)} placeholder="Summarise your experience" className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-[#1d4ed8] focus:outline-none focus:ring-1 focus:ring-[#1d4ed8]/30 transition-colors" />
-          </div>
-          <div>
-            <label htmlFor="reviewText" className="block text-xs font-medium text-zinc-700 mb-1.5">Review <span className="text-zinc-400">(optional)</span></label>
-            <textarea id="reviewText" rows={3} value={reviewText} onChange={(e) => setReviewText(e.target.value)} placeholder="Tell others about the quality, timeliness, and professionalism..." className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-[#1d4ed8] focus:outline-none focus:ring-1 focus:ring-[#1d4ed8]/30 transition-colors resize-none" />
-          </div>
-          <button type="submit" disabled={isSubmitting} className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#1d4ed8] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1e40af] disabled:opacity-60 transition-colors">
-            {isSubmitting ? <><Loader2 size={15} className="animate-spin" /> Submitting...</> : "Submit Review"}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function BookingCard({ booking }: { booking: ServiceBooking }) {
-  const [otpDialogOpen, setOtpDialogOpen] = useState(false);
-  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
-  const [hasReview, setHasReview] = useState(booking.has_review);
-
-  const showOtpButton = booking.status === "in_progress";
-  const showReviewButton = booking.status === "completed" && !hasReview;
-
-  return (
-    <article className="rounded-xl border border-zinc-200 bg-white p-5 space-y-4 hover:border-zinc-300 hover:shadow-sm transition-all">
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-        <div>
-          <h3 className="font-semibold text-zinc-900 text-sm">{booking.service_name}</h3>
-          <p className="text-xs text-zinc-500 mt-0.5">by {booking.vendor_name}</p>
-        </div>
-        <StatusBadge status={booking.status} />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 text-xs">
-        <div>
-          <p className="text-zinc-400 mb-0.5">Amount</p>
-          <p className="font-semibold text-zinc-900">₹{parseFloat(booking.total_amount).toLocaleString("en-IN")}</p>
-        </div>
-        <div>
-          <p className="text-zinc-400 mb-0.5">Pricing</p>
-          <p className="font-medium text-zinc-700 capitalize">{booking.pricing_type}</p>
-        </div>
-        {booking.scheduled_start && (
-          <div>
-            <p className="text-zinc-400 mb-0.5 flex items-center gap-1"><CalendarDays size={10} /> Scheduled Start</p>
-            <p className="font-medium text-zinc-700">{formatDate(booking.scheduled_start)}</p>
-          </div>
-        )}
-        {booking.scheduled_end && (
-          <div>
-            <p className="text-zinc-400 mb-0.5 flex items-center gap-1"><CalendarDays size={10} /> Scheduled End</p>
-            <p className="font-medium text-zinc-700">{formatDate(booking.scheduled_end)}</p>
-          </div>
-        )}
-      </div>
-
-      {booking.booking_notes && (
-        <div className="rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2">
-          <p className="text-xs text-zinc-500 italic">"{booking.booking_notes}"</p>
-        </div>
-      )}
-
-      {(showOtpButton || showReviewButton) && (
-        <div className="flex gap-2 pt-1">
-          {showOtpButton && (
-            <button
-              onClick={() => setOtpDialogOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-[#1d4ed8] px-3 py-2 text-xs font-semibold text-[#1d4ed8] hover:bg-[#1d4ed8] hover:text-white transition-colors"
-            >
-              <Key size={13} /> Generate OTP
-            </button>
-          )}
-          {showReviewButton && (
-            <button
-              onClick={() => setReviewDialogOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
-            >
-              <Star size={13} /> Leave Review
-            </button>
-          )}
-        </div>
-      )}
-
-      <p className="text-xs text-zinc-400">Booked {formatDate(booking.created_at)}</p>
-
-      {otpDialogOpen && (
-        <OtpDialog bookingId={booking.id} onClose={() => setOtpDialogOpen(false)} />
-      )}
-      {reviewDialogOpen && (
-        <ReviewDialog
-          bookingId={booking.id}
-          serviceName={booking.service_name}
-          onClose={() => setReviewDialogOpen(false)}
-          onSubmitted={() => { setReviewDialogOpen(false); setHasReview(true); }}
-        />
-      )}
-    </article>
-  );
-}
-
-function QuotationCard({ quotation }: { quotation: ServiceQuotation }) {
-  const cfg = QUOTATION_STATUS_CONFIG[quotation.status] ?? {
-    label: "Proposal Negotiation",
-    color: "bg-zinc-50 text-zinc-700 border-zinc-200",
-    icon: Clock,
-  };
-  const Icon = cfg.icon;
-
-  const price = quotation.agreed_price || quotation.requested_price;
-
-  return (
-    <article className="rounded-xl border border-dashed border-blue-200 bg-blue-50/20 p-5 space-y-4 hover:border-blue-300 hover:shadow-xs transition-all flex flex-col justify-between">
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-          <div>
-            <h3 className="font-semibold text-zinc-900 text-sm">{quotation.service_name}</h3>
-            <p className="text-xs text-zinc-500 mt-0.5">by {quotation.vendor_name}</p>
-          </div>
-          <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${cfg.color}`}>
-            <Icon size={12} />
-            {cfg.label}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          <div>
-            <p className="text-zinc-400 mb-0.5">Offer Price</p>
-            <p className="font-semibold text-zinc-900">
-              {price ? `₹${parseFloat(price).toLocaleString("en-IN")}` : "Negotiable"}
-            </p>
-          </div>
-          <div>
-            <p className="text-zinc-400 mb-0.5">Stage</p>
-            <p className="font-medium text-zinc-700">Proposal & Negotiation</p>
-          </div>
-        </div>
-
-        {quotation.scope_of_work && (
-          <div className="rounded-lg border border-zinc-100 bg-white/80 px-3 py-2">
-            <p className="text-xs text-zinc-500 italic line-clamp-3">"{quotation.scope_of_work}"</p>
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-3 pt-3">
-        <div className="flex gap-2">
-          <Link
-            href="/services/quotations"
-            className="flex items-center gap-1.5 rounded-lg border border-blue-600 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-600 hover:text-white transition-colors bg-white"
-          >
-            <MessageSquare size={13} /> View Discussion / Negotiate
-          </Link>
-        </div>
-        <p className="text-xs text-zinc-400">Requested {formatDate(quotation.created_at)}</p>
-      </div>
-    </article>
-  );
-}
-
-export default function MyServiceBookingsPage() {
+export default function ServiceBookingsPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
-  const { bookings, isLoadingBookings, fetchMyBookings, quotations, isLoadingQuotations, fetchMyQuotations } = useServiceStore();
 
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push("/login");
-    }
-  }, [isAuthenticated, authLoading, router]);
+  const [tickets, setTickets] = useState<ServiceTicket[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<string>("all");
+  const [copiedOtp, setCopiedOtp] = useState<string | null>(null);
 
   useEffect(() => {
     if (isAuthenticated) {
-      fetchMyBookings();
-      fetchMyQuotations();
+      loadTickets();
     }
-  }, [isAuthenticated, fetchMyBookings, fetchMyQuotations]);
+  }, [isAuthenticated, activeTab]);
 
-  const unifiedItems = [
-    ...bookings.map((b) => ({
-      type: "booking" as const,
-      id: b.id,
-      date: b.created_at,
-      item: b,
-    })),
-    ...quotations
-      .filter((q) => q.status !== "client_accepted") // skip accepted ones as they are now confirmed bookings
-      .map((q) => ({
-        type: "quotation" as const,
-        id: q.id,
-        date: q.created_at,
-        item: q,
-      })),
-  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  async function loadTickets() {
+    try {
+      setLoading(true);
+      const params: any = { limit: 50 };
+      if (activeTab !== "all") {
+        params.status = activeTab;
+      }
+      const res = await fetchMyServiceTickets(params);
+      setTickets(res.data || []);
+    } catch (err: any) {
+      console.error("Failed to load service bookings:", err);
+      toast.error(err.message || "Failed to load bookings.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  if (authLoading || (!isAuthenticated && !authLoading)) {
+  const handleCopyOtp = (e: React.MouseEvent, otp: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigator.clipboard.writeText(otp);
+    setCopiedOtp(otp);
+    toast.success("Completion OTP copied to clipboard!");
+    setTimeout(() => setCopiedOtp(null), 2000);
+  };
+
+  if (!authLoading && !isAuthenticated) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 size={24} className="animate-spin text-zinc-400" />
+      <div className="min-h-screen bg-white pb-24 pt-16">
+        <div className="mx-auto max-w-md px-4 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+            <Lock className="h-6 w-6" />
+          </div>
+          <h1 className="mt-4 font-heading text-2xl font-semibold tracking-tight text-zinc-900">
+            Sign In to View Service Bookings
+          </h1>
+          <p className="mt-2 text-xs leading-relaxed text-zinc-500">
+            Please log in or create an account to track your breakdown repairs, machining RFQs, and secure completion OTPs.
+          </p>
+
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <Link
+              href="/login?redirect=/services/bookings"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-2.5 text-xs font-medium text-white shadow-xs transition hover:bg-blue-700"
+            >
+              <LogIn className="h-4 w-4" /> Log In
+            </Link>
+            <Link
+              href="/register?redirect=/services/bookings"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-white px-6 py-2.5 text-xs font-medium text-zinc-700 shadow-xs transition hover:bg-zinc-50"
+            >
+              <UserPlus className="h-4 w-4" /> Create Account
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white text-zinc-900">
-      <main>
-        <section className="border-b border-zinc-200 bg-zinc-50">
-          <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-            <nav className="text-sm text-zinc-500 mb-3" aria-label="Breadcrumb">
-              <ol className="flex items-center gap-2">
-                <li><Link href="/" className="hover:text-zinc-800 transition-colors">Home</Link></li>
-                <li className="text-zinc-300"><ChevronRight size={14} /></li>
-                <li><Link href="/services" className="hover:text-zinc-800 transition-colors">Services</Link></li>
-                <li className="text-zinc-300"><ChevronRight size={14} /></li>
-                <li className="text-zinc-800 font-medium">My Bookings</li>
-              </ol>
-            </nav>
-            <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">My Service Bookings</h1>
-            <p className="mt-1 text-sm text-zinc-600">Track and manage your service booking requests.</p>
+    <div className="min-h-screen bg-white pb-24 pt-8">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        {/* Navigation & Header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <Link
+              href="/services"
+              className="inline-flex items-center gap-2 text-xs font-medium text-zinc-500 hover:text-zinc-900 transition-colors"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" /> Back to Services Hub
+            </Link>
+            <h1 className="mt-2 font-heading text-2xl font-bold tracking-tight text-zinc-900">
+              My Service Bookings & Active Tickets
+            </h1>
+            <p className="mt-0.5 text-xs text-zinc-500">
+              Track live status, monitor multi-vendor bidding, and access your 6-digit completion OTPs.
+            </p>
           </div>
-        </section>
 
-        <section className="bg-white">
-          <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-            {isLoadingBookings || isLoadingQuotations ? (
-              <div className="space-y-3">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="h-44 animate-pulse rounded-xl border border-zinc-100 bg-zinc-50" />
-                ))}
-              </div>
-            ) : unifiedItems.length === 0 ? (
-              <div className="py-24 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-100">
-                  <Wrench size={28} className="text-zinc-400" strokeWidth={1.5} />
-                </div>
-                <p className="mt-4 text-lg font-medium text-zinc-700">No bookings yet</p>
-                <p className="mt-1 text-sm text-zinc-500">Browse services and make your first booking.</p>
-                <Link href="/services" className="mt-4 inline-block rounded-lg bg-[#1d4ed8] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#1e40af] transition-colors">
-                  Browse Services
-                </Link>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {unifiedItems.map((ui) => {
-                  if (ui.type === "booking") {
-                    return <BookingCard key={ui.id} booking={ui.item} />;
-                  } else {
-                    return <QuotationCard key={ui.id} quotation={ui.item} />;
-                  }
-                })}
-              </div>
-            )}
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={loadTickets}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 transition"
+              title="Refresh bookings"
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Refresh
+            </button>
+            <Link
+              href="/services/request"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4" /> Raise Service Request
+            </Link>
           </div>
-        </section>
-      </main>
+        </div>
+
+        {/* Informative OTP Explainer Banner */}
+        <div className="mt-6 rounded-xl border border-blue-100 bg-blue-50/60 p-4 text-xs text-zinc-700 flex items-start gap-3">
+          <div className="rounded-lg bg-blue-100 p-2 text-blue-700 shrink-0 mt-0.5">
+            <Key className="h-4 w-4" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-blue-900">How Job Completion OTP Works:</h3>
+            <p className="mt-0.5 text-zinc-600 leading-relaxed text-[11px]">
+              When your technician arrives on-site or completes work, they will request the <strong>6-digit Completion OTP</strong> shown on your ticket card below. 
+              Share this OTP with the technician only after you have verified and tested the service on-site.
+            </p>
+          </div>
+        </div>
+
+        {/* Filter Tabs */}
+        <div className="mt-6 flex gap-2 border-b border-zinc-200 pb-2 overflow-x-auto">
+          {[
+            { id: "all", label: "All Bookings" },
+            { id: "broadcasted", label: "Open RFQs" },
+            { id: "quoted", label: "Quoted" },
+            { id: "in_progress", label: "In Progress / Active" },
+            { id: "completed", label: "Completed" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition ${
+                activeTab === tab.id
+                  ? "bg-zinc-900 text-white shadow-xs"
+                  : "text-zinc-600 hover:bg-zinc-100"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Cards Grid (Fixed-Size Cards with ... Truncation) */}
+        <div className="mt-6">
+          {loading ? (
+            <div className="flex h-64 flex-col items-center justify-center gap-2 text-zinc-400">
+              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+              <p className="text-xs">Loading service bookings...</p>
+            </div>
+          ) : tickets.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-zinc-200 p-12 text-center text-xs text-zinc-400">
+              No service bookings found in this view.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {tickets.map((ticket) => {
+                const title =
+                  ticket.ticket_payload?.machine_name ||
+                  ticket.ticket_payload?.job_title ||
+                  ticket.ticket_payload?.vehicle_type ||
+                  ticket.subcategory_name ||
+                  ticket.category_name ||
+                  "Service Request";
+
+                const desc =
+                  ticket.ticket_payload?.symptoms ||
+                  ticket.ticket_payload?.technical_notes ||
+                  ticket.ticket_payload?.cargo_type ||
+                  ticket.ticket_payload?.general_notes ||
+                  "Service ticket in progress";
+
+                const showOtp =
+                  ticket.completion_otp &&
+                  (ticket.status === "in_progress" ||
+                    ticket.status === "accepted" ||
+                    ticket.status === "quoted" ||
+                    ticket.status === "broadcasted");
+
+                return (
+                  <article
+                    key={ticket.id}
+                    className="group flex h-[255px] min-h-[255px] max-h-[255px] flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xs transition hover:border-blue-500 hover:shadow-md"
+                  >
+                    <div>
+                      {/* Top Row: Ticket Number & Status */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-xs font-bold text-zinc-700 truncate">
+                          {ticket.ticket_number}
+                        </span>
+                        <StatusBadge status={ticket.status} />
+                      </div>
+
+                      {/* Category & Date */}
+                      <div className="mt-2 flex items-center justify-between text-[11px] text-zinc-400">
+                        <span className="font-medium text-zinc-600 truncate max-w-[170px]">
+                          {ticket.category_name || "Industrial Service"}
+                        </span>
+                        <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
+                      </div>
+
+                      {/* Title (Truncated to 1 line) */}
+                      <h2 className="mt-1 font-heading text-sm font-bold text-zinc-900 group-hover:text-blue-600 transition truncate">
+                        {title}
+                      </h2>
+
+                      {/* Description (Clamped to 2 lines with ...) */}
+                      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-zinc-500 overflow-hidden text-ellipsis min-h-[32px]">
+                        {desc}
+                      </p>
+                    </div>
+
+                    {/* Bottom Area: Completion OTP or Status Details */}
+                    <div className="border-t border-zinc-100 pt-3">
+                      {showOtp ? (
+                        <div className="mb-2 flex items-center justify-between rounded-xl bg-blue-50/80 border border-blue-200/70 px-3 py-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <Key className="h-3.5 w-3.5 text-blue-700" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700">
+                              Completion OTP:
+                            </span>
+                            <span className="font-mono text-xs font-extrabold tracking-widest text-blue-950">
+                              {ticket.completion_otp}
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => handleCopyOtp(e, ticket.completion_otp!)}
+                            className="text-[10px] font-bold text-blue-700 hover:text-blue-900 flex items-center gap-0.5"
+                            title="Copy OTP"
+                          >
+                            {copiedOtp === ticket.completion_otp ? (
+                              <>
+                                <Check className="h-3 w-3" /> Copied
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-3 w-3" /> Copy
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      ) : ticket.status === "completed" ? (
+                        <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          <span>Service Verified & Completed</span>
+                        </div>
+                      ) : (
+                        <div className="mb-2 text-[11px] text-zinc-500">
+                          <span>{ticket.quotes_count || 0} Quotations Received</span>
+                        </div>
+                      )}
+
+                      {/* Action Link to Room */}
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[11px] text-zinc-400">
+                          Priority: <strong className="text-zinc-700 capitalize">{ticket.priority?.replace(/_/g, " ") || "Medium"}</strong>
+                        </span>
+                        <Link
+                          href={`/services/tickets/${ticket.id}`}
+                          className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 group-hover:translate-x-0.5 transition-transform"
+                        >
+                          Open Room <ChevronRight className="h-3.5 w-3.5" />
+                        </Link>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

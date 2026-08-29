@@ -49,17 +49,26 @@ export function ServiceRowCard({
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          {/* Service Name & Category */}
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="line-clamp-1 text-sm font-semibold text-zinc-900">
-              {name}
-            </h3>
-            {category_label && (
-              <span className="inline-flex items-center rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600">
-                {subcategory_name ? `${category_label} > ${subcategory_name}` : category_label}
-              </span>
-            )}
-          </div>
+          {/* Category & Subcategory Badges */}
+          {(category_label || subcategory_name) && (
+            <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+              {category_label && (
+                <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100/80">
+                  {category_label}
+                </span>
+              )}
+              {subcategory_name && (
+                <span className="inline-flex items-center text-[10px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60">
+                  {subcategory_name}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Service Name */}
+          <h3 className="line-clamp-1 text-sm font-semibold text-zinc-900 group-hover:text-blue-700 transition-colors mb-1">
+            {name}
+          </h3>
 
           {/* Description */}
           {description && (

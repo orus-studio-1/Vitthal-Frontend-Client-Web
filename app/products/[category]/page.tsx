@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { ProductCard } from "@/components/Landing_Page";
 import { ProductRowCard } from "@/components/ProductRowCard";
 import { Pagination } from "@/components/Pagination";
@@ -6,9 +7,9 @@ import { ProductFilters } from "@/components/ProductFilters";
 import { SortAndViewToggle } from "@/components/SortAndViewToggle";
 import { Breadcrumb } from "@/components/ui";
 import { EmptyState } from "@/components/ui";
-import { fetchProductsByCategory } from "@/lib/api/products";
+import { fetchProductsByCategory, fetchSubcategoriesByCategory } from "@/lib/api/products";
 import { sortProducts } from "@/lib/utils/product";
-import { Package } from "lucide-react";
+import { Package, Tag } from "lucide-react";
 
 const PRODUCTS_PER_PAGE = 20;
 
@@ -20,6 +21,7 @@ interface CategoryPageProps {
     page?: string;
     search?: string;
     productType?: string;
+    subcategory?: string;
     sort?: string;
     view?: string;
   }>;
@@ -31,22 +33,39 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   const currentPage = Math.max(1, parseInt(paramsAwaited.page ?? "1", 10));
   const search = paramsAwaited.search || "";
   const productType = paramsAwaited.productType || "";
+  const subcategory = paramsAwaited.subcategory || "";
   const sort = paramsAwaited.sort || "all";
   const view = paramsAwaited.view || "cards";
 
   const backendOffset = currentPage - 1;
-  const { products: paginatedProducts, totalCount } = await fetchProductsByCategory(
-    category,
-    backendOffset,
-    PRODUCTS_PER_PAGE,
-    search,
-    productType,
-  );
+  const [{ products: paginatedProducts, totalCount }, subcategories] = await Promise.all([
+    fetchProductsByCategory(
+      category,
+      backendOffset,
+      PRODUCTS_PER_PAGE,
+      search,
+      productType,
+      subcategory,
+    ),
+    fetchSubcategoriesByCategory(category),
+  ]);
 
   const sortedProducts = sortProducts(paginatedProducts, sort);
   const totalPages = Math.max(1, Math.ceil(totalCount / PRODUCTS_PER_PAGE));
   const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE;
   const categoryTitle = category.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+  // Helper to build subcategory URL
+  const buildSubcategoryUrl = (subName?: string) => {
+    const sp = new URLSearchParams();
+    if (search) sp.set("search", search);
+    if (productType) sp.set("productType", productType);
+    if (sort && sort !== "all") sp.set("sort", sort);
+    if (view && view !== "cards") sp.set("view", view);
+    if (subName) sp.set("subcategory", subName);
+    const qs = sp.toString();
+    return `/products/${category}${qs ? `?${qs}` : ""}`;
+  };
 
   return (
     <div className="min-h-screen bg-white text-zinc-900">
@@ -61,13 +80,54 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                 { label: categoryTitle },
               ]}
             />
-            <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 mt-3">
-              {categoryTitle} Products
-            </h1>
-            <p className="mt-2 text-sm text-zinc-600 max-w-2xl leading-relaxed">
-              Browse industrial-grade {category.toLowerCase().replace(/_/g, " ")} materials from
-              verified suppliers across India.
-            </p>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mt-3">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight text-zinc-900">
+                  {categoryTitle} Products
+                </h1>
+                <p className="mt-2 text-sm text-zinc-600 max-w-2xl leading-relaxed">
+                  Browse industrial-grade {category.toLowerCase().replace(/_/g, " ")} materials and specialized subcategories from verified suppliers.
+                </p>
+              </div>
+            </div>
+
+            {/* Subcategory Filter Tabs */}
+            {subcategories && subcategories.length > 0 && (
+              <div className="mt-6 pt-6 border-t border-zinc-200/80">
+                <div className="flex items-center gap-2 mb-3 text-xs font-bold text-zinc-600 uppercase tracking-wider">
+                  <Tag size={13} className="text-blue-600" />
+                  Subcategories ({subcategories.length})
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link
+                    href={buildSubcategoryUrl(undefined)}
+                    className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition shadow-xs ${
+                      !subcategory
+                        ? "bg-blue-600 text-white shadow-blue-100"
+                        : "bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-100 hover:border-zinc-300"
+                    }`}
+                  >
+                    All {categoryTitle}
+                  </Link>
+                  {subcategories.map((sub: any) => {
+                    const isSelected = subcategory.toLowerCase() === sub.name.toLowerCase() || subcategory === sub.id;
+                    return (
+                      <Link
+                        key={sub.id}
+                        href={buildSubcategoryUrl(sub.name)}
+                        className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition shadow-xs ${
+                          isSelected
+                            ? "bg-blue-600 text-white shadow-blue-100"
+                            : "bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-100 hover:border-zinc-300"
+                        }`}
+                      >
+                        {sub.name}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -97,6 +157,11 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                 </span>{" "}
                 of{" "}
                 <span className="font-semibold text-zinc-900">{totalCount}</span> products
+                {subcategory && (
+                  <span className="ml-2 font-medium text-blue-600">
+                    in &quot;{subcategory}&quot;
+                  </span>
+                )}
               </p>
               <p className="text-sm text-zinc-500">
                 Page{" "}

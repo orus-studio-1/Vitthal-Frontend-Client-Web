@@ -183,7 +183,7 @@ export default function CategoriesPage() {
                                                         <h3 className="text-xl font-bold text-zinc-950 group-hover:text-blue-600 transition-colors">
                                                             {category.label}
                                                         </h3>
-                                                        <p className="mt-2 text-sm leading-relaxed text-zinc-600 line-clamp-3">
+                                                        <p className="mt-2 text-sm leading-relaxed text-zinc-600 line-clamp-2">
                                                             {category.description}
                                                         </p>
                                                     </div>
@@ -208,9 +208,9 @@ export default function CategoriesPage() {
 
                                                     <Link
                                                         href={`/products/${category.code}`}
-                                                        className="flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 transition"
+                                                        className="flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 transition shadow-sm"
                                                     >
-                                                        Explore catalog <ArrowRight size={16} className="transition group-hover:translate-x-1" />
+                                                        Explore {category.label} <ArrowRight size={16} className="transition group-hover:translate-x-1" />
                                                     </Link>
                                                 </div>
                                             </article>
@@ -227,7 +227,7 @@ export default function CategoriesPage() {
                             <div className="space-y-6">
                                 <div className="border-b border-zinc-200 pb-4">
                                     <h2 className="text-2xl font-bold tracking-tight text-zinc-900">Browse Services by Category</h2>
-                                    <p className="text-sm text-zinc-500 mt-1">Industrial installation, maintenance, logistics, and consulting from verified providers.</p>
+                                    <p className="text-sm text-zinc-500 mt-1">Industrial installation, maintenance, logistics, and specialized engineering services from verified providers.</p>
                                 </div>
                                 {filteredServiceCategories.length > 0 ? (
                                     <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
@@ -252,7 +252,7 @@ export default function CategoriesPage() {
                                                         <h3 className="text-xl font-bold text-zinc-950 group-hover:text-blue-600 transition-colors">
                                                             {category.label}
                                                         </h3>
-                                                        <p className="mt-2 text-sm leading-relaxed text-zinc-600 line-clamp-3">
+                                                        <p className="mt-2 text-sm leading-relaxed text-zinc-600 line-clamp-2">
                                                             {category.description}
                                                         </p>
                                                     </div>
@@ -276,10 +276,10 @@ export default function CategoriesPage() {
                                                     </div>
 
                                                     <Link
-                                                        href={`/services?category=${category.id}`}
-                                                        className="flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 transition"
+                                                        href={`/services?category=${encodeURIComponent(category.label)}`}
+                                                        className="flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 transition shadow-sm"
                                                     >
-                                                        Explore catalog <ArrowRight size={16} className="transition group-hover:translate-x-1" />
+                                                        Explore {category.label} <ArrowRight size={16} className="transition group-hover:translate-x-1" />
                                                     </Link>
                                                 </div>
                                             </article>

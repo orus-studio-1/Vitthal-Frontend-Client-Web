@@ -122,6 +122,11 @@ export function Header() {
               </Link>
             </li>
             <li>
+              <Link href="/hiring" className="hover:text-blue-600 transition-colors">
+                Hiring
+              </Link>
+            </li>
+            <li>
               <Link href="/#categories" className="hover:text-zinc-900 transition-colors">
                 Categories
               </Link>
@@ -397,6 +402,15 @@ export function Header() {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Services
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/hiring"
+                className="hover:text-blue-600 hover:bg-zinc-50 transition-colors block py-3 px-3 rounded-lg"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Employee Hiring & Staffing
               </Link>
             </li>
             <li>

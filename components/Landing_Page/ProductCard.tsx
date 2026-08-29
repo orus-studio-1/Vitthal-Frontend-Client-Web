@@ -23,6 +23,10 @@ function isValidUrl(url: string): boolean {
 
 type ProductCardProps = {
   name: string;
+  category?: string;
+  category_label?: string;
+  subcategory_id?: string;
+  subcategory_name?: string;
   minPrice: number;
   maxPrice: number;
   minOriginalPrice?: number;
@@ -125,10 +129,26 @@ export function ProductCard(product: ProductCardProps) {
         </div>
 
         {/* Body */}
-        <div className="flex flex-1 flex-col gap-3 p-4">
+        <div className="flex flex-1 flex-col gap-2.5 p-4">
+          {/* Category & Subcategory Badges */}
+          {(product.category_label || product.subcategory_name) && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {product.category_label && (
+                <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100/80">
+                  {product.category_label}
+                </span>
+              )}
+              {product.subcategory_name && (
+                <span className="inline-flex items-center text-[10px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60">
+                  {product.subcategory_name}
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Product Name */}
           <div>
-            <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-zinc-900">
+            <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-zinc-900 group-hover:text-blue-700 transition-colors">
               {product.name}
             </h3>
           </div>

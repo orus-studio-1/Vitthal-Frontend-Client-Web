@@ -62,7 +62,8 @@ export async function fetchProductsByCategory(
   offset: number,
   limit: number,
   search?: string,
-  productType?: string
+  productType?: string,
+  subcategory?: string
 ): Promise<FetchByCategoryResult> {
   try {
     const params = new URLSearchParams({
@@ -71,6 +72,7 @@ export async function fetchProductsByCategory(
     });
     if (search) params.append("search", search);
     if (productType) params.append("productType", productType);
+    if (subcategory) params.append("subcategory", subcategory);
 
     const url = `${PRODUCTS_BASE_URL}/getProductsByCategory/${encodeURIComponent(category)}?${params.toString()}`;
     const res = await fetch(url, { cache: "no-store" });
@@ -87,6 +89,19 @@ export async function fetchProductsByCategory(
   } catch (error) {
     console.error("Fetch error for category products:", error);
     return { products: [], totalCount: 0 };
+  }
+}
+
+export async function fetchSubcategoriesByCategory(category: string): Promise<any[]> {
+  try {
+    const url = `${PRODUCTS_BASE_URL}/subcategories?categoryId=${encodeURIComponent(category)}`;
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data || [];
+  } catch (err) {
+    console.error("Error fetching subcategories:", err);
+    return [];
   }
 }
 

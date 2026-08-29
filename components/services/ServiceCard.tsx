@@ -126,10 +126,26 @@ export function ServiceCard({
         </div>
 
         {/* Body */}
-        <div className="flex flex-1 flex-col gap-3 p-4">
+        <div className="flex flex-1 flex-col gap-2.5 p-4">
+          {/* Category & Subcategory Badges */}
+          {(category_label || subcategory_name) && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {category_label && (
+                <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100/80">
+                  {category_label}
+                </span>
+              )}
+              {subcategory_name && (
+                <span className="inline-flex items-center text-[10px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60">
+                  {subcategory_name}
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Service Name */}
           <div>
-            <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-zinc-900">
+            <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-zinc-900 group-hover:text-blue-700 transition-colors">
               {name}
             </h3>
           </div>
@@ -145,12 +161,6 @@ export function ServiceCard({
 
           {/* Service Details */}
           <div className="pt-2 border-t border-zinc-100 space-y-1.5">
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-zinc-500">Category</span>
-              <span className="font-medium text-zinc-700 truncate max-w-[150px]" title={subcategory_name ? `${category_label} > ${subcategory_name}` : (category_label || "Services")}>
-                {subcategory_name ? `${category_label} > ${subcategory_name}` : (category_label || "Services")}
-              </span>
-            </div>
             <div className="flex justify-between items-center text-xs">
               <span className="text-zinc-500">Providers</span>
               {Number(vendor_count) > 0 ? (
