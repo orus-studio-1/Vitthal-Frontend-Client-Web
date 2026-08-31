@@ -29,6 +29,8 @@ import {
 } from "@/lib/api/serviceHub";
 import { useAuthStore } from "@/store/authStore";
 
+export const dynamic = "force-dynamic";
+
 export default function ServiceHubPage() {
   const { isAuthenticated } = useAuthStore();
   const [recentTickets, setRecentTickets] = useState<ServiceTicket[]>([]);

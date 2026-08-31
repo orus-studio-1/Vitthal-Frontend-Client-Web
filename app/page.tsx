@@ -8,6 +8,8 @@ import {
 } from "@/components/Landing_Page";
 import { fetchAllProducts, fetchCategories } from "@/lib/api/products";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   // Fetch categories first to determine which sections to show
   const categories = await fetchCategories();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -30,7 +30,9 @@ import { useAuthStore } from "@/store/authStore";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
 
-export default function DynamicServiceRequestPage() {
+export const dynamic = "force-dynamic";
+
+function ServiceRequestForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedCat = searchParams.get("category");
@@ -552,3 +554,21 @@ export default function DynamicServiceRequestPage() {
     </div>
   );
 }
+
+export default function DynamicServiceRequestPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-2 text-zinc-400">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+            <p className="text-xs">Loading service intake form...</p>
+          </div>
+        </div>
+      }
+    >
+      <ServiceRequestForm />
+    </Suspense>
+  );
+}
+

@@ -16,6 +16,8 @@ import {
 import { fetchMyAssets, createClientAsset, type ClientAsset } from "@/lib/api/serviceHub";
 import { useAuthStore } from "@/store/authStore";
 
+export const dynamic = "force-dynamic";
+
 export default function ClientAssetsRegistryPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();

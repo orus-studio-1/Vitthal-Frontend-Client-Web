@@ -27,6 +27,8 @@ import {
 } from "@/lib/api/serviceHub";
 import { useAuthStore } from "@/store/authStore";
 
+export const dynamic = "force-dynamic";
+
 const STEPS = [
   { key: "broadcasted", label: "Request Placed" },
   { key: "quoted", label: "Quotes Received" },

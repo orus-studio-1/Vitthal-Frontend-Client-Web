@@ -28,6 +28,8 @@ import {
 import { useAuthStore } from "@/store/authStore";
 import { fetchMyServiceTickets, type ServiceTicket } from "@/lib/api/serviceHub";
 
+export const dynamic = "force-dynamic";
+
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   draft: { label: "Draft", color: "bg-zinc-100 text-zinc-700 border-zinc-200", icon: Clock },
   broadcasted: { label: "Open RFQ", color: "bg-blue-50 text-blue-700 border-blue-200", icon: Clock },
