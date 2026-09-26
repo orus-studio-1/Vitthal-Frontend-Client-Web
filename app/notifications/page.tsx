@@ -62,9 +62,12 @@ function isProductType(type: string) {
 
 function isServiceNotification(n: Notification) {
   return (
+    n.reference_type === "service_ticket" ||
     n.reference_type === "service_quotation" ||
     n.reference_type === "service_booking" ||
-    (n.type && (n.type.startsWith("service_") || n.type.startsWith("booking_")))
+    n.reference_type === "service" ||
+    (n.type && (n.type.startsWith("service_") || n.type.startsWith("booking_"))) ||
+    (n.reference_type === "quotation" && (n.title?.toLowerCase().includes("service") || n.body?.toLowerCase().includes("service")))
   );
 }
 
@@ -201,14 +204,14 @@ export default function NotificationsPage() {
   function handleNotificationClick(n: Notification) {
     if (!n.is_read) markRead(n.id);
 
-    if (n.reference_type === "product" && n.reference_id) {
+    const isServiceNotif = isServiceNotification(n);
+
+    if (isServiceNotif && n.reference_id) {
+      router.push(`/services/tickets/${n.reference_id}`);
+    } else if (n.reference_type === "product" && n.reference_id) {
       router.push(`/products`);
     } else if (n.reference_type === "quotation" && n.reference_id) {
       router.push(`/quotations/${n.reference_id}`);
-    } else if (n.reference_type === "service_quotation") {
-      router.push(`/quotations?tab=services`);
-    } else if (n.reference_type === "service_booking") {
-      router.push(`/services/bookings`);
     }
   }
 

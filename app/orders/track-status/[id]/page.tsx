@@ -584,7 +584,31 @@ export default function OrderTrackingPage() {
   const isRefunded = currentStatus === "refunded";
 
   // Determine progress step index
-  const currentStepIndex = ORDER_FLOW.findIndex((s) => s.key === currentStatus);
+  let currentStepIndex = ORDER_FLOW.findIndex((s) => s.key === currentStatus);
+  if (currentStepIndex === 1) {
+    // Check if order has been dispatched from warehouse / seller location
+    const isDispatchedFromWarehouse =
+      statusHistory.some(
+        (s) =>
+          s.status.toLowerCase() === "dispatched" ||
+          (s.note &&
+            (s.note.toLowerCase().includes("dispatched") ||
+              s.note.toLowerCase().includes("dispatch payment verified") ||
+              s.note.toLowerCase().includes("ready for pickup")))
+      ) ||
+      fulfillmentTracking.length > 0 ||
+      (routePlan &&
+        routePlan.some(
+          (r) =>
+            r.status === "departed" ||
+            r.status === "in_transit" ||
+            r.status === "arrived"
+        ));
+
+    if (isDispatchedFromWarehouse) {
+      currentStepIndex = 2; // Elevate to 'dispatched' step
+    }
+  }
 
   return (
     <div className="min-h-screen bg-zinc-50 pb-20 pt-8">

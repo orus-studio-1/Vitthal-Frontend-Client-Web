@@ -51,6 +51,7 @@ type VendorQuotation = {
   token_percentage: number | null;
   token_amount: number | null;
   vendor_document_url: string | null;
+  order_id?: string | null;
   created_at: string;
   updated_at: string;
   product_image?: string;
@@ -345,6 +346,98 @@ export default function QuotationDetailPage() {
 
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to initiate payment";
+      toast.error(message);
+      setSubmitting(false);
+    }
+  };
+
+  const handleDispatchPaymentWithRazorpay = async () => {
+    if (!selectedQuotation) return;
+    setSubmitting(true);
+    try {
+      const loaded = await loadRazorpayScript();
+      if (!loaded) {
+        toast.error("Failed to load payment gateway script. Please try again.");
+        setSubmitting(false);
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}/api/quotations/${selectedQuotation.id}/create-dispatch-payment`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "x-request-from": "client"
+        }
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to initiate dispatch payment.");
+      }
+
+      const data = await res.json();
+
+      const options = {
+        key: data.keyId,
+        amount: data.amount,
+        currency: data.currency,
+        name: "MTWO Groups",
+        description: `Dispatch Payment (${data.dispatchPercentage || 80}%)`,
+        order_id: data.razorpayOrderId,
+        handler: async function (response: any) {
+          try {
+            setSubmitting(true);
+            const verifyRes = await fetch(`${API_BASE}/api/quotations/${selectedQuotation.id}/verify-dispatch-payment`, {
+              method: "POST",
+              credentials: "include",
+              headers: {
+                "Content-Type": "application/json",
+                "x-request-from": "client"
+              },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                note: note || undefined,
+              })
+            });
+
+            if (verifyRes.ok) {
+              toast.success("Dispatch payment successful! Order dispatched from warehouse.");
+              setNote("");
+              await fetchData();
+            } else {
+              const verifyData = await verifyRes.json();
+              toast.error(verifyData.message || "Payment verification failed.");
+            }
+          } catch (err) {
+            toast.error("An error occurred during payment verification.");
+          } finally {
+            setSubmitting(false);
+          }
+        },
+        prefill: {
+          name: data.userProfile.name,
+          email: data.userProfile.email,
+          contact: data.userProfile.phone || "",
+        },
+        theme: {
+          color: "#2563EB",
+        },
+        modal: {
+          ondismiss: function () {
+            toast.error("Payment was not completed.");
+            setSubmitting(false);
+          }
+        }
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to initiate dispatch payment";
       toast.error(message);
       setSubmitting(false);
     }
@@ -819,29 +912,29 @@ export default function QuotationDetailPage() {
                     <div className="mt-3 bg-zinc-50 border border-zinc-200/80 rounded-xl p-3">
                       <div className="flex items-center justify-between text-[11px] font-semibold">
                         <div className={`flex items-center gap-1.5 ${
-                          selectedQuotation.status === "client_accepted" || selectedQuotation.status === "admin_confirmation_pending" || selectedQuotation.status === "admin_confirmed"
+                          ["client_accepted", "admin_confirmation_pending", "admin_confirmed", "token_paid", "dispatch_requested", "dispatched"].includes(selectedQuotation.status)
                             ? "text-emerald-700 font-bold"
                             : "text-zinc-500"
                         }`}>
                           <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${
-                            selectedQuotation.status === "client_accepted" || selectedQuotation.status === "admin_confirmation_pending" || selectedQuotation.status === "admin_confirmed"
+                            ["client_accepted", "admin_confirmation_pending", "admin_confirmed", "token_paid", "dispatch_requested", "dispatched"].includes(selectedQuotation.status)
                               ? "bg-emerald-600 text-white"
                               : "bg-zinc-200 text-zinc-600"
                           }`}>1</div>
                           <span>Deal Agreed</span>
                         </div>
 
-                        <div className="h-0.5 w-6 sm:w-10 bg-zinc-200" />
+                        <div className="h-0.5 w-4 sm:w-6 bg-zinc-200" />
 
                         <div className={`flex items-center gap-1.5 ${
-                          selectedQuotation.admin_confirmation_status === "accepted" || selectedQuotation.status === "admin_confirmed"
+                          selectedQuotation.admin_confirmation_status === "accepted" || ["token_paid", "dispatch_requested", "dispatched", "admin_confirmed"].includes(selectedQuotation.status)
                             ? "text-emerald-700 font-bold"
                             : selectedQuotation.status === "admin_confirmation_pending" || selectedQuotation.status === "client_accepted"
                               ? "text-amber-700 font-bold animate-pulse"
                               : "text-zinc-400"
                         }`}>
                           <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${
-                            selectedQuotation.admin_confirmation_status === "accepted" || selectedQuotation.status === "admin_confirmed"
+                            selectedQuotation.admin_confirmation_status === "accepted" || ["token_paid", "dispatch_requested", "dispatched", "admin_confirmed"].includes(selectedQuotation.status)
                               ? "bg-emerald-600 text-white"
                               : selectedQuotation.status === "admin_confirmation_pending" || selectedQuotation.status === "client_accepted"
                                 ? "bg-amber-500 text-white"
@@ -850,34 +943,57 @@ export default function QuotationDetailPage() {
                           <span>Admin Review</span>
                         </div>
 
-                        <div className="h-0.5 w-6 sm:w-10 bg-zinc-200" />
+                        <div className="h-0.5 w-4 sm:w-6 bg-zinc-200" />
 
                         <div className={`flex items-center gap-1.5 ${
-                          selectedQuotation.status === "admin_confirmed"
+                          ["token_paid", "dispatch_requested", "dispatched"].includes(selectedQuotation.status)
                             ? "text-emerald-700 font-bold"
                             : (selectedQuotation.admin_confirmation_status === "pending" || selectedQuotation.status === "admin_confirmation_pending")
-                              ? "text-orange-700 font-bold"
+                              ? "text-orange-700 font-bold animate-pulse"
                               : "text-zinc-400"
                         }`}>
                           <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${
-                            selectedQuotation.status === "admin_confirmed"
+                            ["token_paid", "dispatch_requested", "dispatched"].includes(selectedQuotation.status)
                               ? "bg-emerald-600 text-white"
                               : (selectedQuotation.admin_confirmation_status === "pending" || selectedQuotation.status === "admin_confirmation_pending")
                                 ? "bg-orange-500 text-white animate-bounce"
                                 : "bg-zinc-200 text-zinc-500"
                           }`}>3</div>
-                          <span>Token Payment</span>
+                          <span>Token (10%)</span>
                         </div>
 
-                        <div className="h-0.5 w-6 sm:w-10 bg-zinc-200" />
+                        <div className="h-0.5 w-4 sm:w-6 bg-zinc-200" />
 
                         <div className={`flex items-center gap-1.5 ${
-                          selectedQuotation.status === "admin_confirmed" ? "text-emerald-700 font-bold" : "text-zinc-400"
+                          selectedQuotation.status === "dispatched"
+                            ? "text-emerald-700 font-bold"
+                            : selectedQuotation.status === "dispatch_requested"
+                              ? "text-orange-700 font-bold animate-pulse"
+                              : selectedQuotation.status === "token_paid"
+                                ? "text-blue-700 font-semibold"
+                                : "text-zinc-400"
                         }`}>
                           <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${
-                            selectedQuotation.status === "admin_confirmed" ? "bg-emerald-600 text-white" : "bg-zinc-200 text-zinc-500"
+                            selectedQuotation.status === "dispatched"
+                              ? "bg-emerald-600 text-white"
+                              : selectedQuotation.status === "dispatch_requested"
+                                ? "bg-orange-500 text-white animate-bounce"
+                                : selectedQuotation.status === "token_paid"
+                                  ? "bg-blue-500 text-white"
+                                  : "bg-zinc-200 text-zinc-500"
                           }`}>4</div>
-                          <span>Confirmed Order</span>
+                          <span>Confirm Dispatch</span>
+                        </div>
+
+                        <div className="h-0.5 w-4 sm:w-6 bg-zinc-200" />
+
+                        <div className={`flex items-center gap-1.5 ${
+                          selectedQuotation.status === "dispatched" ? "text-emerald-700 font-bold" : "text-zinc-400"
+                        }`}>
+                          <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${
+                            selectedQuotation.status === "dispatched" ? "bg-emerald-600 text-white" : "bg-zinc-200 text-zinc-500"
+                          }`}>5</div>
+                          <span>Confirmed</span>
                         </div>
                       </div>
                     </div>
@@ -893,6 +1009,69 @@ export default function QuotationDetailPage() {
                           Our platform administrator is currently reviewing the quotation terms and vendor fulfillment logistics. Once verified by admin, you will receive an instant action button right here to pay the token amount of <strong>{formatINR(selectedQuotation.token_amount || (selectedQuotation.accepted_price ? Number(selectedQuotation.accepted_price) * 0.1 : 0))}</strong> to finalize your order.
                         </p>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Token Paid — Awaiting Vendor Dispatch Request Banner */}
+                  {selectedQuotation && selectedQuotation.status === "token_paid" && (
+                    <div className="mt-3 flex items-start gap-3 rounded-xl bg-blue-50 border border-blue-200 p-3.5 text-xs text-blue-900 shadow-xs">
+                      <Clock className="h-4 w-4 text-blue-600 shrink-0 mt-0.5 animate-pulse" />
+                      <div>
+                        <p className="font-bold text-blue-950">Token Money Paid (10%) ✓ Awaiting Vendor Dispatch Request</p>
+                        <p className="text-blue-800 mt-0.5 leading-relaxed">
+                          Your token payment of <strong>{formatINR(selectedQuotation.token_amount)}</strong> has been verified. The vendor is now preparing and packing your bulk product shipment. When ready, the vendor will send a request right here for the remaining 80% dispatch payment.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dispatch Requested — Action Required Banner */}
+                  {selectedQuotation && selectedQuotation.status === "dispatch_requested" && (
+                    <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 p-3.5 text-white shadow-md animate-in slide-in-from-top duration-300">
+                      <div className="flex items-center gap-2.5">
+                        <Truck className="h-5 w-5 text-white shrink-0" />
+                        <div>
+                          <p className="text-xs font-extrabold uppercase tracking-wide text-blue-200">Step 4: Action Required</p>
+                          <p className="text-sm font-bold">Vendor Requested Dispatch Payment (80%)</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => void handleDispatchPaymentWithRazorpay()}
+                        disabled={submitting}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white px-4 py-2 text-xs font-bold text-blue-900 hover:bg-blue-50 transition shadow-xs cursor-pointer whitespace-nowrap"
+                      >
+                        {submitting ? <Loader2 className="animate-spin" size={14} /> : <CreditCard size={14} />} Pay Dispatch Money & Confirm Shipment
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Dispatched Banner */}
+                  {selectedQuotation && selectedQuotation.status === "dispatched" && (
+                    <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl bg-emerald-50 border border-emerald-200 p-3.5 text-xs text-emerald-900 shadow-xs">
+                      <div className="flex items-center gap-3">
+                        <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                        <div>
+                          <p className="font-bold text-emerald-950">Bulk Order Dispatched from Warehouse ✓</p>
+                          <p className="text-emerald-800 mt-0.5 leading-relaxed">
+                            Your dispatch payment has been verified. The order is now dispatched and assigned to fulfillment center & delivery rider.
+                          </p>
+                        </div>
+                      </div>
+                      {selectedQuotation.order_id ? (
+                        <Link
+                          href={`/orders/track-status/${selectedQuotation.order_id}`}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 transition cursor-pointer shrink-0 whitespace-nowrap"
+                        >
+                          <Truck size={14} /> Track Order →
+                        </Link>
+                      ) : (
+                        <Link
+                          href="/orders"
+                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 transition cursor-pointer shrink-0 whitespace-nowrap"
+                        >
+                          <Truck size={14} /> Track Order →
+                        </Link>
+                      )}
                     </div>
                   )}
 
@@ -993,7 +1172,62 @@ export default function QuotationDetailPage() {
                 <div className="bg-white border-t border-zinc-200 p-4 sm:p-5">
                   {activeTab === "vendor" && (
                     <>
-                      {isClosed && selectedQuotation.admin_confirmation_status === null ? (
+                      {selectedQuotation.status === "dispatch_requested" ? (
+                        <div className="space-y-4 animate-fade-in rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 p-5">
+                          <div className="flex items-center gap-3 text-blue-950">
+                            <Truck className="text-blue-600 shrink-0 animate-bounce" size={20} />
+                            <div>
+                              <p className="text-sm font-bold">Step 4: Dispatch Payment Requested by Vendor</p>
+                              <p className="text-xs text-blue-700 mt-0.5">
+                                Vendor has prepared your bulk product order. Complete the remaining 80% dispatch payment to confirm warehouse shipment.
+                              </p>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-1">Note for Vendor (optional)</label>
+                            <input type="text" value={note} onChange={(e) => setNote(e.target.value)}
+                              className="w-full rounded-xl border border-zinc-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+                              placeholder="e.g. Paid dispatch money, please process shipment..." />
+                          </div>
+                          <button onClick={() => void handleDispatchPaymentWithRazorpay()} disabled={submitting}
+                            className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50 shadow-sm transition-colors cursor-pointer">
+                            {submitting ? <Loader2 className="animate-spin" size={16} /> : <CreditCard size={16} />} Pay Remaining Dispatch Money & Confirm Shipment
+                          </button>
+                        </div>
+                      ) : selectedQuotation.status === "token_paid" ? (
+                        <div className="flex items-center gap-3 rounded-xl bg-blue-50 border border-blue-200 p-4 text-blue-800">
+                          <Clock className="text-blue-500 animate-pulse shrink-0" />
+                          <div>
+                            <p className="text-sm font-medium">Token payment verified (10%). Awaiting vendor dispatch request...</p>
+                            <p className="text-xs text-blue-600 mt-0.5">The vendor will notify you here to pay the remaining 80% dispatch payment once goods are ready.</p>
+                          </div>
+                        </div>
+                      ) : selectedQuotation.status === "dispatched" ? (
+                        <div className="space-y-3 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 p-4 text-emerald-800">
+                          <div className="flex items-center gap-3">
+                            <CheckCircle2 className="text-emerald-600 shrink-0" size={20} />
+                            <div>
+                              <p className="text-sm font-bold">Bulk Order Dispatched from Warehouse ✓</p>
+                              <p className="text-xs text-emerald-700 mt-0.5">Your dispatch payment has been verified and the order is on its way to fulfillment center & rider pickup.</p>
+                            </div>
+                          </div>
+                          {selectedQuotation.order_id ? (
+                            <Link
+                              href={`/orders/track-status/${selectedQuotation.order_id}`}
+                              className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 transition-colors cursor-pointer"
+                            >
+                              <Truck size={16} /> Track Order Progress & Live Location →
+                            </Link>
+                          ) : (
+                            <Link
+                              href="/orders"
+                              className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 transition-colors cursor-pointer"
+                            >
+                              <Truck size={16} /> Go to Orders Section →
+                            </Link>
+                          )}
+                        </div>
+                      ) : isClosed && selectedQuotation.admin_confirmation_status === null ? (
                         <div className="flex items-center gap-3 rounded-xl bg-zinc-50 border border-zinc-200 p-4 text-zinc-600">
                           <CheckCircle2 className={`${selectedQuotation.status === "client_accepted" ? "text-emerald-500" : "text-zinc-400"} shrink-0`} />
                           <p className="text-sm font-medium">

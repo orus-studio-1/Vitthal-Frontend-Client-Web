@@ -219,75 +219,92 @@ export default function SingleTicketRoomPage() {
           {/* Left: Quotes & Specs */}
           <div className="space-y-6 lg:col-span-2">
             {/* Vendor Quotations */}
-            <div className="rounded-xl border border-zinc-200 bg-white p-6 space-y-4 shadow-xs">
-              <div className="border-b border-zinc-100 pb-3">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-900">
-                  Vendor Quotations ({ticket.quotations?.length || 0})
-                </h2>
-              </div>
+            {(() => {
+              const isTicketAssigned = Boolean(
+                ticket.status === "accepted" ||
+                ticket.status === "in_progress" ||
+                ticket.status === "completed" ||
+                ticket.quotations?.some((q) => q.status === "accepted")
+              );
 
-              {ticket.quotations && ticket.quotations.length > 0 ? (
-                <div className="space-y-3">
-                  {ticket.quotations.map((q) => {
-                    const isAccepted = q.status === "accepted";
-                    return (
-                      <div
-                        key={q.id}
-                        className={`rounded-lg border p-4 transition ${
-                          isAccepted
-                            ? "border-zinc-900 bg-zinc-50"
-                            : "border-zinc-200 bg-white"
-                        }`}
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-heading text-sm font-semibold text-zinc-900">
-                                {q.vendor_name}
-                              </h3>
-                              {isAccepted && (
-                                <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] font-medium text-white">
-                                  Assigned
+              const visibleQuotations = isTicketAssigned
+                ? (ticket.quotations?.filter((q) => q.status === "accepted").length 
+                    ? ticket.quotations.filter((q) => q.status === "accepted")
+                    : ticket.quotations?.slice(0, 1)) || []
+                : ticket.quotations || [];
+
+              return (
+                <div className="rounded-xl border border-zinc-200 bg-white p-6 space-y-4 shadow-xs">
+                  <div className="border-b border-zinc-100 pb-3">
+                    <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-900">
+                      {isTicketAssigned ? "Assigned Vendor Quotation" : `Vendor Quotations (${visibleQuotations.length})`}
+                    </h2>
+                  </div>
+
+                  {visibleQuotations.length > 0 ? (
+                    <div className="space-y-3">
+                      {visibleQuotations.map((q) => {
+                        const isAccepted = q.status === "accepted" || isTicketAssigned;
+                        return (
+                          <div
+                            key={q.id}
+                            className={`rounded-lg border p-4 transition ${
+                              isAccepted
+                                ? "border-zinc-900 bg-zinc-50"
+                                : "border-zinc-200 bg-white"
+                            }`}
+                          >
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-heading text-sm font-semibold text-zinc-900">
+                                    {q.vendor_name}
+                                  </h3>
+                                  {isAccepted && (
+                                    <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] font-medium text-white">
+                                      Assigned
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-zinc-500">
+                                  Quoted on {new Date(q.created_at).toLocaleDateString()}
+                                </p>
+                              </div>
+
+                              <div className="flex items-center justify-between sm:justify-end gap-4">
+                                <span className="font-heading text-lg font-bold text-zinc-900">
+                                  ₹{Number(q.total_price).toLocaleString("en-IN")}
                                 </span>
-                              )}
+
+                                {!isTicketAssigned && !isAccepted && (
+                                  <button
+                                    onClick={() => handleAcceptQuote(q.id)}
+                                    disabled={acceptingQuoteId === q.id}
+                                    className="rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+                                  >
+                                    {acceptingQuoteId === q.id ? "Accepting..." : "Accept"}
+                                  </button>
+                                )}
+                              </div>
                             </div>
-                            <p className="text-[11px] text-zinc-500">
-                              Quoted on {new Date(q.created_at).toLocaleDateString()}
-                            </p>
-                          </div>
 
-                          <div className="flex items-center justify-between sm:justify-end gap-4">
-                            <span className="font-heading text-lg font-bold text-zinc-900">
-                              ₹{Number(q.total_price).toLocaleString("en-IN")}
-                            </span>
-
-                            {!isAccepted && ticket.status !== "completed" && (
-                              <button
-                                onClick={() => handleAcceptQuote(q.id)}
-                                disabled={acceptingQuoteId === q.id}
-                                className="rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
-                              >
-                                {acceptingQuoteId === q.id ? "Accepting..." : "Accept"}
-                              </button>
+                            {q.quote_breakdown?.notes && (
+                              <p className="mt-2.5 text-xs text-zinc-600 border-t border-zinc-100 pt-2 italic">
+                                "{q.quote_breakdown.notes}"
+                              </p>
                             )}
                           </div>
-                        </div>
-
-                        {q.quote_breakdown?.notes && (
-                          <p className="mt-2.5 text-xs text-zinc-600 border-t border-zinc-100 pt-2 italic">
-                            "{q.quote_breakdown.notes}"
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-zinc-500 py-4 text-center">
+                      Broadcasting request to certified facilities. Quotations will appear here.
+                    </p>
+                  )}
                 </div>
-              ) : (
-                <p className="text-xs text-zinc-500 py-4 text-center">
-                  Broadcasting request to certified facilities. Quotations will appear here.
-                </p>
-              )}
-            </div>
+              );
+            })()}
 
             {/* Specifications Details */}
             <div className="rounded-xl border border-zinc-200 bg-white p-6 space-y-3 shadow-xs">
