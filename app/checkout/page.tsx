@@ -336,11 +336,14 @@ export default function CheckoutPage() {
                     headers: {
                         "Content-Type": "application/json",
                         "x-request-from": "client"
-                    }
+                    },
+                    body: JSON.stringify({
+                        paymentMethod: "cod"
+                    })
                 });
 
                 if (res.ok) {
-                    toast.success("Order placed successfully!");
+                    toast.success("Order placed successfully! Pay on delivery");
                     await clearCart();
                     router.push("/orders?success=true");
                 } else {
