@@ -98,12 +98,34 @@ export default function ContactsPage() {
     message: "",
   });
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
+  setError(null);
+
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/contact`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(formData),
+    });
+
+    if (!res.ok) throw new Error("Failed to send message");
+
     setSubmitted(true);
+    setFormData({ name: "", email: "", company: "", phone: "", subject: "", message: "" });
     setTimeout(() => setSubmitted(false), 3000);
-  };
+  } catch (err) {
+    setError("Something went wrong. Please try again or reach us on WhatsApp/phone.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-white text-zinc-900">
