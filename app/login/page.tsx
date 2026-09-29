@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
 import Image from "next/image";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedRole = searchParams.get("role") === "worker" ? "worker" : "client";
+  const [loginRole, setLoginRole] = useState<"client" | "worker">(requestedRole);
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [password, setPassword] = useState("");
@@ -42,7 +45,7 @@ export default function LoginPage() {
           body: JSON.stringify({
             email,
             password: passwordValue,
-            role: "client",
+            role: loginRole,
           }),
         },
       );
@@ -55,19 +58,21 @@ export default function LoginPage() {
           useAuthStore.getState().setUser(data.user);
         }
 
-        const isSetupComplete = await useAuthStore
-          .getState()
-          .checkClientSetupStatus();
+        const redirect =
+          new URLSearchParams(window.location.search).get("redirect") || (loginRole === "worker" ? "/worker/dashboard" : "/");
 
+        if (loginRole === "client") {
+          const isSetupComplete = await useAuthStore
+            .getState()
+            .checkClientSetupStatus();
 
-        if (!isSetupComplete) {
-          toast.error("Please set up your account first");
-          router.replace("/profile/setup");
-          return;
+          if (!isSetupComplete) {
+            toast.error("Please set up your account first");
+            router.replace("/profile/setup");
+            return;
+          }
         }
 
-        const redirect =
-          new URLSearchParams(window.location.search).get("redirect") || "/";
         router.replace(redirect);
       } else {
         toast.error(data.message || "Login failed");
@@ -104,6 +109,23 @@ export default function LoginPage() {
 
         <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm sm:p-7">
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+            <div className="grid grid-cols-2 gap-2 rounded-md bg-zinc-100 p-1">
+              <button
+                type="button"
+                onClick={() => setLoginRole("client")}
+                className={`rounded px-3 py-2 text-xs font-medium ${loginRole === "client" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500"}`}
+              >
+                Client login
+              </button>
+              <button
+                type="button"
+                onClick={() => setLoginRole("worker")}
+                className={`rounded px-3 py-2 text-xs font-medium ${loginRole === "worker" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500"}`}
+              >
+                Worker login
+              </button>
+            </div>
+
             <div>
               <label
                 htmlFor="email"
@@ -185,7 +207,7 @@ export default function LoginPage() {
           <p className="mt-6 text-center text-sm text-zinc-600">
             New to MTWO Groups?{" "}
             <Link
-              href="/register"
+              href={loginRole === "worker" ? "/register?role=worker&redirect=/worker/dashboard" : "/register"}
               className="font-medium text-[#1d4ed8] hover:text-[#1e40af]"
             >
               Create an account
@@ -194,5 +216,13 @@ export default function LoginPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-zinc-50" />}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

@@ -14,7 +14,7 @@ type AuthState = {
   isLoading: boolean;
   setUser: (user: User) => void;
   clearUser: () => void;
-  fetchUser: () => Promise<void>;
+  fetchUser: (role?: "client" | "worker") => Promise<void>;
   checkClientSetupStatus: () => Promise<boolean>;
   logout: () => Promise<void>;
   deleteAccount: () => Promise<void>;
@@ -39,17 +39,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   clearUser: () => set({ user: null, isAuthenticated: false, isLoading: false }),
 
-  fetchUser: async () => {
+  fetchUser: async (role) => {
     set({ isLoading: true });
-    try {
-      const res = await fetch(`${API_URL}/api/auth/me`, {
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          "x-request-from": "client",
-        },
-      });
-      if (res.ok) {
+    const currentRole = get().user?.role === "worker" ? "worker" : undefined;
+    const rolesToTry = role ? [role] : currentRole ? [currentRole] : ["client", "worker"];
+
+    for (const roleToTry of rolesToTry) {
+      try {
+        const res = await fetch(`${API_URL}/api/auth/me`, {
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            "x-request-from": roleToTry,
+          },
+        });
+        if (!res.ok) continue;
+
         const data = await res.json();
         set({
           user: {
@@ -59,12 +64,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isAuthenticated: true,
           isLoading: false
         });
-      } else {
-        set({ user: null, isAuthenticated: false, isLoading: false });
+        return;
+      } catch {
+        // Try the next supported session role.
       }
-    } catch {
-      set({ user: null, isAuthenticated: false, isLoading: false });
     }
+
+    set({ user: null, isAuthenticated: false, isLoading: false });
   },
 
   checkClientSetupStatus: async () => {
@@ -89,13 +95,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    const role = get().user?.role === "worker" ? "worker" : "client";
     try {
       await fetch(`${API_URL}/api/auth/logout`, {
         method: "POST",
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          "x-request-from": "client",
+          "x-request-from": role,
         },
       });
     } catch {

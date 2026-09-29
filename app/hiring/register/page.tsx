@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -36,7 +36,7 @@ const COMMON_SKILLS = [
 
 export default function CandidateRegisterPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading } = useAuthStore();
+  const { isAuthenticated, isLoading: authLoading, user, fetchUser, logout } = useAuthStore();
 
   const [fullName, setFullName] = useState("");
   const [primaryRole, setPrimaryRole] = useState("");
@@ -54,6 +54,10 @@ export default function CandidateRegisterPage() {
   const [uploadingDocType, setUploadingDocType] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [registeredSuccess, setRegisteredSuccess] = useState(false);
+
+  useEffect(() => {
+    fetchUser("worker");
+  }, [fetchUser]);
 
   const toggleSkill = (skill: string) => {
     if (selectedSkills.includes(skill)) {
@@ -127,7 +131,12 @@ export default function CandidateRegisterPage() {
 
     if (!isAuthenticated) {
       toast.error("Please login or create an account to submit your worker profile.");
-      router.push("/login?redirect=/hiring/register");
+      router.push("/register?role=worker&redirect=/hiring/register");
+      return;
+    }
+
+    if (user?.role !== "worker") {
+      toast.error("Only a worker account can submit a worker profile.");
       return;
     }
 
@@ -164,6 +173,26 @@ export default function CandidateRegisterPage() {
     }
   };
 
+  if (!authLoading && user?.role === "client") {
+    return (
+      <div className="min-h-screen bg-white pb-24 pt-16">
+        <div className="mx-auto max-w-md px-4 text-center">
+          <h1 className="font-heading text-2xl font-semibold text-zinc-900">Worker account required</h1>
+          <p className="mt-2 text-xs leading-relaxed text-zinc-500">
+            This registration is for a separate worker account. Log out of the client account before continuing.
+          </p>
+          <button
+            type="button"
+            onClick={() => void logout()}
+            className="mt-6 inline-flex rounded-lg bg-blue-600 px-5 py-2.5 text-xs font-medium text-white"
+          >
+            Log out and continue
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Unauthenticated Graceful Banner
   if (!authLoading && !isAuthenticated) {
     return (
@@ -181,14 +210,14 @@ export default function CandidateRegisterPage() {
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
             <Link
-              href="/login?redirect=/hiring/register"
+              href="/login?role=worker&redirect=/hiring/register"
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-2.5 text-xs font-medium text-white shadow-xs transition hover:bg-blue-700"
             >
               <LogIn className="h-4 w-4" />
               Log In
             </Link>
             <Link
-              href="/register?redirect=/hiring/register"
+              href="/register?role=worker&redirect=/hiring/register"
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-white px-6 py-2.5 text-xs font-medium text-zinc-700 shadow-xs transition hover:bg-zinc-50"
             >
               <UserPlus className="h-4 w-4" />
@@ -198,7 +227,7 @@ export default function CandidateRegisterPage() {
 
           <div className="mt-8 border-t border-zinc-100 pt-6">
             <Link
-              href="/hiring"
+            href={user?.role === "worker" ? "/worker/dashboard" : "/hiring"}
               className="text-xs font-medium text-zinc-500 hover:text-zinc-900 transition"
             >
               ← Return to Talent Directory
