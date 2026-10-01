@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
@@ -10,8 +10,11 @@ import Image from "next/image";
 
 type Step = "register" | "verify";
 
-export default function RegisterPage() {
+function RegisterPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedRole = searchParams.get("role") === "worker" ? "worker" : "client";
+  const redirectPath = searchParams.get("redirect") || (requestedRole === "worker" ? "/worker/dashboard" : "/");
   const [step, setStep] = useState<Step>("register");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -72,7 +75,7 @@ export default function RegisterPage() {
             name,
             email,
             password: passwordValue,
-            role: "client",
+            role: requestedRole,
           }),
         },
       );
@@ -115,7 +118,7 @@ export default function RegisterPage() {
             name: registeredName,
             email: registeredEmail,
             password,
-            role: "client",
+            role: requestedRole,
           }),
         },
       );
@@ -167,8 +170,12 @@ export default function RegisterPage() {
         if (data.user) {
           useAuthStore.getState().setUser(data.user);
         }
-        toast.success("Please complete your profile setup first");
-        router.replace("/profile/setup");
+        if (requestedRole === "worker") {
+          router.replace(redirectPath);
+        } else {
+          toast.success("Please complete your profile setup first");
+          router.replace("/profile/setup");
+        }
       } else {
         toast.error(data.message || "Invalid OTP");
       }
@@ -424,5 +431,13 @@ export default function RegisterPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-zinc-50" />}>
+      <RegisterPageContent />
+    </Suspense>
   );
 }

@@ -89,6 +89,26 @@ export function Header() {
     router.push("/");
   }
 
+  if (user?.role === "worker") {
+    return (
+      <header className="sticky top-0 z-50 border-b border-zinc-200 bg-white">
+        <div className="mx-auto flex min-h-16 w-full max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:px-6 lg:px-8">
+          <Link href="/worker/dashboard" className="flex min-w-0 shrink items-center gap-2 text-base font-semibold tracking-tight text-zinc-900 sm:gap-3 sm:text-xl">
+            <Image src="/logo.jpeg" alt="MTWO Groups" width={38} height={38} className="h-9 w-9 shrink-0 sm:h-[42px] sm:w-[42px]" />
+            <span className="whitespace-nowrap font-heading leading-tight">Worker Portal</span>
+          </Link>
+          <nav className="flex shrink-0 items-center gap-0.5 text-xs font-medium text-zinc-700 sm:gap-2 sm:text-sm">
+            <Link href="/worker/dashboard" className="rounded-md px-1.5 py-2 hover:bg-zinc-50 hover:text-blue-600 sm:px-2">Dashboard</Link>
+            <Link href="/worker/chat" className="rounded-md px-1.5 py-2 hover:bg-zinc-50 hover:text-blue-600 sm:px-2">Chat</Link>
+            <Link href="/worker/payments" className="rounded-md px-1.5 py-2 hover:bg-zinc-50 hover:text-blue-600 sm:px-2">Payments</Link>
+            <Link href="/worker/profile" className="rounded-md px-1.5 py-2 hover:bg-zinc-50 hover:text-blue-600 sm:px-2">Profile</Link>
+            <button type="button" onClick={handleLogout} className="rounded-md border border-zinc-200 px-2 py-1.5 text-[11px] hover:bg-zinc-50 sm:px-3 sm:text-xs">Log out</button>
+          </nav>
+        </div>
+      </header>
+    );
+  }
+
   return (
     <header className="border-b border-zinc-200 bg-white sticky top-0 z-50">
       <div className="border-b border-zinc-100 bg-zinc-50/80">
@@ -126,6 +146,13 @@ export function Header() {
                 Hiring
               </Link>
             </li>
+            {isAuthenticated && user?.role === "client" && (
+              <li>
+                <Link href="/hiring/requests" className="hover:text-blue-600 transition-colors">
+                  My Hiring
+                </Link>
+              </li>
+            )}
             <li>
               <Link href="/#categories" className="hover:text-zinc-900 transition-colors">
                 Categories

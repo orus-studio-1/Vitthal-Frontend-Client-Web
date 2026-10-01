@@ -1,3 +1,5 @@
+import type { HireConversation } from "./hireConversation";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
 
 export interface CandidateDocument {
@@ -11,12 +13,8 @@ export interface CandidateDocument {
 export interface CandidateListItem {
   id: string;
   full_name: string;
-  email?: string | null;
-  phone: string;
   city?: string | null;
   state?: string | null;
-  pincode?: string | null;
-  address_line?: string | null;
   designation?: string | null;
   experience_years: number;
   skills: string[];
@@ -35,6 +33,102 @@ export interface CandidateListItem {
 export interface FetchCandidatesResult {
   candidates: CandidateListItem[];
   total: number;
+}
+
+export interface CandidateRegistrationPayload {
+  full_name: string;
+  email?: string;
+  phone: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  address_line?: string;
+  designation?: string;
+  experience_years?: number;
+  skills?: string[];
+  metadata?: Record<string, any>;
+  photo_url?: string;
+  documents?: Array<{ doc_type: string; doc_url: string; doc_name?: string; doc_number?: string }>;
+}
+
+export async function createHireRequest(candidateId: string, requestDetails: Record<string, unknown> = {}) {
+  const res = await fetch(`${API_BASE_URL}/api/hiring/requests`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      "x-request-from": "client",
+    },
+    body: JSON.stringify({ candidate_id: candidateId, request_details: requestDetails }),
+  });
+
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || "Failed to send hiring request.");
+  return json;
+}
+
+export async function fetchClientHireRequests(): Promise<HireConversation[]> {
+  const res = await fetch(`${API_BASE_URL}/api/hiring/my-requests`, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json", "x-request-from": "client" },
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || "Failed to load hiring requests.");
+  return Array.isArray(json.data) ? json.data : [];
+}
+
+export async function cancelHireRequest(
+  requestId: string
+) {
+  const res = await fetch(
+    `${API_BASE_URL}/api/hiring/requests/${requestId}/cancel`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "x-request-from": "client",
+      },
+    }
+  );
+
+  const json = await res.json();
+
+  if (!res.ok) {
+    throw new Error(
+      json.message ||
+        "Failed to cancel hiring request."
+    );
+  }
+
+  return json.data;
+}
+
+export async function createHirePaymentOrder(requestId: string) {
+  const res = await fetch(`${API_BASE_URL}/api/hiring/requests/${requestId}/payment/order`, {
+    method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-request-from": "client" },
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || "Failed to start payment.");
+  return json;
+}
+
+export async function reconcileHirePayment(requestId: string): Promise<{ status: string; message?: string }> {
+  const res = await fetch(`${API_BASE_URL}/api/hiring/requests/${requestId}/payment/reconcile`, {
+    method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-request-from": "client" },
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || "Unable to check payment status.");
+  return json;
+}
+
+export async function verifyHirePayment(requestId: string, payment: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) {
+  const res = await fetch(`${API_BASE_URL}/api/hiring/requests/${requestId}/payment/verify`, {
+    method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "x-request-from": "client" }, body: JSON.stringify(payment),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || "Payment verification failed.");
+  return json;
 }
 
 export async function fetchCandidates(params?: {
@@ -78,66 +172,61 @@ export async function fetchCandidates(params?: {
   }
 }
 
-export async function fetchCandidateDetail(id: string): Promise<CandidateListItem | null> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/hiring/candidates/${id}`, {
+// export async function fetchCandidateDetail(id: string): Promise<CandidateListItem | null> {
+//   try {
+//     const res = await fetch(`${API_BASE_URL}/api/hiring/candidates/${id}`, {
+//       cache: "no-store",
+//       headers: {
+//         "Content-Type": "application/json",
+//         "x-request-from": "client",
+//       },
+//     });
+
+//     if (!res.ok) return null;
+//     const json = await res.json();
+//     return json.data || null;
+//   } catch (error) {
+//     console.error("Error fetching candidate detail:", error);
+//     return null;
+//   }
+// }
+
+export async function fetchCandidateDetail(
+  id: string
+): Promise<CandidateListItem | null> {
+  const res = await fetch(
+    `${API_BASE_URL}/api/hiring/candidates/${id}`,
+    {
       cache: "no-store",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
         "x-request-from": "client",
       },
-    });
-
-    if (!res.ok) return null;
-    const json = await res.json();
-    return json.data || null;
-  } catch (error) {
-    console.error("Error fetching candidate detail:", error);
-    return null;
-  }
-}
-
-export async function submitHireRequest(
-  candidateId: string,
-  requestDetails: {
-    hiring_type?: string;
-    duration?: string;
-    salary_offered?: string | number;
-    company_name?: string;
-    notes?: string;
-  }
-): Promise<{ success: boolean; message?: string; data?: any }> {
-  const res = await fetch(`${API_BASE_URL}/api/hiring/requests`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      "x-request-from": "client",
-    },
-    body: JSON.stringify({
-      candidate_id: candidateId,
-      request_details: requestDetails,
-    }),
-  });
+    }
+  );
 
   const json = await res.json();
+
   if (!res.ok) {
-    throw new Error(json.message || "Failed to submit hire request.");
+    throw new Error(
+      json.message ||
+        "Failed to load candidate."
+    );
   }
-  return json;
+
+  return json.data || null;
 }
 
 export async function registerCandidateProfile(
-  payload: Partial<CandidateListItem> & {
-    documents?: Array<{ doc_type: string; doc_url: string; doc_name?: string; doc_number?: string }>;
-  }
+  payload: CandidateRegistrationPayload
 ): Promise<{ success: boolean; message?: string; data?: any }> {
   const res = await fetch(`${API_BASE_URL}/api/hiring/register`, {
     method: "POST",
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      "x-request-from": "client",
+      "x-request-from": "worker",
     },
     body: JSON.stringify(payload),
   });
@@ -146,5 +235,97 @@ export async function registerCandidateProfile(
   if (!res.ok) {
     throw new Error(json.message || "Failed to submit candidate profile.");
   }
+  return json;
+}
+
+export type HiringAccessStatus = {
+  hasAccess: boolean;
+  amount: number;
+  currency: string;
+};
+
+export async function fetchHiringAccessStatus(): Promise<HiringAccessStatus> {
+  const res = await fetch(
+    `${API_BASE_URL}/api/hiring/access`,
+    {
+      credentials: "include",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        "x-request-from": "client",
+      },
+    }
+  );
+
+  const json = await res.json();
+
+  if (!res.ok) {
+    throw new Error(
+      json.message ||
+        "Unable to check hiring access."
+    );
+  }
+
+  return {
+    hasAccess: Boolean(json.hasAccess),
+    amount: Number(json.amount || 100),
+    currency: json.currency || "INR",
+  };
+}
+
+export async function createHiringAccessPaymentOrder() {
+  const res = await fetch(
+    `${API_BASE_URL}/api/hiring/access/payment/order`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "x-request-from": "client",
+      },
+    }
+  );
+
+  const json = await res.json();
+
+  if (!res.ok) {
+    throw new Error(
+      json.message ||
+        "Unable to start hiring access payment."
+    );
+  }
+
+  return json;
+}
+
+export async function verifyHiringAccessPayment(
+  payment: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  }
+) {
+  const res = await fetch(
+    `${API_BASE_URL}/api/hiring/access/payment/verify`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "x-request-from": "client",
+      },
+      body: JSON.stringify(payment),
+    }
+  );
+
+  const json = await res.json();
+
+  if (!res.ok) {
+    throw new Error(
+      json.message ||
+        "Hiring access payment verification failed."
+    );
+  }
+
   return json;
 }
