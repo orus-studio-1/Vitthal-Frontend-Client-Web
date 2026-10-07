@@ -93,6 +93,7 @@ export function VendorList({
                         <VendorCard
                           key={`${vendor.vendor_id || idx}-${idx}`}
                           vendor={vendor}
+                          unit={product.unit}
                           quantity={qty}
                           quotationLimit={quotationLimit}
                           isAdding={addingVendorId === vendor.vendor_id}
@@ -156,6 +157,7 @@ export function VendorList({
                   <VendorCard
                     key={`${vendor.vendor_id || idx}-${idx}`}
                     vendor={vendor}
+                    unit={product.unit}
                     quantity={qty}
                     quotationLimit={quotationLimit}
                     isAdding={addingVendorId === vendor.vendor_id}

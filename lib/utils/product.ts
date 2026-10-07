@@ -26,6 +26,14 @@ export function mapBackendProduct(bp: any): Product {
     moq: minMoq,
     sellerCount: vendorsCount,
     image: bp.primary_image || FALLBACK_IMAGE,
+    size: bp.size ?? bp.attributes?.size ?? null,
+    brand: bp.brand ?? bp.attributes?.brand ?? null,
+    grade: bp.grade ?? bp.attributes?.grade ?? null,
+    colour: bp.colour ?? bp.color ?? bp.attributes?.colour ?? bp.attributes?.color ?? null,
+    warranty: bp.warranty ?? bp.attributes?.warranty ?? bp.attributes?.guarantee ?? null,
+    manufacturer: bp.manufacturer ?? bp.attributes?.manufacturer ?? null,
+    unit: bp.unit ?? bp.attributes?.unit ?? bp.attributes?.uom ?? "nos",
+    attributes: bp.attributes || {},
   };
 }
 

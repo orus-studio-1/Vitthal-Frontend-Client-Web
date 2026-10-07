@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Package, Star } from "lucide-react";
 import type { RelatedProduct } from "@/types";
+import { ProductCatalogSummary } from "@/components/product/ProductCatalogSummary";
 
 interface RelatedProductCardProps {
   product: RelatedProduct;
@@ -46,6 +47,8 @@ export function RelatedProductCard({ product: related }: RelatedProductCardProps
             {related.product_name}
           </h3>
 
+          <ProductCatalogSummary compact size={related.size} brand={related.brand} grade={related.grade} colour={related.colour} warranty={related.warranty} manufacturer={related.manufacturer} attributes={related.attributes} />
+
           {related.rating > 0 && (
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1">
@@ -57,8 +60,9 @@ export function RelatedProductCard({ product: related }: RelatedProductCardProps
           )}
 
           <div className="pt-2 border-t border-zinc-100">
-            <p className="text-sm text-zinc-500">Price Range</p>
+            <p className="text-sm text-zinc-500">Price Range + 18% GST</p>
             <p className="text-lg font-bold text-zinc-900">{priceLabel}</p>
+            <p className="mt-1 text-[11px] font-medium text-emerald-700">Amount incl. GST: ₹{((related.min_price || 0) * 1.18).toLocaleString(undefined, { maximumFractionDigits: 2 })}{related.min_price !== related.max_price ? ` – ₹${((related.max_price || 0) * 1.18).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : ""}</p>
           </div>
 
           <div className="pt-2 border-t border-zinc-100 space-y-1.5">
