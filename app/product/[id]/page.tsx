@@ -10,7 +10,7 @@ import { BadgeCheck } from "lucide-react";
 
 import { useProductDetail } from "./_hooks/useProductDetail";
 import { getResolvedProperty, getActiveImages } from "@/lib/utils/product";
-import { getPriceRangeLabel } from "@/lib/utils/price";
+import { getPriceRangeLabel, getActivePrice } from "@/lib/utils/price";
 
 import {
   ProductBreadcrumb,
@@ -98,6 +98,10 @@ export default function ProductDetailPage() {
   const standard = getResolvedProperty("Standard", product, selectedVariant);
   const activeImages = getActiveImages(product, selectedVariant);
   const priceRange = getPriceRangeLabel(displayVendors);
+  const pricesIncludingGst = displayVendors.map((vendor) => getActivePrice(vendor) * (1 + (vendor.gst_percentage == null ? 18 : Number(vendor.gst_percentage)) / 100));
+  const priceRangeIncludingGst = pricesIncludingGst.length
+    ? `₹${Math.min(...pricesIncludingGst).toLocaleString("en-IN", { maximumFractionDigits: 2 })}${Math.min(...pricesIncludingGst) !== Math.max(...pricesIncludingGst) ? ` – ₹${Math.max(...pricesIncludingGst).toLocaleString("en-IN", { maximumFractionDigits: 2 })}` : ""}`
+    : null;
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 flex flex-col">
@@ -136,6 +140,7 @@ export default function ProductDetailPage() {
                 <div className="mb-4">
                   <p className="text-sm text-zinc-500 mb-1">Price Range (per unit)</p>
                   <p className="text-2xl font-bold text-[#1d4ed8]">{priceRange}</p>
+                  {priceRangeIncludingGst && <p className="mt-1 text-sm font-semibold text-emerald-700">Amount incl. GST: {priceRangeIncludingGst}</p>}
                   <div className="flex items-center gap-2 mt-1.5">
                     <span className="inline-flex items-center px-2 py-0.5 rounded bg-amber-50 text-amber-800 text-[10px] font-bold uppercase tracking-wider border border-amber-200 shadow-2xs">
                       GST is excluded

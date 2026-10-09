@@ -15,6 +15,9 @@ type Product = {
   sellerCount: number;
   image: string;
   id: string;
+  size?: string | null; brand?: string | null; grade?: string | null; colour?: string | null;
+  warranty?: string | null; manufacturer?: string | null; unit?: string | null;
+  attributes?: Record<string, string | number>;
 };
 
 // Map backend response to the frontend Product shape
@@ -37,6 +40,14 @@ function mapBackendProduct(bp: any): Product {
       bp.primary_image ||
       "https://www.shutterstock.com/image-photo/neatly-stacked-light-green-gypsum-600nw-2690641841.jpg",
     id: bp.product_id || bp.id || "unknown",
+    size: bp.size ?? bp.attributes?.size ?? null,
+    brand: bp.brand ?? bp.attributes?.brand ?? null,
+    grade: bp.grade ?? bp.attributes?.grade ?? null,
+    colour: bp.colour ?? bp.attributes?.colour ?? bp.attributes?.color ?? null,
+    warranty: bp.warranty ?? bp.attributes?.warranty ?? bp.attributes?.guarantee ?? null,
+    manufacturer: bp.manufacturer ?? bp.attributes?.manufacturer ?? null,
+    unit: bp.unit ?? bp.attributes?.unit ?? bp.attributes?.uom ?? "nos",
+    attributes: bp.attributes || {},
   };
 }
 

@@ -2,18 +2,7 @@
 
 import { ProductCard } from "./ProductCard";
 import { SectionHeading } from "./SectionHeading";
-
-type Product = {
-  id: string;
-  name: string;
-  minPrice: number;
-  maxPrice: number;
-  minOriginalPrice?: number;
-  maxOriginalPrice?: number;
-  moq: number;
-  sellerCount: number;
-  image: string;
-};
+import type { Product } from "@/types/product";
 
 interface ProductSectionProps {
   id?: string;

@@ -39,6 +39,12 @@ export type ProductDetail = {
   material?: string;
   application?: string;
   standard?: string;
+  size?: string | null;
+  brand?: string | null;
+  colour?: string | null;
+  warranty?: string | null;
+  manufacturer?: string | null;
+  unit?: string | null;
   rating: number;
   review_count: number;
   quotation_limit?: number | null;
@@ -64,6 +70,14 @@ export type Product = {
   moq: number;
   sellerCount: number;
   image: string;
+  size?: string | null;
+  brand?: string | null;
+  grade?: string | null;
+  colour?: string | null;
+  warranty?: string | null;
+  manufacturer?: string | null;
+  unit?: string | null;
+  attributes?: Record<string, string | number>;
 };
 
 export type RelatedProduct = {
@@ -80,6 +94,14 @@ export type RelatedProduct = {
   min_price?: number;
   max_price?: number;
   min_moq?: number;
+  size?: string | null;
+  brand?: string | null;
+  grade?: string | null;
+  colour?: string | null;
+  warranty?: string | null;
+  manufacturer?: string | null;
+  unit?: string | null;
+  attributes?: Record<string, string | number>;
 };
 
 export type Category = {

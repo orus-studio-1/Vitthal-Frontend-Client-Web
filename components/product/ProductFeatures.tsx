@@ -9,6 +9,7 @@ import {
 import type { ProductDetail, ProductVariant } from "@/types";
 import { isValidValue, getKeyProperties } from "@/lib/utils/product";
 import type { ReactNode } from "react";
+import { ProductCatalogSummary } from "@/components/product/ProductCatalogSummary";
 
 interface ProductFeaturesProps {
   product: ProductDetail;
@@ -85,11 +86,10 @@ export function ProductFeatures({
     }
   }
 
-  if (featuresList.length === 0) return null;
-
   return (
     <div className="mb-6 bg-zinc-50/70 border border-zinc-200/80 rounded-2xl p-4 sm:p-5 space-y-3 shadow-2xs">
       <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Product Highlights</h3>
+      <ProductCatalogSummary size={product.size} brand={product.brand} grade={product.grade ?? (grade == null ? null : String(grade))} colour={product.colour} warranty={product.warranty} manufacturer={product.manufacturer} unit={product.unit} attributes={product.attributes} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 text-sm">
         {featuresList.slice(0, 6).map((feat, idx) => (
           <div key={idx} className="flex items-center gap-3 p-2.5 bg-white rounded-xl border border-zinc-200/60 shadow-3xs">

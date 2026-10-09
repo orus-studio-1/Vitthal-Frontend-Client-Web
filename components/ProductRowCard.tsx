@@ -9,6 +9,7 @@ import { useWishlistStore } from "@/store/wishlistStore";
 
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
+import { ProductCatalogSummary } from "@/components/product/ProductCatalogSummary";
 
 const FALLBACK_IMAGE = "/placeholder-product.png";
 
@@ -35,6 +36,9 @@ type ProductRowCardProps = {
   sellerCount: number;
   image: string;
   id: string;
+  size?: string | null; brand?: string | null; grade?: string | null; colour?: string | null;
+  warranty?: string | null; manufacturer?: string | null; unit?: string | null;
+  attributes?: Record<string, string | number>;
 };
 
 export function ProductRowCard(product: ProductRowCardProps) {
@@ -151,10 +155,12 @@ export function ProductRowCard(product: ProductRowCardProps) {
             {product.name}
           </h3>
 
+          <ProductCatalogSummary compact size={product.size} brand={product.brand} grade={product.grade} colour={product.colour} warranty={product.warranty} manufacturer={product.manufacturer} attributes={product.attributes} />
+
           {/* Price and MOQ */}
           <div className="grid grid-cols-2 gap-4 mb-2">
             <div>
-              <p className="text-xs text-zinc-500 mb-0.5">Price Range</p>
+              <p className="text-xs text-zinc-500 mb-0.5">Price Range + 18% GST</p>
               <div className="flex flex-wrap items-baseline gap-1.5">
                 <span className="text-sm font-bold text-zinc-900">{priceLabel}</span>
                 {originalPriceLabel && (
@@ -163,6 +169,7 @@ export function ProductRowCard(product: ProductRowCardProps) {
                   </span>
                 )}
               </div>
+              <p className="mt-1 text-[10px] font-medium text-emerald-700">Incl. GST: ₹{(product.minPrice * 1.18).toLocaleString(undefined, { maximumFractionDigits: 2 })}{product.minPrice !== product.maxPrice ? ` – ₹${(product.maxPrice * 1.18).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : ""}</p>
             </div>
             <div>
               <p className="text-xs text-zinc-500 mb-0.5">Minimum Order</p>
