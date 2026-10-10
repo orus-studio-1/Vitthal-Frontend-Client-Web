@@ -9,6 +9,9 @@ export type JobWorkItem = {
   quantity: string;
   unit: string;
   notes?: string;
+  materialGrade?: string;
+  lastAcceptedDeliveryDate?: string;
+  preferredDeliveryDate?: string;
 };
 
 export function isJobInquiryService(category?: { code?: string; label?: string } | null): boolean {

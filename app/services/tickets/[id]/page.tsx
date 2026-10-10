@@ -21,7 +21,10 @@ import {
 } from "lucide-react";
 import {
   fetchServiceTicketDetail,
-  acceptTicketQuote,
+  createMaintenancePaymentOrder,
+  verifyMaintenancePayment,
+  createJobInquiryPaymentOrder,
+  verifyJobInquiryPayment,
   verifyTicketOtp,
   type ServiceTicket,
 } from "@/lib/api/serviceHub";
@@ -77,11 +80,116 @@ export default function SingleTicketRoomPage() {
   const handleAcceptQuote = async (quoteId: string) => {
     try {
       setAcceptingQuoteId(quoteId);
-      await acceptTicketQuote(ticketId, quoteId);
-      toast.success("Quotation accepted.");
-      loadTicket();
+      const order = await createMaintenancePaymentOrder(ticketId, quoteId);
+      if (!(window as any).Razorpay) {
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://checkout.razorpay.com/v1/checkout.js";
+          script.onload = () => resolve();
+          script.onerror = () =>
+            reject(new Error("Could not load Razorpay checkout."));
+          document.body.appendChild(script);
+        });
+      }
+      const Razorpay = (window as any).Razorpay;
+      if (!Razorpay) throw new Error("Razorpay checkout is unavailable.");
+      await new Promise<void>((resolve, reject) => {
+        const checkout = new Razorpay({
+          key: order.keyId,
+          amount: order.amount,
+          currency: order.currency,
+          name: "Vitthal",
+          description: `Machine maintenance quotation ${ticket?.ticket_number || ""}`,
+          order_id: order.razorpayOrderId,
+          theme: { color: "#2563eb" },
+          handler: async (response: {
+            razorpay_order_id: string;
+            razorpay_payment_id: string;
+            razorpay_signature: string;
+          }) => {
+            try {
+              await verifyMaintenancePayment(ticketId, quoteId, response);
+              toast.success(
+                "Payment verified. Quotation accepted and vendor assigned.",
+              );
+              await loadTicket();
+              resolve();
+            } catch (err: any) {
+              reject(err);
+            }
+          },
+          modal: { ondismiss: () => resolve() },
+        });
+        checkout.on("payment.failed", (event: any) =>
+          reject(new Error(event?.error?.description || "Payment failed.")),
+        );
+        checkout.open();
+      });
     } catch (err: any) {
-      toast.error(err.message || "Failed to accept quote.");
+      toast.error(err.message || "Failed to complete payment.");
+    } finally {
+      setAcceptingQuoteId(null);
+    }
+  };
+
+  const handleJobInquiryPayment = async (
+    quoteId: string,
+    stage: "advance" | "final",
+  ) => {
+    try {
+      setAcceptingQuoteId(quoteId);
+      const order = await createJobInquiryPaymentOrder(
+        ticketId,
+        quoteId,
+        stage,
+      );
+      if (!(window as any).Razorpay)
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://checkout.razorpay.com/v1/checkout.js";
+          script.onload = () => resolve();
+          script.onerror = () =>
+            reject(new Error("Could not load Razorpay checkout."));
+          document.body.appendChild(script);
+        });
+      const Razorpay = (window as any).Razorpay;
+      if (!Razorpay) throw new Error("Razorpay checkout is unavailable.");
+      await new Promise<void>((resolve, reject) => {
+        const checkout = new Razorpay({
+          key: order.keyId,
+          amount: order.amount,
+          currency: order.currency,
+          name: "Vitthal",
+          description: `${stage === "advance" ? "25% confirmation" : "Remaining"} payment for job inquiry`,
+          order_id: order.razorpayOrderId,
+          theme: { color: "#2563eb" },
+          handler: async (response: {
+            razorpay_order_id: string;
+            razorpay_payment_id: string;
+            razorpay_signature: string;
+          }) => {
+            try {
+              await verifyJobInquiryPayment(ticketId, quoteId, response);
+              toast.success(
+                stage === "advance"
+                  ? "Confirmation payment received. Vendor assigned."
+                  : "Remaining payment received.",
+              );
+              await loadTicket();
+              resolve();
+            } catch (error) {
+              reject(error);
+            }
+          },
+          modal: { ondismiss: () => resolve() },
+        });
+        checkout.on("payment.failed", (event: any) =>
+          reject(new Error(event?.error?.description || "Payment failed.")),
+        );
+        checkout.open();
+      });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to complete payment.");
     } finally {
       setAcceptingQuoteId(null);
     }
@@ -136,6 +244,11 @@ export default function SingleTicketRoomPage() {
   }
 
   const currentStep = getStepIndex(ticket.status);
+  const isJobInquiry =
+    ticket.ticket_payload?.service_code === "job_inquiry" ||
+    ticket.ticket_payload?.service_name === "Job Inquiry";
+  const successfulPrice = Number(ticket.total_amount || 0);
+  const alreadyPaid = Number(ticket.advance_paid || 0);
 
   return (
     <div className="min-h-screen bg-white pb-24 pt-8">
@@ -178,7 +291,9 @@ export default function SingleTicketRoomPage() {
               <p className="mt-1 font-mono text-xl font-bold tracking-widest text-zinc-900">
                 {ticket.completion_otp}
               </p>
-              <p className="text-[10px] text-zinc-400 mt-0.5">Share with engineer upon job completion</p>
+              <p className="text-[10px] text-zinc-400 mt-0.5">
+                Share with engineer upon job completion
+              </p>
             </div>
           )}
         </div>
@@ -190,7 +305,10 @@ export default function SingleTicketRoomPage() {
               const isPast = idx <= currentStep;
               const isCurrent = idx === currentStep;
               return (
-                <div key={s.key} className="flex flex-col items-center flex-1 text-center relative z-10">
+                <div
+                  key={s.key}
+                  className="flex flex-col items-center flex-1 text-center relative z-10"
+                >
                   <div
                     className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition ${
                       isPast
@@ -198,11 +316,19 @@ export default function SingleTicketRoomPage() {
                         : "border border-zinc-200 bg-white text-zinc-400"
                     }`}
                   >
-                    {isPast ? <CheckCircle2 className="h-3.5 w-3.5" /> : idx + 1}
+                    {isPast ? (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    ) : (
+                      idx + 1
+                    )}
                   </div>
                   <span
                     className={`mt-2 text-[11px] font-medium ${
-                      isCurrent ? "text-blue-600 font-semibold" : isPast ? "text-zinc-900" : "text-zinc-400"
+                      isCurrent
+                        ? "text-blue-600 font-semibold"
+                        : isPast
+                          ? "text-zinc-900"
+                          : "text-zinc-400"
                     }`}
                   >
                     {s.label}
@@ -224,11 +350,12 @@ export default function SingleTicketRoomPage() {
                 ticket.status === "accepted" ||
                 ticket.status === "in_progress" ||
                 ticket.status === "completed" ||
-                ticket.quotations?.some((q) => q.status === "accepted")
+                ticket.quotations?.some((q) => q.status === "accepted"),
               );
 
               const visibleQuotations = isTicketAssigned
-                ? (ticket.quotations?.filter((q) => q.status === "accepted").length 
+                ? (ticket.quotations?.filter((q) => q.status === "accepted")
+                    .length
                     ? ticket.quotations.filter((q) => q.status === "accepted")
                     : ticket.quotations?.slice(0, 1)) || []
                 : ticket.quotations || [];
@@ -237,14 +364,17 @@ export default function SingleTicketRoomPage() {
                 <div className="rounded-xl border border-zinc-200 bg-white p-6 space-y-4 shadow-xs">
                   <div className="border-b border-zinc-100 pb-3">
                     <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-900">
-                      {isTicketAssigned ? "Assigned Vendor Quotation" : `Vendor Quotations (${visibleQuotations.length})`}
+                      {isTicketAssigned
+                        ? "Assigned Vendor Quotation"
+                        : `Vendor Quotations (${visibleQuotations.length})`}
                     </h2>
                   </div>
 
                   {visibleQuotations.length > 0 ? (
                     <div className="space-y-3">
                       {visibleQuotations.map((q) => {
-                        const isAccepted = q.status === "accepted" || isTicketAssigned;
+                        const isAccepted =
+                          q.status === "accepted" || isTicketAssigned;
                         return (
                           <div
                             key={q.id}
@@ -267,22 +397,37 @@ export default function SingleTicketRoomPage() {
                                   )}
                                 </div>
                                 <p className="text-[11px] text-zinc-500">
-                                  Quoted on {new Date(q.created_at).toLocaleDateString()}
+                                  Quoted on{" "}
+                                  {new Date(q.created_at).toLocaleDateString()}
                                 </p>
                               </div>
 
                               <div className="flex items-center justify-between sm:justify-end gap-4">
                                 <span className="font-heading text-lg font-bold text-zinc-900">
-                                  ₹{Number(q.total_price).toLocaleString("en-IN")}
+                                  ₹
+                                  {Number(q.total_price).toLocaleString(
+                                    "en-IN",
+                                  )}
                                 </span>
 
                                 {!isTicketAssigned && !isAccepted && (
                                   <button
-                                    onClick={() => handleAcceptQuote(q.id)}
+                                    onClick={() =>
+                                      isJobInquiry
+                                        ? handleJobInquiryPayment(
+                                            q.id,
+                                            "advance",
+                                          )
+                                        : handleAcceptQuote(q.id)
+                                    }
                                     disabled={acceptingQuoteId === q.id}
                                     className="rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
                                   >
-                                    {acceptingQuoteId === q.id ? "Accepting..." : "Accept"}
+                                    {acceptingQuoteId === q.id
+                                      ? "Processing..."
+                                      : isJobInquiry
+                                        ? `Pay ₹${Math.round(Number(q.total_price) * 0.25).toLocaleString("en-IN")} to confirm`
+                                        : "Accept and Pay"}
                                   </button>
                                 )}
                               </div>
@@ -293,32 +438,112 @@ export default function SingleTicketRoomPage() {
                                 "{q.quote_breakdown.notes}"
                               </p>
                             )}
-                            {Array.isArray(q.quote_breakdown?.items) && q.quote_breakdown.items.length > 0 && (
-                              <div className="mt-3 border-t border-zinc-100 pt-3">
-                                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Itemized quotation</p>
-                                <div className="space-y-1.5">
-                                  {q.quote_breakdown.items.map((item: any, index: number) => (
-                                    <div key={`${q.id}-item-${index}`} className="flex flex-wrap justify-between gap-2 text-xs text-zinc-700">
-                                      <span>{item.name} <span className="text-zinc-400">× {item.quantity}{item.unit ? ` ${item.unit}` : ""}</span>
-                                        {(item.confirmed_delivery_date || item.supplier_accepted_date || item.remark) && <span className="mt-1 block text-[10px] text-zinc-500">{item.confirmed_delivery_date && `Delivery: ${item.confirmed_delivery_date}`}{item.supplier_accepted_date && ` · Supplier accepted: ${item.supplier_accepted_date}`}{item.remark && ` · ${item.remark}`}</span>}
-                                      </span>
-                                      <span className="font-medium">₹{Number(item.amount ?? Number(item.quantity) * Number(item.unit_price ?? item.rate)).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
-                                    </div>
-                                  ))}
-                                  {[['Service charge', q.quote_breakdown.service_charge], ['Travel charge', q.quote_breakdown.travel_charge], ['Other charges', q.quote_breakdown.other_charge], [`GST (${q.quote_breakdown.gst_rate ?? 18}%)`, q.quote_breakdown.gst_amount]].filter(([, value]) => Number(value) > 0).map(([label, value]) => (
-                                    <div key={`${q.id}-${label}`} className="flex justify-between gap-2 text-xs text-zinc-500"><span>{label}</span><span>₹{Number(value).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span></div>
-                                  ))}
-                                  {q.quote_breakdown.total != null && <div className="flex justify-between border-t border-zinc-100 pt-1.5 text-xs font-bold text-zinc-900"><span>Quotation total</span><span>₹{Number(q.quote_breakdown.total).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span></div>}
+                            {Array.isArray(q.quote_breakdown?.items) &&
+                              q.quote_breakdown.items.length > 0 && (
+                                <div className="mt-3 border-t border-zinc-100 pt-3">
+                                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                                    Itemized quotation
+                                  </p>
+                                  <div className="space-y-1.5">
+                                    {q.quote_breakdown.items.map(
+                                      (item: any, index: number) => (
+                                        <div
+                                          key={`${q.id}-item-${index}`}
+                                          className="flex flex-wrap justify-between gap-2 text-xs text-zinc-700"
+                                        >
+                                          <span>
+                                            {item.name}{" "}
+                                            <span className="text-zinc-400">
+                                              × {item.quantity}
+                                              {item.unit ? ` ${item.unit}` : ""}
+                                            </span>
+                                            {(item.confirmed_delivery_date ||
+                                              item.supplier_accepted_date ||
+                                              item.remark) && (
+                                              <span className="mt-1 block text-[10px] text-zinc-500">
+                                                {item.confirmed_delivery_date &&
+                                                  `Delivery: ${item.confirmed_delivery_date}`}
+                                                {item.supplier_accepted_date &&
+                                                  ` · Supplier accepted: ${item.supplier_accepted_date}`}
+                                                {item.remark &&
+                                                  ` · ${item.remark}`}
+                                              </span>
+                                            )}
+                                          </span>
+                                          <span className="font-medium">
+                                            ₹
+                                            {Number(
+                                              item.amount ??
+                                                Number(item.quantity) *
+                                                  Number(
+                                                    item.unit_price ??
+                                                      item.rate,
+                                                  ),
+                                            ).toLocaleString("en-IN", {
+                                              maximumFractionDigits: 2,
+                                            })}
+                                          </span>
+                                        </div>
+                                      ),
+                                    )}
+                                    {[
+                                      [
+                                        "Service charge",
+                                        q.quote_breakdown.service_charge,
+                                      ],
+                                      [
+                                        "Travel charge",
+                                        q.quote_breakdown.travel_charge,
+                                      ],
+                                      [
+                                        "Other charges",
+                                        q.quote_breakdown.other_charge,
+                                      ],
+                                      [
+                                        `GST (${q.quote_breakdown.gst_rate ?? 18}%)`,
+                                        q.quote_breakdown.gst_amount,
+                                      ],
+                                    ]
+                                      .filter(([, value]) => Number(value) > 0)
+                                      .map(([label, value]) => (
+                                        <div
+                                          key={`${q.id}-${label}`}
+                                          className="flex justify-between gap-2 text-xs text-zinc-500"
+                                        >
+                                          <span>{label}</span>
+                                          <span>
+                                            ₹
+                                            {Number(value).toLocaleString(
+                                              "en-IN",
+                                              { maximumFractionDigits: 2 },
+                                            )}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    {q.quote_breakdown.total != null && (
+                                      <div className="flex justify-between border-t border-zinc-100 pt-1.5 text-xs font-bold text-zinc-900">
+                                        <span>Quotation total</span>
+                                        <span>
+                                          ₹
+                                          {Number(
+                                            q.quote_breakdown.total,
+                                          ).toLocaleString("en-IN", {
+                                            maximumFractionDigits: 2,
+                                          })}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            )}
+                              )}
                           </div>
                         );
                       })}
                     </div>
                   ) : (
                     <p className="text-xs text-zinc-500 py-4 text-center">
-                      Broadcasting request to certified facilities. Quotations will appear here.
+                      Broadcasting request to certified facilities. Quotations
+                      will appear here.
                     </p>
                   )}
                 </div>
@@ -334,7 +559,10 @@ export default function SingleTicketRoomPage() {
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {Object.entries(ticket.ticket_payload || {}).map(([k, v]) => (
-                  <div key={k} className="rounded-lg border border-zinc-100 bg-zinc-50/50 p-3">
+                  <div
+                    key={k}
+                    className="rounded-lg border border-zinc-100 bg-zinc-50/50 p-3"
+                  >
                     <span className="text-[10px] uppercase font-semibold text-zinc-400">
                       {k.replace(/_/g, " ")}
                     </span>
@@ -356,12 +584,22 @@ export default function SingleTicketRoomPage() {
                 </div>
                 <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                   {ticket.documents.map((d) => (
-                    <div key={d.id} className="flex items-center justify-between rounded-lg border border-zinc-100 bg-zinc-50/50 p-3">
+                    <div
+                      key={d.id}
+                      className="flex items-center justify-between rounded-lg border border-zinc-100 bg-zinc-50/50 p-3"
+                    >
                       <div className="flex items-center gap-2 truncate">
                         <FileText className="h-4 w-4 text-zinc-500 shrink-0" />
-                        <span className="text-xs font-medium text-zinc-800 truncate">{d.doc_name || d.doc_type}</span>
+                        <span className="text-xs font-medium text-zinc-800 truncate">
+                          {d.doc_name || d.doc_type}
+                        </span>
                       </div>
-                      <a href={d.doc_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline shrink-0">
+                      <a
+                        href={d.doc_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-blue-600 hover:underline shrink-0"
+                      >
                         View
                       </a>
                     </div>
@@ -393,7 +631,12 @@ export default function SingleTicketRoomPage() {
                 </div>
 
                 <p className="text-[11px] leading-relaxed text-zinc-600">
-                  Share this 6-digit OTP with the visiting technician or driver <strong>only when the job is completed to your satisfaction</strong>. The technician enters this in their vendor app to finish the ticket.
+                  Share this 6-digit OTP with the visiting technician or driver{" "}
+                  <strong>
+                    only when the job is completed to your satisfaction
+                  </strong>
+                  . The technician enters this in their vendor app to finish the
+                  ticket.
                 </p>
 
                 {/* Optional: Manual Sign-off */}
@@ -423,6 +666,38 @@ export default function SingleTicketRoomPage() {
                 </div>
               </div>
             )}
+            {isJobInquiry &&
+              ticket.status === "completed" &&
+              alreadyPaid < successfulPrice * 0.99 &&
+              ticket.quotations?.find((q) => q.status === "accepted") && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-5 space-y-3">
+                  <h3 className="text-sm font-semibold text-emerald-950">
+                    Service complete
+                  </h3>
+                  <p className="text-xs text-emerald-900">
+                    Pay the remaining ₹
+                    {Math.max(0, successfulPrice - alreadyPaid).toLocaleString(
+                      "en-IN",
+                    )}{" "}
+                    to finish payment.
+                  </p>
+                  <button
+                    onClick={() =>
+                      handleJobInquiryPayment(
+                        ticket.quotations!.find((q) => q.status === "accepted")!
+                          .id,
+                        "final",
+                      )
+                    }
+                    disabled={Boolean(acceptingQuoteId)}
+                    className="w-full rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                  >
+                    {acceptingQuoteId
+                      ? "Processing..."
+                      : "Pay remaining amount"}
+                  </button>
+                </div>
+              )}
 
             {/* Timeline */}
             <div className="rounded-xl border border-zinc-200 bg-white p-6 space-y-3 shadow-xs">
@@ -434,9 +709,13 @@ export default function SingleTicketRoomPage() {
                   ticket.timeline_logs.map((l, i) => (
                     <div key={i} className="relative">
                       <span className="absolute -left-[18px] top-1.5 h-1.5 w-1.5 rounded-full bg-blue-600" />
-                      <p className="text-xs font-medium text-zinc-900 capitalize">{l.status}</p>
+                      <p className="text-xs font-medium text-zinc-900 capitalize">
+                        {l.status}
+                      </p>
                       <p className="text-[11px] text-zinc-500">{l.note}</p>
-                      <span className="text-[10px] text-zinc-400">{new Date(l.timestamp).toLocaleTimeString()}</span>
+                      <span className="text-[10px] text-zinc-400">
+                        {new Date(l.timestamp).toLocaleTimeString()}
+                      </span>
                     </div>
                   ))
                 ) : (

@@ -256,7 +256,7 @@ function ServiceRequestForm() {
     }
 
     // Validate required fields in dynamic form schema
-    for (const field of currentFormSchema) {
+    for (const field of isJobInquiry ? [] : currentFormSchema) {
       if (field.required) {
         const val = dynamicValues[field.name];
       if (val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0)) {
@@ -270,8 +270,8 @@ function ServiceRequestForm() {
         toast.error("Add a name, quantity, and unit for every job item.");
         return;
       }
-      if (!dynamicValues.supply_location?.trim() || !dynamicValues.material_grade?.trim()) {
-        toast.error("Enter the supply location and material grade.");
+      if (!dynamicValues.supply_location?.trim() || jobWorkItems.some((item) => !item.materialGrade?.trim())) {
+        toast.error("Enter the supply location and material grade for every item.");
         return;
       }
       if (!dynamicValues.declaration_accepted) {
@@ -294,6 +294,9 @@ function ServiceRequestForm() {
           quantity: Number(item.quantity),
           unit: item.unit.trim(),
           notes: item.notes?.trim() || "",
+          material_grade: item.materialGrade?.trim() || "",
+          last_accepted_delivery_date: item.lastAcceptedDeliveryDate || "",
+          preferred_delivery_date: item.preferredDeliveryDate || "",
           drawings: dynamicValues[`job_drawings_${item.id}`] || [],
         }));
         ticketPayload.penalty_terms = "0.5% per week, subject to client and vendor agreement";
@@ -596,6 +599,11 @@ function ServiceRequestForm() {
                           <label className="text-[11px] font-medium text-zinc-600">Unit *<input required value={item.unit} onChange={(event) => setJobWorkItems((items) => items.map((row) => row.id === item.id ? { ...row, unit: event.target.value } : row))} className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs" placeholder="pcs, kg, set..." /></label>
                         </div>
                         <label className="block text-[11px] font-medium text-zinc-600">Important points / item notes<textarea rows={2} value={item.notes || ""} onChange={(event) => setJobWorkItems((items) => items.map((row) => row.id === item.id ? { ...row, notes: event.target.value } : row))} className="mt-1 w-full rounded-lg border border-zinc-200 bg-white p-3 text-xs" placeholder="Critical dimensions, tolerance, finish, or other requirements" /></label>
+                        <div className="grid gap-2 sm:grid-cols-3">
+                          <label className="text-[11px] font-medium text-zinc-600">Material grade *<input required value={item.materialGrade || ""} onChange={(event) => setJobWorkItems((items) => items.map((row) => row.id === item.id ? { ...row, materialGrade: event.target.value } : row))} className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs" placeholder="Grade / specification" /></label>
+                          <label className="text-[11px] font-medium text-zinc-600">Last accepted delivery date<input type="date" value={item.lastAcceptedDeliveryDate || ""} onChange={(event) => setJobWorkItems((items) => items.map((row) => row.id === item.id ? { ...row, lastAcceptedDeliveryDate: event.target.value } : row))} className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs" /></label>
+                          <label className="text-[11px] font-medium text-zinc-600">Preferred delivery date<input type="date" value={item.preferredDeliveryDate || ""} onChange={(event) => setJobWorkItems((items) => items.map((row) => row.id === item.id ? { ...row, preferredDeliveryDate: event.target.value } : row))} className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs" /></label>
+                        </div>
                         <div className="space-y-2"><label className="block text-[11px] font-medium text-zinc-600">Drawing attachments (PDF, image, CAD) · up to 8 files</label>
                           {(uploadedFiles[drawingKey] || []).map((file, fileIndex) => <div key={`${file.s3Key}-${fileIndex}`} className="flex items-center justify-between rounded border bg-white p-2 text-xs"><span className="truncate">{file.fileName}</span><button type="button" onClick={() => { const next = uploadedFiles[drawingKey].filter((_, i) => i !== fileIndex); setUploadedFiles((prev) => ({ ...prev, [drawingKey]: next })); handleFieldChange(drawingKey, next.map((row) => row.s3Key)); }} className="text-rose-600">Remove</button></div>)}
                           {(uploadedFiles[drawingKey] || []).length < 8 && <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-zinc-300 bg-white p-3 text-xs text-zinc-600"><Upload className="h-4 w-4" />{uploadingField === drawingKey ? "Uploading…" : "Attach drawings"}<input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.dwg,.dxf,.step,.stp,.iges,.igs" multiple className="hidden" onChange={(event) => handleFileUpload(event, drawingField)} /></label>}
@@ -606,9 +614,6 @@ function ServiceRequestForm() {
                   <button type="button" onClick={() => setJobWorkItems((items) => [...items, { id: crypto.randomUUID(), name: "", quantity: "1", unit: "" }])} className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700">+ Add another item</button>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="text-xs font-medium text-zinc-700">Supply location *<input required value={dynamicValues.supply_location || ""} onChange={(event) => handleFieldChange("supply_location", event.target.value)} className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2" placeholder="City / delivery address" /></label>
-                    <label className="text-xs font-medium text-zinc-700">Material grade *<input required value={dynamicValues.material_grade || ""} onChange={(event) => handleFieldChange("material_grade", event.target.value)} className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2" placeholder="Grade / specification" /></label>
-                    <label className="text-xs font-medium text-zinc-700">Latest acceptable delivery date<input type="date" value={dynamicValues.latest_delivery_date || ""} onChange={(event) => handleFieldChange("latest_delivery_date", event.target.value)} className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2" /></label>
-                    <label className="text-xs font-medium text-zinc-700">Preferred delivery date<input type="date" value={dynamicValues.preferred_delivery_date || ""} onChange={(event) => handleFieldChange("preferred_delivery_date", event.target.value)} className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2" /></label>
                     <label className="text-xs font-medium text-zinc-700">Delivery type<select value={dynamicValues.delivery_type || ""} onChange={(event) => handleFieldChange("delivery_type", event.target.value)} className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2"><option value="">Select delivery type</option><option value="single">All items together</option><option value="staggered">Staggered / partial deliveries</option></select></label>
                     <label className="text-xs font-medium text-zinc-700">Overall inquiry notes<textarea rows={2} value={dynamicValues.inquiry_notes || ""} onChange={(event) => handleFieldChange("inquiry_notes", event.target.value)} className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2" placeholder="Additional jobwork requirements" /></label>
                   </div>
