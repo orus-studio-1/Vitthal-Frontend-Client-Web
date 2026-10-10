@@ -8,18 +8,33 @@ export interface ServiceCategory {
   image?: string;
   category_type: string;
   sort_order: number;
-  subcategories: Array<{
-    id: string;
-    name: string;
-    description?: string;
-    form_schema: any[];
-  }>;
+  subcategories: ServiceSubcategory[];
+}
+
+export interface ServiceSubcategory {
+  id: string;
+  name: string;
+  description?: string;
+  form_schema: FormFieldDefinition[];
+  children: ServiceSubcategory[];
+}
+
+export interface FormFieldDefinition {
+  name: string;
+  label: string;
+  type: "text" | "number" | "textarea" | "select" | "file" | "image" | "video" | "checkbox" | "date";
+  placeholder?: string;
+  required?: boolean;
+  options?: string[];
+  multiple?: boolean;
+  max_files?: number;
 }
 
 export interface ClientAsset {
   id: string;
   user_id: string;
   category_id?: string | null;
+  service_category_id?: string | null;
   subcategory_id?: string | null;
   category_name?: string;
   subcategory_name?: string;
@@ -41,8 +56,12 @@ export interface ServiceTicket {
   ticket_number: string;
   category_id: string;
   subcategory_id?: string | null;
+  service_subcategory_id?: string | null;
+  service_sub_subcategory_id?: string | null;
   category_name?: string;
   subcategory_name?: string;
+  service_subcategory_name?: string;
+  service_sub_subcategory_name?: string;
   client_user_id: string;
   vendor_id?: string | null;
   vendor_name?: string | null;
@@ -118,6 +137,7 @@ export async function createClientAsset(data: {
   serial_number?: string;
   installation_year?: number;
   category_id?: string;
+  service_category_id?: string;
   subcategory_id?: string;
   specs?: Record<string, any>;
   location_details?: Record<string, any>;
@@ -140,6 +160,8 @@ export async function createClientAsset(data: {
 export async function createServiceTicket(data: {
   category_id: string;
   subcategory_id?: string;
+  service_subcategory_id?: string;
+  service_sub_subcategory_id?: string;
   vendor_id?: string;
   asset_id?: string;
   priority?: string;

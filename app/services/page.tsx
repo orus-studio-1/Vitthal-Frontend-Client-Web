@@ -28,6 +28,8 @@ import {
   type ServiceCategory,
 } from "@/lib/api/serviceHub";
 import { useAuthStore } from "@/store/authStore";
+import { isMachineMaintenanceService } from "@/lib/services/machineMaintenance";
+import { isJobInquiryService } from "@/lib/services/jobInquiry";
 
 export const dynamic = "force-dynamic";
 
@@ -252,10 +254,10 @@ export default function ServiceHubPage() {
                 >
                   <div>
                     {/* Header Image or Banner */}
-                    {category.image ? (
+                    {(category.image || isMachineMaintenanceService(category) || isJobInquiryService(category)) ? (
                       <div className="mb-4 h-36 w-full overflow-hidden rounded-xl bg-zinc-100 border border-zinc-100">
                         <img
-                          src={category.image}
+                          src={category.image || "/Landing/MetalManufacturing.jpg"}
                           alt={category.label}
                           className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />

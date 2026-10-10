@@ -293,6 +293,25 @@ export default function SingleTicketRoomPage() {
                                 "{q.quote_breakdown.notes}"
                               </p>
                             )}
+                            {Array.isArray(q.quote_breakdown?.items) && q.quote_breakdown.items.length > 0 && (
+                              <div className="mt-3 border-t border-zinc-100 pt-3">
+                                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Itemized quotation</p>
+                                <div className="space-y-1.5">
+                                  {q.quote_breakdown.items.map((item: any, index: number) => (
+                                    <div key={`${q.id}-item-${index}`} className="flex flex-wrap justify-between gap-2 text-xs text-zinc-700">
+                                      <span>{item.name} <span className="text-zinc-400">× {item.quantity}{item.unit ? ` ${item.unit}` : ""}</span>
+                                        {(item.confirmed_delivery_date || item.supplier_accepted_date || item.remark) && <span className="mt-1 block text-[10px] text-zinc-500">{item.confirmed_delivery_date && `Delivery: ${item.confirmed_delivery_date}`}{item.supplier_accepted_date && ` · Supplier accepted: ${item.supplier_accepted_date}`}{item.remark && ` · ${item.remark}`}</span>}
+                                      </span>
+                                      <span className="font-medium">₹{Number(item.amount ?? Number(item.quantity) * Number(item.unit_price ?? item.rate)).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                  ))}
+                                  {[['Service charge', q.quote_breakdown.service_charge], ['Travel charge', q.quote_breakdown.travel_charge], ['Other charges', q.quote_breakdown.other_charge], [`GST (${q.quote_breakdown.gst_rate ?? 18}%)`, q.quote_breakdown.gst_amount]].filter(([, value]) => Number(value) > 0).map(([label, value]) => (
+                                    <div key={`${q.id}-${label}`} className="flex justify-between gap-2 text-xs text-zinc-500"><span>{label}</span><span>₹{Number(value).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span></div>
+                                  ))}
+                                  {q.quote_breakdown.total != null && <div className="flex justify-between border-t border-zinc-100 pt-1.5 text-xs font-bold text-zinc-900"><span>Quotation total</span><span>₹{Number(q.quote_breakdown.total).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span></div>}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
