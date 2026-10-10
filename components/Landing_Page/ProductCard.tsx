@@ -9,6 +9,7 @@ import { useWishlistStore } from "@/store/wishlistStore";
 
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
+import { ProductCatalogSummary } from "@/components/product/ProductCatalogSummary";
 
 const FALLBACK_IMAGE = "/placeholder-product.png";
 
@@ -35,6 +36,9 @@ type ProductCardProps = {
   sellerCount: number;
   image: string;
   id: string;
+  size?: string | null; brand?: string | null; grade?: string | null; colour?: string | null;
+  warranty?: string | null; manufacturer?: string | null; unit?: string | null;
+  attributes?: Record<string, string | number>;
 };
 
 export function ProductCard(product: ProductCardProps) {
@@ -153,9 +157,11 @@ export function ProductCard(product: ProductCardProps) {
             </h3>
           </div>
 
+          <ProductCatalogSummary compact size={product.size} brand={product.brand} grade={product.grade} colour={product.colour} warranty={product.warranty} manufacturer={product.manufacturer} attributes={product.attributes} />
+
           {/* Price Section */}
           <div className="pt-2 border-t border-zinc-100">
-            <p className="text-sm text-zinc-500">Price Range</p>
+            <p className="text-sm text-zinc-500">Price Range + 18% GST</p>
             <div className="flex flex-wrap items-baseline gap-2">
               <span className="text-lg font-bold text-zinc-900">{priceLabel}</span>
               {originalPriceLabel && (
@@ -163,6 +169,7 @@ export function ProductCard(product: ProductCardProps) {
                   {originalPriceLabel}
                 </span>
               )}
+              <p className="mt-1 text-[11px] font-medium text-emerald-700">Amount incl. GST: ₹{(product.minPrice * 1.18).toLocaleString(undefined, { maximumFractionDigits: 2 })}{product.minPrice !== product.maxPrice ? ` – ₹${(product.maxPrice * 1.18).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : ""}</p>
             </div>
           </div>
 

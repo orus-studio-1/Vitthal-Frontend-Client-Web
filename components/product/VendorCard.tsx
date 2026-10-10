@@ -4,6 +4,7 @@ import { MapPin, Star, BadgeCheck, Loader2, ShoppingCart } from "lucide-react";
 import { QuantityStepper } from "@/components/ui";
 import type { Vendor, RankedVendor } from "@/types";
 import { getActivePrice, hasDiscount, formatPrice } from "@/lib/utils/price";
+import { useState } from "react";
 
 interface VendorCardProps {
   vendor: Vendor | RankedVendor;
@@ -14,6 +15,7 @@ interface VendorCardProps {
   onUpdateQuantity: (vendorId: string, moq: number, delta: number, stock: number, variantId?: string) => void;
   onAddToCart: (vendor: Vendor, variantId?: string) => void;
   onQuantityChange: (vendorId: string, newQty: number, variantId?: string) => void;
+  unit?: string | null;
 }
 
 function isRankedVendor(v: Vendor | RankedVendor): v is RankedVendor {
@@ -29,12 +31,16 @@ export function VendorCard({
   onUpdateQuantity,
   onAddToCart,
   onQuantityChange,
+  unit = "nos",
 }: VendorCardProps) {
+  const [selectedUnit, setSelectedUnit] = useState(unit || "nos");
   const ranked = isRankedVendor(vendor) ? vendor : null;
   const activePrice = getActivePrice(vendor);
   const rawPrice = typeof vendor.price === "string" ? parseFloat(vendor.price) || 0 : vendor.price || 0;
   const showDiscount = hasDiscount(vendor);
   const totalPrice = activePrice * quantity;
+  const gstPercentage = vendor.gst_percentage == null ? 18 : Number(vendor.gst_percentage);
+  const amountWithGst = totalPrice + (totalPrice * gstPercentage / 100);
   const requiresQuotation = quotationLimit !== null && quantity >= quotationLimit;
 
   return (
@@ -90,15 +96,14 @@ export function VendorCard({
                 )}
               </div>
               <p className="text-[10px] text-zinc-400 font-semibold mt-0.5">
-                {vendor.gst_percentage && Number(vendor.gst_percentage) > 0
-                  ? `+ ${vendor.gst_percentage}% GST`
-                  : "GST Excl."}
+                + {gstPercentage}% GST
               </p>
+              <p className="text-[10px] text-emerald-700 font-semibold">Amount: {formatPrice(activePrice * (1 + gstPercentage / 100))} / unit incl. GST</p>
             </div>
 
             <div className="bg-zinc-50 border border-zinc-200/80 p-2.5 sm:px-3 sm:py-2 rounded-xl flex flex-col justify-between">
               <p className="text-[11px] text-zinc-500 font-medium">Min Order (MOQ)</p>
-              <p className="text-sm sm:text-base font-bold text-zinc-800 mt-0.5">{vendor.moq || 1} <span className="text-xs font-normal text-zinc-500">units</span></p>
+              <p className="text-sm sm:text-base font-bold text-zinc-800 mt-0.5">{vendor.moq || 1} <span className="text-xs font-normal text-zinc-500">{selectedUnit}</span></p>
               <p className="text-[10px] text-emerald-600 font-semibold mt-0.5">Ready to dispatch</p>
             </div>
 
@@ -106,7 +111,7 @@ export function VendorCard({
               <p className="text-[11px] text-zinc-500 font-medium">Available Stock</p>
               <p className="text-sm sm:text-base font-bold text-zinc-800 mt-0.5">
                 {vendor.stock_quantity ? (
-                  <span>{vendor.stock_quantity.toLocaleString()} <span className="text-xs font-normal text-zinc-500">units</span></span>
+                  <span>{vendor.stock_quantity.toLocaleString()} <span className="text-xs font-normal text-zinc-500">{selectedUnit}</span></span>
                 ) : (
                   <span className="text-amber-600 text-xs font-medium">On Request</span>
                 )}
@@ -151,6 +156,9 @@ export function VendorCard({
               stock={vendor.stock_quantity}
               onChange={(newQty) => onQuantityChange(vendor.vendor_id, newQty, variantId)}
             />
+            <select aria-label="Quantity unit" value={selectedUnit} onChange={(event) => setSelectedUnit(event.target.value)} className="h-9 rounded-lg border border-zinc-200 bg-white px-2 text-xs font-medium text-zinc-700">
+              {["nos", "kg", "pack", "Ltr", "Box", "gram", "Ton"].map((option) => <option key={option} value={option}>{option}</option>)}
+            </select>
           </div>
 
           <div className="flex flex-row sm:flex-col xl:flex-col items-center sm:items-end justify-between sm:justify-center gap-2">
@@ -158,8 +166,9 @@ export function VendorCard({
               <div className="text-left sm:text-right">
                 <span className="text-[11px] text-zinc-400 block font-medium">Subtotal</span>
                 <p className="text-sm sm:text-base font-bold text-zinc-900 leading-tight">
-                  {formatPrice(totalPrice)}
+                  {formatPrice(amountWithGst)}
                 </p>
+                <span className="text-[10px] text-zinc-500">Amount incl. GST</span>
               </div>
             )}
             <button

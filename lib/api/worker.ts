@@ -62,15 +62,67 @@ export type WorkerProfile = {
   is_available: boolean;
 };
 
+// export type WorkerPayment = {
+//   id: string;
+//   amount: string | number;
+//   currency: string;
+//   status: string;
+//   payment_method: string;
+//   razorpay_payment_id?: string | null;
+//   client_name?: string | null;
+//   created_at: string;
+// };
+
 export type WorkerPayment = {
   id: string;
+
   amount: string | number;
   currency: string;
+
   status: string;
   payment_method: string;
+
+  razorpay_order_id?: string | null;
   razorpay_payment_id?: string | null;
-  client_name?: string | null;
+
   created_at: string;
+  payment_updated_at?: string | null;
+
+  hire_request_id: string;
+
+  hire_request_status?: string | null;
+
+  contract_status?: string | null;
+
+  negotiation_status?: string | null;
+
+  agreed_amount?: string | number | null;
+
+  proposed_amount?: string | number | null;
+
+  request_details?: {
+    job_title?: string | null;
+    start_date?: string | null;
+    duration?: string | null;
+    location?: string | null;
+    shift?: string | null;
+    note?: string | null;
+    [key: string]: unknown;
+  } | null;
+
+  client_completed_at?: string | null;
+  worker_completed_at?: string | null;
+  completed_at?: string | null;
+
+  contract_created_at?: string | null;
+
+  client_id?: string | null;
+  client_name?: string | null;
+  client_email?: string | null;
+
+  candidate_id?: string | null;
+  candidate_name?: string | null;
+  candidate_designation?: string | null;
 };
 
 async function workerRequest(path: string, init?: RequestInit) {

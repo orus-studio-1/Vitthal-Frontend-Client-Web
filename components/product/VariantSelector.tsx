@@ -32,6 +32,12 @@ export type ProductDetail = {
   description: string;
   category: string;
   product_type: string;
+  size?: string | null;
+  brand?: string | null;
+  colour?: string | null;
+  warranty?: string | null;
+  manufacturer?: string | null;
+  unit?: string | null;
   grade?: string;
   material?: string;
   application?: string;
