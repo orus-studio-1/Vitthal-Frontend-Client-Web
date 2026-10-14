@@ -40,6 +40,38 @@ const STEPS = [
   { key: "completed", label: "Completed" },
 ];
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
+
+function TicketAttachment({ document }: { document: NonNullable<ServiceTicket["documents"]>[number] }) {
+  const [url, setUrl] = useState("");
+  useEffect(() => {
+    if (/^https?:\/\//i.test(document.doc_url)) {
+      setUrl(document.doc_url);
+      return;
+    }
+    let active = true;
+    void fetch(`${API_BASE_URL}/api/upload/file?fileName=${encodeURIComponent(document.doc_url)}`, { credentials: "include" })
+      .then((response) => response.json())
+      .then((result) => { if (active && result.url) setUrl(result.url); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [document.doc_url]);
+
+  const isVideo = /video/i.test(document.doc_type) || /\.(mp4|mov|webm)(?:\?|$)/i.test(document.doc_name || document.doc_url);
+  const isImage = !isVideo && (/image|photo|machine_photos|goods_item_image/i.test(document.doc_type) || /\.(png|jpe?g|webp|gif)(?:\?|$)/i.test(document.doc_name || document.doc_url));
+  const label = document.doc_name || document.doc_type.replace(/_/g, " ");
+  return (
+    <article className="min-w-0 overflow-hidden rounded-lg border border-zinc-100 bg-zinc-50/60">
+      {url && isImage ? <a href={url} target="_blank" rel="noreferrer" className="block bg-white"><img src={url} alt={label} className="h-40 w-full object-contain" /></a> : null}
+      {url && isVideo ? <video src={url} controls className="max-h-56 w-full bg-black" aria-label={label} /> : null}
+      <div className="flex min-w-0 items-center justify-between gap-3 p-3">
+        <span className="min-w-0 break-words text-xs font-medium capitalize text-zinc-800">{label}</span>
+        {url ? <a href={url} target="_blank" rel="noreferrer" className="shrink-0 text-xs font-semibold text-blue-700 hover:underline">{isImage || isVideo ? "Open" : "View"}</a> : <span className="shrink-0 text-[11px] text-zinc-400">Loading file…</span>}
+      </div>
+    </article>
+  );
+}
+
 export default function SingleTicketRoomPage() {
   const params = useParams();
   const ticketId = String(params?.id || "");
@@ -99,7 +131,7 @@ export default function SingleTicketRoomPage() {
           amount: order.amount,
           currency: order.currency,
           name: "Vitthal",
-          description: `Machine maintenance quotation ${ticket?.ticket_number || ""}`,
+          description: `${ticket?.ticket_payload?.service_name || "Service"} quotation ${ticket?.ticket_number || ""}`,
           order_id: order.razorpayOrderId,
           theme: { color: "#2563eb" },
           handler: async (response: {
@@ -247,6 +279,14 @@ export default function SingleTicketRoomPage() {
   const isJobInquiry =
     ticket.ticket_payload?.service_code === "job_inquiry" ||
     ticket.ticket_payload?.service_name === "Job Inquiry";
+  const isLogistics = ticket.ticket_payload?.service_code === "logistics" || /logistic|freight|transport/i.test(String(ticket.ticket_payload?.service_name || ticket.category_name || ""));
+  const isGoodsTicket = ticket.ticket_payload?.service_code === "goods_ticket_inquiry" || /goods[_\s-]*ticket|goods[_\s-]*inquiry/i.test(String(ticket.ticket_payload?.service_name || ticket.category_name || ""));
+  const requestedJobItems = Array.isArray(ticket.ticket_payload?.job_work_items) ? ticket.ticket_payload.job_work_items as Array<Record<string, any>> : [];
+  const displayPayloadEntries = Object.entries(ticket.ticket_payload || {}).filter(([key, value]) =>
+    !/(^|_)id$/i.test(key) &&
+    !["service_code", "service_name", "job_title", "job_work_items", "goods_items", "category_1", "category_2", "category_3", "machine_photos", "machine_video", "vehicle_image_key", "vehicle_class_key", "pickup_latitude", "pickup_longitude", "delivery_latitude", "delivery_longitude", "company_location_latitude", "company_location_longitude", "google_maps_url", "pickup_google_maps_url", "delivery_google_maps_url", "declaration_accepted"].includes(key) &&
+    value !== null && value !== undefined && value !== "" && typeof value !== "object",
+  );
   const successfulPrice = Number(ticket.total_amount || 0);
   const alreadyPaid = Number(ticket.advance_paid || 0);
 
@@ -270,6 +310,8 @@ export default function SingleTicketRoomPage() {
               <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-[11px] font-medium text-zinc-700">
                 {ticket.category_name || "Service"}
               </span>
+            {ticket.service_subcategory_name || ticket.subcategory_name ? <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-medium text-blue-800">{ticket.service_subcategory_name || ticket.subcategory_name}</span> : null}
+            {ticket.service_sub_subcategory_name ? <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-800">{ticket.service_sub_subcategory_name}</span> : null}
             </div>
             <h1 className="mt-1.5 font-heading text-2xl font-semibold text-zinc-900">
               {ticket.ticket_payload?.machine_name ||
@@ -427,7 +469,7 @@ export default function SingleTicketRoomPage() {
                                       ? "Processing..."
                                       : isJobInquiry
                                         ? `Pay ₹${Math.round(Number(q.total_price) * 0.25).toLocaleString("en-IN")} to confirm`
-                                        : "Accept and Pay"}
+                                      : isLogistics ? "Confirm and Pay" : isGoodsTicket ? "Confirm Order & Pay" : "Accept and Pay"}
                                   </button>
                                 )}
                               </div>
@@ -438,12 +480,31 @@ export default function SingleTicketRoomPage() {
                                 "{q.quote_breakdown.notes}"
                               </p>
                             )}
+                            {q.quote_breakdown?.required_project_datetime && (
+                              <div className="mt-3 grid gap-3 border-t border-zinc-100 pt-3 text-xs sm:grid-cols-2">
+                                <p className="text-zinc-600"><span className="font-semibold text-zinc-800">Project date and time: </span>{new Date(String(q.quote_breakdown.required_project_datetime)).toLocaleString()}</p>
+                                {q.quote_breakdown.token_amount != null && <p className="text-zinc-600"><span className="font-semibold text-zinc-800">Token advance: </span>₹{Number(q.quote_breakdown.token_amount).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>}
+                              </div>
+                            )}
+                            {q.quote_breakdown?.quote_attachment?.url && (
+                              <a
+                                href={q.quote_breakdown.quote_attachment.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                download={q.quote_breakdown.quote_attachment.name || true}
+                                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                              >
+                                <FileText className="h-3.5 w-3.5" />
+                                Download quotation / invoice attachment
+                              </a>
+                            )}
                             {Array.isArray(q.quote_breakdown?.items) &&
                               q.quote_breakdown.items.length > 0 && (
                                 <div className="mt-3 border-t border-zinc-100 pt-3">
                                   <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
                                     Itemized quotation
                                   </p>
+                                  {q.quote_breakdown.distance_km != null && <p className="mb-2 text-xs text-zinc-600">Route distance: <strong>{Number(q.quote_breakdown.distance_km).toLocaleString("en-IN")} km</strong>{q.quote_breakdown.rate_of_trip != null && <> · Trip rate: <strong>₹{Number(q.quote_breakdown.rate_of_trip).toLocaleString("en-IN")}</strong></>}</p>}
                                   <div className="space-y-1.5">
                                     {q.quote_breakdown.items.map(
                                       (item: any, index: number) => (
@@ -558,55 +619,86 @@ export default function SingleTicketRoomPage() {
                 </h2>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {Object.entries(ticket.ticket_payload || {}).map(([k, v]) => (
+                {isGoodsTicket ? ([
+                  ["Company / Google location", ticket.ticket_payload?.company_google_location],
+                  ["Mobile number", ticket.ticket_payload?.mobile_number],
+                  ["Required delivery date", ticket.ticket_payload?.delivery_date],
+                  ["Order placed by", ticket.ticket_payload?.order_placed_by],
+                  ["Order date and time", ticket.ticket_payload?.order_placed_at],
+                ] as Array<[string, unknown]>).filter(([, value]) => value !== null && value !== undefined && value !== "").map(([label, value]) => (
+                  <div key={label} className="rounded-lg border border-zinc-100 bg-zinc-50/50 p-3"><span className="text-[10px] uppercase font-semibold text-zinc-400">{label}</span><p className="mt-0.5 break-words text-xs font-medium text-zinc-800">{String(value)}</p></div>
+                )) : isLogistics ? ([
+                  ["Vehicle class", ticket.ticket_payload?.vehicle_class],
+                  ["Vehicle name", ticket.ticket_payload?.vehicle_name],
+                  ["Vehicle payload", ticket.ticket_payload?.vehicle_payload],
+                  ["Vehicle dimensions", ticket.ticket_payload?.vehicle_dimensions],
+                  ["Pickup location", ticket.ticket_payload?.pickup_address],
+                  ["Pickup contact", [ticket.ticket_payload?.pickup_contact_name, ticket.ticket_payload?.pickup_contact_phone].filter(Boolean).join(" · ")],
+                  ["Drop-off location", ticket.ticket_payload?.drop_address],
+                  ["Drop-off contact", [ticket.ticket_payload?.drop_contact_name, ticket.ticket_payload?.drop_contact_phone].filter(Boolean).join(" · ")],
+                  ["Delivery date", ticket.ticket_payload?.delivery_date],
+                  ["Approximate distance", ticket.ticket_payload?.approximate_distance_km ? `${ticket.ticket_payload.approximate_distance_km} km (straight-line estimate)` : undefined],
+                  ["Load description", ticket.ticket_payload?.cargo_type],
+                  ["Approximate load weight", ticket.ticket_payload?.estimated_weight],
+                  ["Load size", ticket.ticket_payload?.cargo_size],
+                ] as Array<[string, unknown]>).filter(([, value]) => value !== null && value !== undefined && value !== "").map(([label, value]) => (
+                  <div key={label} className="min-w-0 rounded-lg border border-zinc-100 bg-zinc-50/50 p-3"><span className="text-[10px] uppercase font-semibold text-zinc-400">{label}</span><p className="mt-0.5 break-words text-xs font-medium text-zinc-800 [overflow-wrap:anywhere]">{String(value)}</p></div>
+                )) : displayPayloadEntries.map(([k, v]) => (
                   <div
                     key={k}
-                    className="rounded-lg border border-zinc-100 bg-zinc-50/50 p-3"
+                    className={`min-w-0 rounded-lg border border-zinc-100 bg-zinc-50/50 p-3 ${/problem|description|note|communication/i.test(k) ? "sm:col-span-2" : ""}`}
                   >
                     <span className="text-[10px] uppercase font-semibold text-zinc-400">
                       {k.replace(/_/g, " ")}
                     </span>
-                    <p className="mt-0.5 text-xs font-medium text-zinc-800">
-                      {typeof v === "object" ? JSON.stringify(v) : String(v)}
+                    <p className="mt-0.5 break-words text-xs font-medium text-zinc-800 [overflow-wrap:anywhere]">
+                      {String(v)}
                     </p>
                   </div>
                 ))}
               </div>
+              {isJobInquiry && requestedJobItems.length > 0 && <section className="mt-5 min-w-0 space-y-3"><h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Requested jobwork items</h3>{requestedJobItems.map((item, index) => <article key={`job-item-${index}`} className="min-w-0 rounded-lg border border-zinc-200 bg-zinc-50/60 p-4"><div className="flex min-w-0 flex-wrap items-start justify-between gap-2"><h4 className="min-w-0 break-words text-sm font-semibold text-zinc-900">{index + 1}. {String(item.item_name || `Item ${index + 1}`)}</h4><span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-zinc-700">Qty {String(item.quantity ?? "—")} {String(item.unit || "")}</span></div>{item.notes ? <p className="mt-2 break-words whitespace-pre-wrap text-xs leading-relaxed text-zinc-600 [overflow-wrap:anywhere]">{String(item.notes)}</p> : null}<dl className="mt-3 grid min-w-0 gap-3 border-t border-zinc-200 pt-3 sm:grid-cols-3">{([["Material grade", item.material_grade], ["Last accepted delivery", item.last_accepted_delivery_date], ["Preferred delivery", item.preferred_delivery_date]] as Array<[string, unknown]>).map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-[10px] font-semibold uppercase text-zinc-500">{label}</dt><dd className="mt-1 break-words text-xs font-medium text-zinc-800 [overflow-wrap:anywhere]">{value ? String(value) : "—"}</dd></div>)}</dl></article>)}</section>}
+              {isGoodsTicket && Array.isArray(ticket.ticket_payload?.goods_items) && ticket.ticket_payload.goods_items.length > 0 && (
+                <div className="mt-5 space-y-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Requested items</h3>
+                  {ticket.ticket_payload.goods_items.map((item: Record<string, any>, index: number) => {
+                    const itemId = String(item.id || `goods-item-${index}`);
+                    const itemImage = ticket.documents?.find((document) => document.doc_type === "goods_item_image" && String(document.metadata?.item_id || "") === itemId);
+                    return (
+                      <article key={itemId} className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50/60 p-4 sm:grid-cols-[minmax(0,1fr)_200px] sm:items-center">
+                        <div><h3 className="text-sm font-semibold text-zinc-900">{index + 1}. {String(item.item_name || `Item ${index + 1}`)}</h3><p className="mt-1 text-xs text-zinc-600">Quantity: {String(item.quantity ?? "—")} {String(item.unit || "")}</p></div>
+                        {itemImage ? <TicketAttachment document={itemImage} /> : <p className="text-xs text-zinc-500">No image attached to this item.</p>}
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+              {isLogistics && <div className="flex flex-wrap items-center gap-4">{typeof ticket.ticket_payload?.vehicle_image_url === "string" && <img src={ticket.ticket_payload.vehicle_image_url} alt={String(ticket.ticket_payload.vehicle_name || "Selected vehicle")} className="h-28 w-40 rounded-lg border border-zinc-200 bg-zinc-50 object-contain" />}{typeof ticket.ticket_payload?.pickup_google_maps_url === "string" && <a href={ticket.ticket_payload.pickup_google_maps_url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-blue-700 hover:underline">Open pickup in Google Maps</a>}{typeof ticket.ticket_payload?.delivery_google_maps_url === "string" && <a href={ticket.ticket_payload.delivery_google_maps_url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-blue-700 hover:underline">Open delivery in Google Maps</a>}</div>}
+              {isGoodsTicket && ticket.ticket_payload?.google_maps_url && (
+                <a
+                  href={String(ticket.ticket_payload.google_maps_url)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex text-xs font-semibold text-blue-700 hover:underline"
+                >
+                  Open company location in Google Maps
+                </a>
+              )}
             </div>
 
             {/* Attached Files */}
-            {ticket.documents && ticket.documents.length > 0 && (
-              <div className="rounded-xl border border-zinc-200 bg-white p-6 space-y-3 shadow-xs">
+            {ticket.documents?.some((document) => document.doc_type !== "goods_item_image") ? (
+              <div className="min-w-0 rounded-xl border border-zinc-200 bg-white p-6 space-y-3 shadow-xs">
                 <div className="border-b border-zinc-100 pb-3">
                   <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-900">
-                    Attached Technical Documents ({ticket.documents.length})
+                    Photos and attachments ({ticket.documents.filter((document) => document.doc_type !== "goods_item_image").length})
                   </h2>
                 </div>
-                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                  {ticket.documents.map((d) => (
-                    <div
-                      key={d.id}
-                      className="flex items-center justify-between rounded-lg border border-zinc-100 bg-zinc-50/50 p-3"
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <FileText className="h-4 w-4 text-zinc-500 shrink-0" />
-                        <span className="text-xs font-medium text-zinc-800 truncate">
-                          {d.doc_name || d.doc_type}
-                        </span>
-                      </div>
-                      <a
-                        href={d.doc_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs text-blue-600 hover:underline shrink-0"
-                      >
-                        View
-                      </a>
-                    </div>
-                  ))}
+                <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                  {ticket.documents.filter((document) => document.doc_type !== "goods_item_image").map((document) => <TicketAttachment key={document.id} document={document} />)}
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* Right: OTP Verification & Timeline */}

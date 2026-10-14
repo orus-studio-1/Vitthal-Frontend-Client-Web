@@ -33,6 +33,7 @@ import { isMachineMaintenanceService, MACHINE_MAINTENANCE_FORM_FIELDS } from "@/
 import { isJobInquiryService, type JobWorkItem } from "@/lib/services/jobInquiry";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
+const JOB_ITEM_UNITS = ["pcs", "kg", "litre", "numbers", "set"];
 
 export const dynamic = "force-dynamic";
 
@@ -240,6 +241,21 @@ function ServiceRequestForm() {
       toast.error(err.message || "Failed to upload file.");
     } finally {
       setUploadingField(null);
+    }
+  };
+
+  const previewUpload = async (s3Key: string) => {
+    const previewWindow = window.open("about:blank", "_blank");
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/upload/file?fileName=${encodeURIComponent(s3Key)}`, { credentials: "include" });
+      const result = await response.json();
+      const url = result.url || result.fileUrl || result.file_url || result.data?.url;
+      if (!response.ok || !url) throw new Error(result.message || "Preview is unavailable for this file.");
+      if (previewWindow) previewWindow.location.href = url;
+      else throw new Error("Allow pop-ups to preview the uploaded file.");
+    } catch (error: any) {
+      previewWindow?.close();
+      toast.error(error.message || "Could not open file preview.");
     }
   };
 
@@ -596,7 +612,7 @@ function ServiceRequestForm() {
                         <div className="grid gap-2 sm:grid-cols-[2fr_1fr_1fr]">
                           <label className="text-[11px] font-medium text-zinc-600">Item name *<input required value={item.name} onChange={(event) => setJobWorkItems((items) => items.map((row) => row.id === item.id ? { ...row, name: event.target.value } : row))} className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs" placeholder="Part or jobwork item" /></label>
                           <label className="text-[11px] font-medium text-zinc-600">Quantity *<input required type="number" min="0.01" step="any" value={item.quantity} onChange={(event) => setJobWorkItems((items) => items.map((row) => row.id === item.id ? { ...row, quantity: event.target.value } : row))} className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs" /></label>
-                          <label className="text-[11px] font-medium text-zinc-600">Unit *<input required value={item.unit} onChange={(event) => setJobWorkItems((items) => items.map((row) => row.id === item.id ? { ...row, unit: event.target.value } : row))} className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs" placeholder="pcs, kg, set..." /></label>
+                          <label className="text-[11px] font-medium text-zinc-600">Unit *<select required value={item.unit} onChange={(event) => setJobWorkItems((items) => items.map((row) => row.id === item.id ? { ...row, unit: event.target.value } : row))} className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs"><option value="">Select unit</option>{JOB_ITEM_UNITS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select></label>
                         </div>
                         <label className="block text-[11px] font-medium text-zinc-600">Important points / item notes<textarea rows={2} value={item.notes || ""} onChange={(event) => setJobWorkItems((items) => items.map((row) => row.id === item.id ? { ...row, notes: event.target.value } : row))} className="mt-1 w-full rounded-lg border border-zinc-200 bg-white p-3 text-xs" placeholder="Critical dimensions, tolerance, finish, or other requirements" /></label>
                         <div className="grid gap-2 sm:grid-cols-3">
@@ -605,7 +621,7 @@ function ServiceRequestForm() {
                           <label className="text-[11px] font-medium text-zinc-600">Preferred delivery date<input type="date" value={item.preferredDeliveryDate || ""} onChange={(event) => setJobWorkItems((items) => items.map((row) => row.id === item.id ? { ...row, preferredDeliveryDate: event.target.value } : row))} className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs" /></label>
                         </div>
                         <div className="space-y-2"><label className="block text-[11px] font-medium text-zinc-600">Drawing attachments (PDF, image, CAD) · up to 8 files</label>
-                          {(uploadedFiles[drawingKey] || []).map((file, fileIndex) => <div key={`${file.s3Key}-${fileIndex}`} className="flex items-center justify-between rounded border bg-white p-2 text-xs"><span className="truncate">{file.fileName}</span><button type="button" onClick={() => { const next = uploadedFiles[drawingKey].filter((_, i) => i !== fileIndex); setUploadedFiles((prev) => ({ ...prev, [drawingKey]: next })); handleFieldChange(drawingKey, next.map((row) => row.s3Key)); }} className="text-rose-600">Remove</button></div>)}
+                          {(uploadedFiles[drawingKey] || []).map((file, fileIndex) => <div key={`${file.s3Key}-${fileIndex}`} className="flex items-center justify-between rounded border bg-white p-2 text-xs"><span className="truncate">{file.fileName}</span><div className="ml-2 flex shrink-0 gap-3"><button type="button" onClick={() => void previewUpload(file.s3Key)} className="font-medium text-blue-700">Preview</button><button type="button" onClick={() => { const next = uploadedFiles[drawingKey].filter((_, i) => i !== fileIndex); setUploadedFiles((prev) => ({ ...prev, [drawingKey]: next })); handleFieldChange(drawingKey, next.map((row) => row.s3Key)); }} className="text-rose-600">Remove</button></div></div>)}
                           {(uploadedFiles[drawingKey] || []).length < 8 && <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-zinc-300 bg-white p-3 text-xs text-zinc-600"><Upload className="h-4 w-4" />{uploadingField === drawingKey ? "Uploading…" : "Attach drawings"}<input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.dwg,.dxf,.step,.stp,.iges,.igs" multiple className="hidden" onChange={(event) => handleFileUpload(event, drawingField)} /></label>}
                         </div>
                       </div>;
@@ -690,6 +706,8 @@ function ServiceRequestForm() {
                                       <Paperclip className="h-4 w-4 text-blue-600 shrink-0" />
                                       <span className="truncate font-medium text-zinc-800">{file.fileName}</span>
                                     </div>
+                                    <div className="ml-2 flex shrink-0 items-center gap-3">
+                                    <button type="button" onClick={() => void previewUpload(file.s3Key)} className="font-medium text-blue-700">Preview</button>
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -700,6 +718,7 @@ function ServiceRequestForm() {
                                       className="text-zinc-400 hover:text-rose-600"
                                       aria-label={`Remove ${file.fileName}`}
                                     ><X className="h-4 w-4" /></button>
+                                    </div>
                                   </div>
                                 ))}
                                 {(!uploadedFiles[field.name] || uploadedFiles[field.name].length < Number(field.max_files || 1)) && (

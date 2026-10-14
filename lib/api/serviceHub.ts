@@ -1,5 +1,25 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
 
+export interface LogisticsVehicleClass {
+  vehicle_class_key: string;
+  vehicle_class: string;
+  vehicle_name: string;
+  payload: string;
+  dimensions: string;
+  vendor_count: number;
+  image_url: string;
+}
+
+export async function fetchAvailableLogisticsVehicleClasses(): Promise<LogisticsVehicleClass[]> {
+  const response = await fetch(`${API_BASE_URL}/api/service-hub/logistics-vehicles`, {
+    credentials: "include",
+    headers: { "x-request-from": "client" },
+  });
+  const json = await response.json();
+  if (!response.ok) throw new Error(json.message || "Failed to load available vehicles.");
+  return Array.isArray(json.data) ? json.data : [];
+}
+
 export interface ServiceCategory {
   id: string;
   code: string;
@@ -115,6 +135,7 @@ export interface ServiceTicket {
     doc_type: string;
     doc_name?: string;
     doc_url: string;
+    metadata?: Record<string, any> | null;
     uploader_name?: string;
     created_at: string;
   }>;

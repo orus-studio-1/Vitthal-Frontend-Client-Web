@@ -30,6 +30,9 @@ import {
 import { useAuthStore } from "@/store/authStore";
 import { isMachineMaintenanceService } from "@/lib/services/machineMaintenance";
 import { isJobInquiryService } from "@/lib/services/jobInquiry";
+import { isLogisticsService } from "@/lib/services/logistics";
+import { isGoodsTicketInquiryService } from "@/lib/services/goodsTicketInquiry";
+import { isFreelancerWorkService } from "@/lib/services/freelancerWork";
 
 export const dynamic = "force-dynamic";
 
@@ -247,14 +250,14 @@ export default function ServiceHubPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {categories.map((category) => (
+              {[...categories.filter((category) => !isFreelancerWorkService(category)), ...categories.filter(isFreelancerWorkService)].map((category) => (
                 <div
                   key={category.id}
                   className="group flex flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xs transition hover:border-blue-500 hover:shadow-md"
                 >
                   <div>
                     {/* Header Image or Banner */}
-                    {(category.image || isMachineMaintenanceService(category) || isJobInquiryService(category)) ? (
+                    {(category.image || isMachineMaintenanceService(category) || isJobInquiryService(category) || isLogisticsService(category) || isGoodsTicketInquiryService(category) || isFreelancerWorkService(category)) ? (
                       <div className="mb-4 h-36 w-full overflow-hidden rounded-xl bg-zinc-100 border border-zinc-100">
                         <img
                           src={category.image || "/Landing/MetalManufacturing.jpg"}
@@ -313,10 +316,10 @@ export default function ServiceHubPage() {
                   {/* Action CTA */}
                   <div className="mt-6 border-t border-zinc-100 pt-4">
                     <Link
-                      href={`/services/request?category=${category.id}`}
+                      href={isLogisticsService(category) ? "/services/logistics" : isGoodsTicketInquiryService(category) ? "/services/goods-ticket-inquiry" : isFreelancerWorkService(category) ? "/services/freelancer-work" : `/services/request?category=${category.id}`}
                       className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-blue-600"
                     >
-                      Book Service / Request Quote
+                      {isLogisticsService(category) ? "Book Logistics / Request Quote" : isGoodsTicketInquiryService(category) ? "Create Goods Ticket Enquiry" : isFreelancerWorkService(category) ? "Request Freelancer Work" : "Book Service / Request Quote"}
                       <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
                   </div>
