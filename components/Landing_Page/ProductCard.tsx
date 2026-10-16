@@ -44,12 +44,12 @@ type ProductCardProps = {
 export function ProductCard(product: ProductCardProps) {
   const hasDiscount = product.minOriginalPrice !== undefined && product.minOriginalPrice > product.minPrice;
   const priceLabel = product.minPrice === product.maxPrice
-    ? `₹${product.minPrice.toLocaleString()}`
-    : `₹${product.minPrice.toLocaleString()} – ₹${product.maxPrice.toLocaleString()}`;
+    ? `₹${product.minPrice.toLocaleString("en-IN")}`
+    : `₹${product.minPrice.toLocaleString("en-IN")} – ₹${product.maxPrice.toLocaleString("en-IN")}`;
   const originalPriceLabel = hasDiscount
     ? (product.minOriginalPrice === product.maxOriginalPrice
-        ? `₹${product.minOriginalPrice?.toLocaleString()}`
-        : `₹${product.minOriginalPrice?.toLocaleString()} – ₹${product.maxOriginalPrice?.toLocaleString()}`)
+        ? `₹${product.minOriginalPrice?.toLocaleString("en-IN")}`
+        : `₹${product.minOriginalPrice?.toLocaleString("en-IN")} – ₹${product.maxOriginalPrice?.toLocaleString("en-IN")}`)
     : null;
   const items = useWishlistStore((state) => state.items);
   const addToWishlist = useWishlistStore((state) => state.addItem);
@@ -169,7 +169,7 @@ export function ProductCard(product: ProductCardProps) {
                   {originalPriceLabel}
                 </span>
               )}
-              <p className="mt-1 text-[11px] font-medium text-emerald-700">Amount incl. GST: ₹{(product.minPrice * 1.18).toLocaleString(undefined, { maximumFractionDigits: 2 })}{product.minPrice !== product.maxPrice ? ` – ₹${(product.maxPrice * 1.18).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : ""}</p>
+              <p className="mt-1 text-[11px] font-medium text-emerald-700">Amount incl. GST: ₹{(product.minPrice * 1.18).toLocaleString("en-IN", { maximumFractionDigits: 2 })}{product.minPrice !== product.maxPrice ? ` – ₹${(product.maxPrice * 1.18).toLocaleString("en-IN", { maximumFractionDigits: 2 })}` : ""}</p>
             </div>
           </div>
 
