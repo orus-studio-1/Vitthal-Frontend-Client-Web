@@ -338,6 +338,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import type { FormEvent } from "react";
 
 import Link from "next/link";
 
@@ -352,18 +353,26 @@ import {
   CreditCard,
   ExternalLink,
   IndianRupee,
+  Landmark,
   Loader2,
   ReceiptText,
   Search,
   TrendingUp,
   Users,
   WalletCards,
+  Upload,
 } from "lucide-react";
 
 import { toast } from "sonner";
 
 import {
+  fetchWorkerPayoutBankDetails,
+  fetchWorkerPayoutEligibility,
   fetchWorkerPaymentHistory,
+  requestWorkerPayout,
+  saveWorkerPayoutBankDetails,
+  type WorkerPayoutBankDetails,
+  type WorkerPayoutEligibility,
   type WorkerPayment,
 } from "@/lib/api/worker";
 
@@ -628,6 +637,15 @@ export default function WorkerPaymentsPage() {
     setLoading,
   ] = useState(true);
 
+  const [payoutContracts, setPayoutContracts] = useState<WorkerPayoutEligibility[]>([]);
+  const [payoutBankDetails, setPayoutBankDetails] = useState<WorkerPayoutBankDetails | null>(null);
+  const [payoutBankForm, setPayoutBankForm] = useState({ bankName: "", accountHolderName: "", accountNumber: "", ifscCode: "", upiId: "" });
+  const [cancelledCheque, setCancelledCheque] = useState<File | null>(null);
+  const [bankFormOpen, setBankFormOpen] = useState(false);
+  const [payoutLoading, setPayoutLoading] = useState(true);
+  const [bankSaving, setBankSaving] = useState(false);
+  const [payoutRequestingId, setPayoutRequestingId] = useState<string | null>(null);
+
   const [
     search,
     setSearch,
@@ -675,16 +693,14 @@ export default function WorkerPaymentsPage() {
       try {
         setLoading(true);
 
-        const data =
-          await fetchWorkerPaymentHistory();
-
-        setPayments(
-          Array.isArray(
-            data
-          )
-            ? data
-            : []
-        );
+        const [data, completedContracts, bankDetails] = await Promise.all([
+          fetchWorkerPaymentHistory(),
+          fetchWorkerPayoutEligibility(),
+          fetchWorkerPayoutBankDetails(),
+        ]);
+        setPayments(Array.isArray(data) ? data : []);
+        setPayoutContracts(Array.isArray(completedContracts) ? completedContracts : []);
+        setPayoutBankDetails(bankDetails);
       } catch (error) {
         toast.error(
           error instanceof
@@ -694,11 +710,70 @@ export default function WorkerPaymentsPage() {
         );
       } finally {
         setLoading(false);
+        setPayoutLoading(false);
       }
     }
 
     void loadPayments();
   }, [user?.role]);
+
+  async function savePayoutBankDetails(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!cancelledCheque && !payoutBankDetails?.cheque_uploaded) {
+      toast.error("Upload a cancelled cheque image or PDF to save payout details.");
+      return;
+    }
+    const formData = new FormData();
+    formData.append("bankName", payoutBankForm.bankName.trim());
+    formData.append("accountHolderName", payoutBankForm.accountHolderName.trim());
+    formData.append("accountNumber", payoutBankForm.accountNumber.trim());
+    formData.append("ifscCode", payoutBankForm.ifscCode.trim().toUpperCase());
+    formData.append("upiId", payoutBankForm.upiId.trim());
+    if (cancelledCheque) formData.append("cancelledCheque", cancelledCheque);
+    try {
+      setBankSaving(true);
+      await saveWorkerPayoutBankDetails(formData);
+      const saved = await fetchWorkerPayoutBankDetails();
+      setPayoutBankDetails(saved);
+      setPayoutBankForm({ bankName: "", accountHolderName: "", accountNumber: "", ifscCode: "", upiId: "" });
+      setCancelledCheque(null);
+      setBankFormOpen(false);
+      toast.success("Worker payout bank details saved.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to save payout bank details.");
+    } finally {
+      setBankSaving(false);
+    }
+  }
+
+  function togglePayoutBankForm() {
+    if (!bankFormOpen && payoutBankDetails) {
+      setPayoutBankForm({
+        bankName: payoutBankDetails.bank_name || "",
+        accountHolderName: payoutBankDetails.account_holder_name || "",
+        accountNumber: payoutBankDetails.account_number || "",
+        ifscCode: payoutBankDetails.ifsc_code || "",
+        upiId: payoutBankDetails.upi_id || "",
+      });
+      setCancelledCheque(null);
+    }
+    setBankFormOpen((open) => !open);
+  }
+
+  async function submitWorkerPayout(contract: WorkerPayoutEligibility) {
+    const jobTitle = typeof contract.request_details?.job_title === "string" && contract.request_details.job_title.trim() ? contract.request_details.job_title : "hiring contract";
+    if (!window.confirm(`Request worker payout of ${formatAmount(contract.eligible_amount)} for ${jobTitle}?`)) return;
+    try {
+      setPayoutRequestingId(contract.hire_request_id);
+      await requestWorkerPayout(contract.hire_request_id);
+      setPayoutContracts(await fetchWorkerPayoutEligibility());
+      toast.success("Payout request sent to admin.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to request payout.");
+    } finally {
+      setPayoutRequestingId(null);
+    }
+  }
 
   const analytics =
     useMemo(() => {
@@ -1609,6 +1684,82 @@ export default function WorkerPaymentsPage() {
               )
             )}
           </div>
+        </div>
+      </section>
+
+      {/* Worker payout requests */}
+      <section className="mt-8 rounded-2xl border border-zinc-200 bg-white p-5 shadow-xs sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50"><Landmark className="h-5 w-5 text-emerald-700" /></div>
+            <div>
+              <h2 className="text-base font-semibold text-zinc-900">Worker payouts</h2>
+              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-zinc-500">After both you and the client confirm a paid contract is complete, request its payout from admin. The eligible amount reflects the admin commission on your worker profile.</p>
+            </div>
+          </div>
+          {payoutBankDetails ? <button type="button" onClick={togglePayoutBankForm} className="rounded-lg border border-zinc-200 px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50">{bankFormOpen ? "Close bank form" : "Update bank details"}</button> : null}
+        </div>
+
+        {payoutBankDetails && !bankFormOpen ? (
+          <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 text-xs text-emerald-900">
+            <span className="inline-flex items-center gap-2 font-semibold"><CheckCircle2 className="h-4 w-4" /> Payout account saved</span>
+            <span>{payoutBankDetails.bank_name} · {payoutBankDetails.account_holder_name}</span>
+            <span>Account ending {payoutBankDetails.account_last_four} · IFSC {payoutBankDetails.ifsc_code}</span>
+            {payoutBankDetails.upi_id ? <span>UPI ID: {payoutBankDetails.upi_id}</span> : null}
+            <span>{payoutBankDetails.cheque_uploaded ? "Cancelled cheque uploaded" : "Cancelled cheque required"}</span>
+          </div>
+        ) : (
+          <form onSubmit={savePayoutBankDetails} className="mt-5 rounded-xl border border-zinc-200 bg-zinc-50/60 p-4">
+            <div className="mb-3 flex items-center gap-2"><Landmark className="h-4 w-4 text-zinc-500" /><h3 className="text-sm font-semibold text-zinc-900">Payout bank details</h3></div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input required value={payoutBankForm.bankName} onChange={(event) => setPayoutBankForm((form) => ({ ...form, bankName: event.target.value }))} placeholder="Bank name" className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-blue-500" />
+              <input required value={payoutBankForm.accountHolderName} onChange={(event) => setPayoutBankForm((form) => ({ ...form, accountHolderName: event.target.value }))} placeholder="Account holder name" className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-blue-500" />
+              <input required inputMode="numeric" minLength={9} maxLength={18} value={payoutBankForm.accountNumber} onChange={(event) => setPayoutBankForm((form) => ({ ...form, accountNumber: event.target.value.replace(/\D/g, "") }))} placeholder="Bank account number" className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-blue-500" />
+              <input required maxLength={11} value={payoutBankForm.ifscCode} onChange={(event) => setPayoutBankForm((form) => ({ ...form, ifscCode: event.target.value.toUpperCase() }))} placeholder="IFSC code" className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-xs uppercase outline-none focus:border-blue-500" />
+              <input maxLength={255} value={payoutBankForm.upiId} onChange={(event) => setPayoutBankForm((form) => ({ ...form, upiId: event.target.value }))} placeholder="UPI ID (optional, e.g. name@bank)" className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-blue-500" />
+              <label className="flex items-center gap-2 rounded-lg border border-dashed border-zinc-300 bg-white px-3 py-2.5 text-xs text-zinc-600 sm:col-span-2">
+                <Upload className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 flex-1 truncate">{cancelledCheque?.name || "Upload cancelled cheque (PDF or image, max 5 MB)"}</span>
+                <input required={!payoutBankDetails?.cheque_uploaded} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => setCancelledCheque(event.target.files?.[0] || null)} className="max-w-[125px] text-[10px]" />
+              </label>
+              {payoutBankDetails?.cheque_uploaded ? <p className="text-[10px] text-zinc-500 sm:col-span-2">Existing cancelled cheque will be kept unless you choose a replacement.</p> : null}
+            </div>
+            <button disabled={bankSaving} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-50">
+              {bankSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-3.5 w-3.5" />}{bankSaving ? "Saving…" : "Save payout account"}
+            </button>
+          </form>
+        )}
+
+        <div className="mt-5 border-t border-zinc-100 pt-4">
+          <h3 className="text-sm font-semibold text-zinc-900">Completed contracts eligible for payout</h3>
+          {payoutLoading ? <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-blue-600" /></div> : payoutContracts.length ? (
+            <div className="mt-3 divide-y divide-zinc-100">
+              {payoutContracts.map((contract) => {
+                const status = contract.request_status || "not_requested";
+                const canRequest = (!contract.request_status || contract.request_status === "rejected") && Number(contract.eligible_amount) > 0;
+                const remaining = Math.max(0, Number(contract.eligible_amount) - Number(contract.transferred_amount || contract.paid_amount || 0));
+                const commissionDeduction = Math.max(0, Number(contract.agreed_amount) - Number(contract.eligible_amount));
+                return (
+                  <article key={contract.hire_request_id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="truncate text-sm font-semibold text-zinc-900">{typeof contract.request_details?.job_title === "string" ? contract.request_details.job_title : "Hiring contract"}</h4>
+                        <span className={`rounded-full px-2 py-1 text-[9px] font-bold uppercase ${status === "paid" ? "bg-emerald-50 text-emerald-700" : status === "rejected" ? "bg-rose-50 text-rose-700" : status === "requested" || status === "partially_paid" ? "bg-amber-50 text-amber-800" : "bg-blue-50 text-blue-700"}`}>{status.replace(/_/g, " ")}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-zinc-500">Client: {contract.client_name} · Completed {formatShortDate(contract.completed_at)}</p>
+                      <p className="mt-1 text-[11px] text-zinc-600">Contract {formatAmount(contract.agreed_amount)} · Admin commission {Number(contract.commission_percentage || 0)}%</p>
+                      <p className="mt-1 text-[11px] text-zinc-500">Commission deduction: {formatAmount(commissionDeduction)}</p>
+                      {contract.rejection_reason ? <p className="mt-1 text-xs text-rose-700">Admin note: {contract.rejection_reason}</p> : null}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-4">
+                      <div className="text-right"><p className="text-[10px] uppercase text-zinc-400">Net payout</p><p className="text-sm font-bold text-zinc-900">{formatAmount(contract.eligible_amount)}</p>{status === "partially_paid" ? <p className="text-[10px] text-amber-700">Remaining {formatAmount(remaining)}</p> : null}</div>
+                      {canRequest ? <button type="button" disabled={!payoutBankDetails?.cheque_uploaded || payoutRequestingId === contract.hire_request_id} onClick={() => void submitWorkerPayout(contract)} className="rounded-lg bg-blue-700 px-3 py-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">{payoutRequestingId === contract.hire_request_id ? "Sending…" : status === "rejected" ? "Request again" : "Request payout"}</button> : status === "requested" ? <span className="text-xs font-semibold text-amber-700">Waiting for admin</span> : status === "partially_paid" ? <span className="text-xs font-semibold text-amber-700">Partial payment recorded</span> : status === "paid" ? <span className="text-xs font-semibold text-emerald-700">Paid</span> : null}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : <p className="py-7 text-center text-xs text-zinc-500">Completed, paid contracts will appear here after both you and the client confirm completion.</p>}
         </div>
       </section>
 

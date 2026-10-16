@@ -125,12 +125,41 @@ export type WorkerPayment = {
   candidate_designation?: string | null;
 };
 
+export type WorkerPayoutEligibility = {
+  hire_request_id: string;
+  request_details?: WorkerPayment["request_details"];
+  agreed_amount: string | number;
+  eligible_amount: string | number;
+  commission_percentage: string | number;
+  client_name: string;
+  completed_at: string;
+  request_status?: "requested" | "partially_paid" | "rejected" | "paid" | null;
+  payout_request_id?: string | null;
+  paid_amount?: string | number | null;
+  transferred_amount?: string | number;
+  rejection_reason?: string | null;
+  requested_at?: string | null;
+  processed_at?: string | null;
+  bank_details_complete: boolean;
+};
+
+export type WorkerPayoutBankDetails = {
+  bank_name: string;
+  account_holder_name: string;
+  account_number: string;
+  account_last_four: string;
+  ifsc_code: string;
+  upi_id: string | null;
+  cheque_uploaded: boolean;
+};
+
 async function workerRequest(path: string, init?: RequestInit) {
+  const isMultipart = typeof FormData !== "undefined" && init?.body instanceof FormData;
   return fetch(`${API_BASE_URL}${path}`, {
     ...init,
     credentials: "include",
     headers: {
-      "Content-Type": "application/json",
+      ...(!isMultipart ? { "Content-Type": "application/json" } : {}),
       "x-request-from": "worker",
       ...(init?.headers || {}),
     },
@@ -166,6 +195,34 @@ export async function fetchWorkerPaymentHistory(): Promise<WorkerPayment[]> {
   if (!response.ok) return [];
   const payload = await response.json();
   return Array.isArray(payload.data) ? payload.data : [];
+}
+
+export async function fetchWorkerPayoutEligibility(): Promise<WorkerPayoutEligibility[]> {
+  const response = await workerRequest("/api/hiring/worker/payout-eligibility");
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.message || "Unable to load worker payout eligibility.");
+  return Array.isArray(payload.data) ? payload.data : [];
+}
+
+export async function fetchWorkerPayoutBankDetails(): Promise<WorkerPayoutBankDetails | null> {
+  const response = await workerRequest("/api/hiring/worker/payout-bank-details");
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.message || "Unable to load payout bank details.");
+  return payload.data || null;
+}
+
+export async function saveWorkerPayoutBankDetails(formData: FormData) {
+  const response = await workerRequest("/api/hiring/worker/payout-bank-details", { method: "PUT", body: formData });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.message || "Unable to save payout bank details.");
+  return payload.data;
+}
+
+export async function requestWorkerPayout(hireRequestId: string) {
+  const response = await workerRequest(`/api/hiring/worker/payout-requests/${hireRequestId}`, { method: "POST", body: JSON.stringify({}) });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.message || "Unable to submit payout request.");
+  return payload.data;
 }
 
 export async function updateWorkerHireRequest(id: string, status: "accepted" | "rejected") {
