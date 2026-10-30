@@ -6,6 +6,7 @@ import { Suspense, useMemo, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
+import { safeRedirect } from "@/lib/utils";
 import Image from "next/image";
 
 type Step = "register" | "verify";
@@ -14,7 +15,7 @@ function RegisterPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedRole = searchParams.get("role") === "worker" ? "worker" : "client";
-  const redirectPath = searchParams.get("redirect") || (requestedRole === "worker" ? "/worker/dashboard" : "/");
+  const redirectPath = safeRedirect(searchParams.get("redirect"), requestedRole === "worker" ? "/worker/dashboard" : "/");
   const [step, setStep] = useState<Step>("register");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);

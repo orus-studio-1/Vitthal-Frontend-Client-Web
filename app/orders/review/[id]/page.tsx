@@ -150,6 +150,7 @@ export default function Page() {
 
         const res = await fetch(`${API_BASE}/api/upload`, {
           method: "POST",
+          credentials: "include",
           body: formData,
         });
 
@@ -159,7 +160,7 @@ export default function Page() {
 
         const data = await res.json();
         if (data.fileName) {
-          const signedUrlRes = await fetch(`${API_BASE}/api/upload/file?fileName=${encodeURIComponent(data.fileName)}`);
+          const signedUrlRes = await fetch(`${API_BASE}/api/upload/file?fileName=${encodeURIComponent(data.fileName)}`, { credentials: "include" });
           if (signedUrlRes.ok) {
              const signedUrlData = await signedUrlRes.json();
              setImgPreviewCache((prev) => ({ ...prev, [data.fileName]: signedUrlData.url }));
