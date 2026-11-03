@@ -162,3 +162,196 @@ export function downloadPdfReport(
   document.body.removeChild(anchor);
   URL.revokeObjectURL(url);
 }
+
+export interface PurchaseOrderPdfData {
+  orderId: string;
+  createdAt: string;
+  deliveryDate: string | null;
+  customerName: string;
+  customerEmail: string;
+  vendorName: string;
+  deliveryAddress: string;
+  orderStatus: string;
+  paymentStatus: string;
+  totalAmount: number;
+  items: Array<{
+    productId: string;
+    materialCode?: string | null;
+    description: string;
+    quantity: number;
+    unit?: string | null;
+    unitPrice: number;
+  }>;
+}
+
+/** Creates a structured purchase order modeled on the client's PO document. */
+export async function downloadPurchaseOrderPdf(data: PurchaseOrderPdfData) {
+  const pageWidth = 595;
+  const pageHeight = 842;
+  const left = 36;
+  const right = 559;
+  const width = right - left;
+  const poNumber = `PO-${data.orderId.slice(0, 8).toUpperCase()}`;
+  const date = new Date(data.createdAt).toLocaleDateString("en-IN", {
+    day: "2-digit", month: "short", year: "numeric",
+  });
+  const deliveryDate = data.deliveryDate
+    ? new Date(data.deliveryDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    : "Awaiting delivery";
+  const money = (amount: number) => `INR ${Number(amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const rgb = (hex: string) => {
+    const value = hex.replace("#", "");
+    return [0, 2, 4].map((index) => (parseInt(value.slice(index, index + 2), 16) / 255).toFixed(3)).join(" ");
+  };
+  const pages: string[][] = [];
+  let commands: string[] = [];
+  let y = 0;
+  let logoHex = "";
+  try {
+    const logoResponse = await fetch("/logo.jpeg");
+    if (logoResponse.ok) {
+      const logoBytes = new Uint8Array(await logoResponse.arrayBuffer());
+      logoHex = `${Array.from(logoBytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}>`;
+    }
+  } catch {
+    // Keep the document usable if the optional logo asset cannot be loaded.
+  }
+  const text = (x: number, top: number, value: unknown, options: { size?: number; bold?: boolean; color?: string } = {}) => {
+    const size = options.size || 9;
+    commands.push(`BT ${rgb(options.color || "#1f2937")} rg /${options.bold ? "F2" : "F1"} ${size} Tf 1 0 0 1 ${x.toFixed(2)} ${(pageHeight - top - size).toFixed(2)} Tm (${pdfEscape(value as CsvCell)}) Tj ET`);
+  };
+  const rect = (x: number, top: number, w: number, h: number, fill?: string, stroke = "#d1d5db") => {
+    if (fill) commands.push(`${rgb(fill)} rg ${x} ${pageHeight - top - h} ${w} ${h} re f`);
+    commands.push(`${rgb(stroke)} RG 0.7 w ${x} ${pageHeight - top - h} ${w} ${h} re S`);
+  };
+  const line = (x1: number, top1: number, x2: number, top2: number, color = "#cbd5e1") => {
+    commands.push(`${rgb(color)} RG 0.7 w ${x1} ${pageHeight - top1} m ${x2} ${pageHeight - top2} l S`);
+  };
+  const wrap = (value: unknown, chars: number) => splitPdfText(String(value ?? "-").replace(/\s+/g, " "), chars);
+  const heading = (title: string) => {
+    commands = [];
+    pages.push(commands);
+    rect(left, 28, width, 58, "#f8fafc", "#cbd5e1");
+    if (logoHex) commands.push(`q 38 0 0 38 ${left + 9} ${pageHeight - 76} cm /Logo Do Q`);
+    text(left + 54, 40, "MTWO GROUPS", { size: 17, bold: true, color: "#123b72" });
+    text(left + 54, 64, "B2B PROCUREMENT", { size: 7, color: "#64748b" });
+    text(365, 42, title, { size: 15, bold: true, color: "#123b72" });
+    text(365, 65, `${poNumber}  |  ${date}`, { size: 8, color: "#475569" });
+    line(left, 98, right, 98, "#1e3a5f");
+    y = 112;
+  };
+  const sectionTitle = (title: string, x: number, top: number) => {
+    rect(x, top, 250, 19, "#eef2f7", "#cbd5e1");
+    text(x + 8, top + 5, title.toUpperCase(), { size: 8, bold: true, color: "#334155" });
+  };
+  const itemsHeader = (top: number) => {
+    const xs = [left, left + 30, left + 200, left + 284, left + 322, left + 366, left + 444, right];
+    const labels = ["#", "DESCRIPTION", "MATERIAL CODE", "QTY", "UOM", "RATE (INR)", "TOTAL (INR)"];
+    rect(left, top, width, 27, "#e8edf4", "#aeb9c8");
+    labels.forEach((label, index) => text(xs[index] + 4, top + 9, label, { size: 6.2, bold: true, color: "#26364a" }));
+    for (let index = 1; index < xs.length - 1; index++) line(xs[index], top, xs[index], top + 27, "#cbd5e1");
+    return xs;
+  };
+
+  heading("PURCHASE ORDER");
+  const half = (width - 12) / 2;
+  sectionTitle("Buyer / Bill To", left, y);
+  sectionTitle("Supplier", left + half + 12, y);
+  rect(left, y + 19, half, 75, undefined);
+  rect(left + half + 12, y + 19, half, 75, undefined);
+  text(left + 10, y + 31, data.customerName || "Customer", { size: 10, bold: true });
+  text(left + 10, y + 49, data.customerEmail || "-", { size: 8 });
+  wrap(data.deliveryAddress || "Delivery address not provided", 62).slice(0, 2).forEach((part, index) => text(left + 10, y + 64 + index * 11, part, { size: 7.5 }));
+  text(left + half + 22, y + 31, data.vendorName || "Vendor", { size: 10, bold: true });
+  y += 108;
+
+  const infoTop = y;
+  const infoCells = [
+    ["PO NUMBER", poNumber], ["PO DATE", date], ["DELIVERY DATE", deliveryDate], ["ORDER STATUS", data.orderStatus], ["PAYMENT STATUS", data.paymentStatus],
+  ];
+  const cellWidth = width / infoCells.length;
+  infoCells.forEach(([label, value], index) => {
+    const x = left + index * cellWidth;
+    rect(x, infoTop, cellWidth, 42, index % 2 ? "#ffffff" : "#f8fafc", "#cbd5e1");
+    text(x + 8, infoTop + 8, label, { size: 6.5, bold: true, color: "#64748b" });
+    text(x + 8, infoTop + 23, value, { size: 8, bold: true });
+  });
+  y += 54;
+  text(left, y, "Please supply the items listed below against this purchase order.", { size: 8, color: "#475569" });
+  y += 13;
+  let xs = itemsHeader(y);
+  y += 27;
+
+  const itemList = data.items.length ? data.items : [{ productId: "-", materialCode: null, description: "No item details", quantity: 0, unit: null, unitPrice: 0 }];
+  itemList.forEach((item, index) => {
+    const descLines = wrap(item.description, 36);
+    const codeLines = wrap(item.materialCode || item.productId.slice(0, 8).toUpperCase(), 13);
+    const rowHeight = Math.max(31, Math.max(descLines.length, codeLines.length) * 10 + 12);
+    if (y + rowHeight > 700) {
+      heading("PURCHASE ORDER — CONTINUED");
+      xs = itemsHeader(y);
+      y += 27;
+    }
+    rect(left, y, width, rowHeight, index % 2 ? "#ffffff" : "#fbfcfe", "#d7dde5");
+    for (let column = 1; column < xs.length - 1; column++) line(xs[column], y, xs[column], y + rowHeight, "#d7dde5");
+    text(xs[0] + 7, y + 11, index + 1, { size: 8 });
+    descLines.slice(0, 3).forEach((part, lineIndex) => text(xs[1] + 6, y + 8 + lineIndex * 10, part, { size: 7.5, bold: lineIndex === 0 }));
+    codeLines.slice(0, 3).forEach((part, lineIndex) => text(xs[2] + 5, y + 8 + lineIndex * 10, part, { size: 6.5 }));
+    text(xs[3] + 7, y + 11, item.quantity, { size: 8 });
+    text(xs[4] + 7, y + 11, item.unit || "-", { size: 7.5 });
+    text(xs[5] + 5, y + 11, money(item.unitPrice), { size: 7 });
+    text(xs[6] + 5, y + 11, money(Number(item.unitPrice || 0) * Number(item.quantity || 0)), { size: 7, bold: true });
+    y += rowHeight;
+  });
+
+  y += 14;
+  const subtotal = data.items.reduce((sum, item) => sum + Number(item.unitPrice || 0) * Number(item.quantity || 0), 0);
+  const summaryX = 330;
+  const summaryWidth = right - summaryX;
+  rect(summaryX, y, summaryWidth, 26, "#f8fafc", "#cbd5e1");
+  text(summaryX + 10, y + 8, "Items subtotal", { size: 8 });
+  text(summaryX + 115, y + 8, money(subtotal), { size: 8, bold: true });
+  rect(summaryX, y + 26, summaryWidth, 30, "#e8edf4", "#aeb9c8");
+  text(summaryX + 10, y + 36, "PURCHASE ORDER TOTAL", { size: 8, bold: true, color: "#123b72" });
+  text(summaryX + 115, y + 35, money(data.totalAmount), { size: 9, bold: true, color: "#123b72" });
+  y += 72;
+  if (y > 735) {
+    heading("PURCHASE ORDER — CONTINUED");
+  }
+  line(left, y, right, y, "#cbd5e1");
+  text(left, y + 10, "Digitally generated purchase order", { size: 7, color: "#64748b" });
+  text(right - 150, y + 10, "MTWO Groups", { size: 7, bold: true, color: "#123b72" });
+
+  const objects: string[] = [];
+  const addObject = (body: string) => (objects.push(body), objects.length);
+  const fontRegular = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+  const fontBold = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>");
+  const logoObject = logoHex
+    ? addObject(`<< /Type /XObject /Subtype /Image /Width 256 /Height 256 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter [/ASCIIHexDecode /DCTDecode] /Length ${logoHex.length} >>\nstream\n${logoHex}\nendstream`)
+    : null;
+  const pageObjectIds: number[] = [];
+  pages.forEach((page) => {
+    const stream = page.join("\n");
+    const streamObject = addObject(`<< /Length ${byteLength(stream)} >>\nstream\n${stream}\nendstream`);
+    const xObjects = logoObject ? `/XObject << /Logo ${logoObject} 0 R >>` : "";
+    pageObjectIds.push(addObject(`<< /Type /Page /Parent 0 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${fontRegular} 0 R /F2 ${fontBold} 0 R >> ${xObjects} >> /Contents ${streamObject} 0 R >>`));
+  });
+  const pagesObject = addObject(`<< /Type /Pages /Kids [${pageObjectIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageObjectIds.length} >>`);
+  pageObjectIds.forEach((id) => { objects[id - 1] = objects[id - 1].replace("/Parent 0 0 R", `/Parent ${pagesObject} 0 R`); });
+  const catalogObject = addObject(`<< /Type /Catalog /Pages ${pagesObject} 0 R >>`);
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((body, index) => { offsets.push(byteLength(pdf)); pdf += `${index + 1} 0 obj\n${body}\nendobj\n`; });
+  const xrefOffset = byteLength(pdf);
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach((offset) => { pdf += `${String(offset).padStart(10, "0")} 00000 n \n`; });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogObject} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  const url = URL.createObjectURL(new Blob([pdf], { type: "application/pdf" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `PO_${data.orderId.slice(0, 8).toUpperCase()}.pdf`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
+}

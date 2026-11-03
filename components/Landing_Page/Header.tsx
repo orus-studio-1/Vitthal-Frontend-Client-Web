@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useLayoutEffect, useCallback } from "react";
-import { Menu, X, ShoppingCart, User, LogOut, ChevronDown, Bell, Wrench } from "lucide-react";
+import { Menu, X, ShoppingCart, User, LogOut, ChevronDown, Bell, Wrench, PackageCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
@@ -327,6 +327,14 @@ export function Header() {
                           My Profile
                         </Link>
                         <Link
+                          href="/orders"
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"
+                          onClick={() => setProfileDropdown(false)}
+                        >
+                          <PackageCheck size={18} className="text-zinc-400" />
+                          My Orders
+                        </Link>
+                        <Link
                           href="/quotations"
                           className="flex items-center gap-3 px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"
                           onClick={() => setProfileDropdown(false)}
@@ -512,6 +520,15 @@ export function Header() {
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <User size={18} /> Profile
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/orders"
+                    className="hover:text-zinc-900 hover:bg-zinc-50 transition-colors flex items-center gap-3 py-3 px-3 rounded-lg"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <PackageCheck size={18} /> My Orders
                   </Link>
                 </li>
                 <li>

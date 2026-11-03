@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { downloadPdfReport } from "@/lib/export-utils";
+import { downloadPdfReport, downloadPurchaseOrderPdf } from "@/lib/export-utils";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
 
@@ -30,6 +30,8 @@ interface OrderItem {
   original_price?: number | null;
   variant_properties?: Record<string, string>;
   variant_name?: string | null;
+  material_code?: string | null;
+  unit?: string | null;
 }
 
 interface Order {
@@ -38,14 +40,20 @@ interface Order {
   payment_status: string;
   total_amount: number;
   created_at: string;
+  delivery_date: string | null;
   vendor_name: string;
   vendor_id: string;
+  address_line?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  pincode?: string;
   items: OrderItem[];
 }
 
 export default function OrdersPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading, fetchUser } = useAuthStore();
+  const { isAuthenticated, isLoading: authLoading, fetchUser, user } = useAuthStore();
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [fetchingOrders, setFetchingOrders] = useState(true);
@@ -228,39 +236,28 @@ export default function OrdersPage() {
     toast.success("Order summary PDF downloaded successfully!");
   };
 
-  const handleDownloadInvoicePDF = (order: Order) => {
-    const itemRows = (order.items || []).map((it) => [
-      it.product_name + (it.variant_name ? ` (${it.variant_name})` : ""),
-      it.quantity,
-      `INR ${Number(it.price).toLocaleString("en-IN")}`,
-      `INR ${(Number(it.price) * it.quantity).toLocaleString("en-IN")}`,
-    ]);
-
-    const sections = [
-      {
-        heading: `Order Details - #${order.order_id.slice(0, 8).toUpperCase()}`,
-        rows: [
-          ["Order Reference", `#${order.order_id.toUpperCase()}`],
-          ["Order Date", new Date(order.created_at).toLocaleString("en-IN")],
-          ["Fulfillment Vendor", order.vendor_name || "MTWO Direct Merchant"],
-          ["Order Status", order.status.toUpperCase()],
-          ["Payment Status", order.payment_status.toUpperCase()],
-          ["Grand Total", `INR ${Number(order.total_amount).toLocaleString("en-IN")}`],
-        ],
-      },
-      {
-        heading: "Purchased Items",
-        headers: ["Item Description", "Qty", "Unit Price", "Total"],
-        rows: itemRows,
-      },
-    ];
-
-    downloadPdfReport(
-      `Order Receipt / Invoice - #${order.order_id.slice(0, 8).toUpperCase()}`,
-      sections,
-      `Invoice_${order.order_id.slice(0, 8).toUpperCase()}.pdf`
-    );
-    toast.success(`Invoice for #${order.order_id.slice(0, 8).toUpperCase()} downloaded!`);
+  const handleDownloadPurchaseOrderPDF = async (order: Order) => {
+    await downloadPurchaseOrderPdf({
+      orderId: order.order_id,
+      createdAt: order.created_at,
+      deliveryDate: order.delivery_date,
+      customerName: user?.username || "Customer",
+      customerEmail: user?.email || "",
+      vendorName: order.vendor_name || "Vendor",
+      deliveryAddress: [order.address_line, order.city, order.state, order.pincode, order.country].filter(Boolean).join(", "),
+      orderStatus: order.status,
+      paymentStatus: order.payment_status,
+      totalAmount: order.total_amount,
+      items: (order.items || []).map((item) => ({
+        productId: item.product_id,
+        materialCode: item.material_code,
+        description: `${item.product_name}${item.variant_name ? ` (${item.variant_name})` : ""}`,
+        quantity: item.quantity,
+        unit: item.unit,
+        unitPrice: item.price,
+      })),
+    });
+    toast.success(`Purchase order PO-${order.order_id.slice(0, 8).toUpperCase()} downloaded!`);
   };
 
   if (authLoading || fetchingOrders) {
@@ -415,12 +412,12 @@ export default function OrdersPage() {
                     </div>
                       <div className="flex items-center gap-3">
                         <button
-                          onClick={() => handleDownloadInvoicePDF(order)}
+                          onClick={() => handleDownloadPurchaseOrderPDF(order)}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 transition shadow-2xs cursor-pointer"
-                          title="Download Invoice PDF"
+                          title="Download Purchase Order PDF"
                         >
                           <FileText size={13} className="text-blue-600" />
-                          Invoice PDF
+                          Purchase Order
                         </button>
                         <Link
                           href={`/orders/track-status/${order.order_id}`}
