@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { downloadPdfReport } from "@/lib/export-utils";
+import { downloadPurchaseOrderPdf } from "@/lib/export-utils";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
 
@@ -42,6 +42,9 @@ interface OrderItem {
   product_id: string;
   product_name: string;
   product_description: string | null;
+  variant_name?: string | null;
+  material_code?: string | null;
+  unit?: string | null;
   image_url: string | null;
   quantity: number;
   price: number;
@@ -95,6 +98,7 @@ interface OrderData {
   payment_status: string;
   total_amount: number;
   created_at: string;
+  delivery_date: string | null;
   updated_at: string;
   address_line: string;
   city: string;
@@ -493,7 +497,7 @@ function RouteJourneyMap({
 export default function OrderTrackingPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
-  const { isAuthenticated, isLoading: authLoading, fetchUser } = useAuthStore();
+  const { isAuthenticated, isLoading: authLoading, fetchUser, user } = useAuthStore();
   const orderId = params?.id;
 
   const [loading, setLoading] = useState(true);
@@ -631,44 +635,32 @@ export default function OrderTrackingPage() {
             <button
               onClick={() => {
                 if (!order) return;
-                const itemRows = (items || []).map((it) => [
-                  it.product_name,
-                  it.quantity,
-                  `INR ${Number(it.price).toLocaleString("en-IN")}`,
-                  `INR ${(Number(it.price) * it.quantity).toLocaleString("en-IN")}`,
-                ]);
-
-                const sections = [
-                  {
-                    heading: `Order Invoice - #${order.order_id.slice(0, 8).toUpperCase()}`,
-                    rows: [
-                      ["Order Reference", `#${order.order_id.toUpperCase()}`],
-                      ["Order Date", new Date(order.created_at).toLocaleString("en-IN")],
-                      ["Fulfillment Vendor", order.vendor_name || "MTWO Merchant"],
-                      ["Delivery Address", [order.address_line, order.city, order.state, order.pincode].filter(Boolean).join(", ")],
-                      ["Order Status", order.status.toUpperCase()],
-                      ["Payment Status", order.payment_status.toUpperCase()],
-                      ["Grand Total", `INR ${Number(order.total_amount).toLocaleString("en-IN")}`],
-                    ],
-                  },
-                  {
-                    heading: "Purchased Items",
-                    headers: ["Item Description", "Qty", "Unit Price", "Total"],
-                    rows: itemRows,
-                  },
-                ];
-
-                downloadPdfReport(
-                  `Order Invoice - #${order.order_id.slice(0, 8).toUpperCase()}`,
-                  sections,
-                  `Invoice_${order.order_id.slice(0, 8).toUpperCase()}.pdf`
-                );
-                toast.success("Invoice PDF downloaded successfully!");
+                void downloadPurchaseOrderPdf({
+                  orderId: order.order_id,
+                  createdAt: order.created_at,
+                  deliveryDate: order.delivery_date,
+                  customerName: user?.username || "Customer",
+                  customerEmail: user?.email || "",
+                  vendorName: order.vendor_name || "Vendor",
+                  deliveryAddress: [order.address_line, order.city, order.state, order.pincode, order.country].filter(Boolean).join(", "),
+                  orderStatus: order.status,
+                  paymentStatus: order.payment_status,
+                  totalAmount: order.total_amount,
+                  items: (items || []).map((item) => ({
+                    productId: item.product_id,
+                    materialCode: item.material_code,
+                    description: `${item.product_name}${item.variant_name ? ` (${item.variant_name})` : ""}`,
+                    quantity: item.quantity,
+                    unit: item.unit,
+                    unitPrice: item.price,
+                  })),
+                });
+                toast.success("Purchase Order PDF downloaded successfully!");
               }}
               className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-semibold text-zinc-800 shadow-2xs hover:bg-zinc-50 transition cursor-pointer"
             >
               <FileText size={14} className="text-blue-600" />
-              Invoice PDF
+              Purchase Order PDF
             </button>
             <div className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 ${getStatusColor(order.status).bg} ${getStatusColor(order.status).text}`}>
               <span className={`h-1.5 w-1.5 rounded-full ${getStatusColor(order.status).dot}`} />
