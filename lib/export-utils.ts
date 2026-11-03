@@ -184,6 +184,24 @@ export interface PurchaseOrderPdfData {
   }>;
 }
 
+/** Reads a JPEG's real dimensions; a PDF image object must declare them exactly or the image distorts. */
+function readJpegSize(bytes: Uint8Array) {
+  let offset = 2;
+  while (offset + 9 < bytes.length && bytes[offset] === 0xff) {
+    const marker = bytes[offset + 1];
+    const isFrameHeader = marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
+    if (isFrameHeader) {
+      return {
+        height: (bytes[offset + 5] << 8) | bytes[offset + 6],
+        width: (bytes[offset + 7] << 8) | bytes[offset + 8],
+        components: bytes[offset + 9],
+      };
+    }
+    offset += 2 + ((bytes[offset + 2] << 8) | bytes[offset + 3]);
+  }
+  return null;
+}
+
 /** Creates a structured purchase order modeled on the client's PO document. */
 export async function downloadPurchaseOrderPdf(data: PurchaseOrderPdfData) {
   const pageWidth = 595;
@@ -207,11 +225,16 @@ export async function downloadPurchaseOrderPdf(data: PurchaseOrderPdfData) {
   let commands: string[] = [];
   let y = 0;
   let logoHex = "";
+  let logoInfo = { width: 0, height: 0, components: 3 };
   try {
     const logoResponse = await fetch("/logo.jpeg");
     if (logoResponse.ok) {
       const logoBytes = new Uint8Array(await logoResponse.arrayBuffer());
-      logoHex = `${Array.from(logoBytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}>`;
+      const size = readJpegSize(logoBytes);
+      if (size) {
+        logoInfo = size;
+        logoHex = `${Array.from(logoBytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}>`;
+      }
     }
   } catch {
     // Keep the document usable if the optional logo asset cannot be loaded.
@@ -285,7 +308,7 @@ export async function downloadPurchaseOrderPdf(data: PurchaseOrderPdfData) {
   const itemList = data.items.length ? data.items : [{ productId: "-", materialCode: null, description: "No item details", quantity: 0, unit: null, unitPrice: 0 }];
   itemList.forEach((item, index) => {
     const descLines = wrap(item.description, 36);
-    const codeLines = wrap(item.materialCode || item.productId.slice(0, 8).toUpperCase(), 13);
+    const codeLines = wrap(item.materialCode || "-", 13);
     const rowHeight = Math.max(31, Math.max(descLines.length, codeLines.length) * 10 + 12);
     if (y + rowHeight > 700) {
       heading("PURCHASE ORDER — CONTINUED");
@@ -310,10 +333,10 @@ export async function downloadPurchaseOrderPdf(data: PurchaseOrderPdfData) {
   const summaryWidth = right - summaryX;
   rect(summaryX, y, summaryWidth, 26, "#f8fafc", "#cbd5e1");
   text(summaryX + 10, y + 8, "Items subtotal", { size: 8 });
-  text(summaryX + 115, y + 8, money(subtotal), { size: 8, bold: true });
+  text(summaryX + 125, y + 8, money(subtotal), { size: 8, bold: true });
   rect(summaryX, y + 26, summaryWidth, 30, "#e8edf4", "#aeb9c8");
   text(summaryX + 10, y + 36, "PURCHASE ORDER TOTAL", { size: 8, bold: true, color: "#123b72" });
-  text(summaryX + 115, y + 35, money(data.totalAmount), { size: 9, bold: true, color: "#123b72" });
+  text(summaryX + 125, y + 35, money(data.totalAmount), { size: 9, bold: true, color: "#123b72" });
   y += 72;
   if (y > 735) {
     heading("PURCHASE ORDER — CONTINUED");
@@ -327,7 +350,7 @@ export async function downloadPurchaseOrderPdf(data: PurchaseOrderPdfData) {
   const fontRegular = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
   const fontBold = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>");
   const logoObject = logoHex
-    ? addObject(`<< /Type /XObject /Subtype /Image /Width 256 /Height 256 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter [/ASCIIHexDecode /DCTDecode] /Length ${logoHex.length} >>\nstream\n${logoHex}\nendstream`)
+    ? addObject(`<< /Type /XObject /Subtype /Image /Width ${logoInfo.width} /Height ${logoInfo.height} /ColorSpace ${logoInfo.components === 1 ? "/DeviceGray" : "/DeviceRGB"} /BitsPerComponent 8 /Filter [/ASCIIHexDecode /DCTDecode] /Length ${logoHex.length} >>\nstream\n${logoHex}\nendstream`)
     : null;
   const pageObjectIds: number[] = [];
   pages.forEach((page) => {
