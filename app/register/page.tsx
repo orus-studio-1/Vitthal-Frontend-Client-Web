@@ -6,6 +6,7 @@ import { Suspense, useMemo, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
+import { safeRedirect } from "@/lib/utils";
 import Image from "next/image";
 
 type Step = "register" | "verify";

@@ -6,6 +6,7 @@ import { Suspense, useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/authStore";
+import { safeRedirect } from "@/lib/utils";
 import Image from "next/image";
 
 function LoginPageContent() {
@@ -59,7 +60,7 @@ function LoginPageContent() {
         }
 
         const redirect =
-          new URLSearchParams(window.location.search).get("redirect") || (loginRole === "worker" ? "/worker/dashboard" : "/");
+          safeRedirect(new URLSearchParams(window.location.search).get("redirect"), loginRole === "worker" ? "/worker/dashboard" : "/");
 
         if (loginRole === "client") {
           const isSetupComplete = await useAuthStore
