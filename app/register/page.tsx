@@ -13,8 +13,9 @@ type Step = "register" | "verify";
 function RegisterPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const requestedRole = searchParams.get("role") === "worker" ? "worker" : "client";
-  const redirectPath = searchParams.get("redirect") || (requestedRole === "worker" ? "/worker/dashboard" : "/");
+  const initialRole = searchParams.get("role") === "worker" ? "worker" : "client";
+  const [selectedRole, setSelectedRole] = useState<"client" | "worker">(initialRole);
+  const redirectPath = searchParams.get("redirect") || (initialRole === "worker" ? "/worker/dashboard" : "/");
   const [step, setStep] = useState<Step>("register");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -68,14 +69,14 @@ function RegisterPageContent() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-request-from": "client",
+            "x-request-from": selectedRole,
           },
           credentials: "include",
           body: JSON.stringify({
             name,
             email,
             password: passwordValue,
-            role: requestedRole,
+            role: selectedRole,
           }),
         },
       );
@@ -111,14 +112,14 @@ function RegisterPageContent() {
 
           headers: {
             "Content-Type": "application/json",
-            "x-request-from": "client",
+            "x-request-from": selectedRole,
           },
           credentials: "include",
           body: JSON.stringify({
             name: registeredName,
             email: registeredEmail,
             password,
-            role: requestedRole,
+            role: selectedRole,
           }),
         },
       );
@@ -156,7 +157,7 @@ function RegisterPageContent() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-request-from": "client",
+            "x-request-from": selectedRole,
           },
           credentials: "include",
           body: JSON.stringify({ email: registeredEmail, otp }),
@@ -170,8 +171,8 @@ function RegisterPageContent() {
         if (data.user) {
           useAuthStore.getState().setUser(data.user);
         }
-        if (requestedRole === "worker") {
-          router.replace(redirectPath);
+        if (selectedRole === "worker") {
+          router.replace(selectedRole === initialRole ? redirectPath : "/worker/dashboard");
         } else {
           toast.success("Please complete your profile setup first");
           router.replace("/profile/setup");
@@ -206,7 +207,9 @@ function RegisterPageContent() {
           </h1>
           <p className="mt-2 text-sm text-zinc-600">
             {step === "register"
-              ? "Join as a buyer and source industrial products from trusted vendors."
+              ? selectedRole === "worker"
+                ? "Create a worker account to build your profile and connect with hiring clients."
+                : "Join as a buyer and source industrial products from trusted vendors."
               : `Enter the OTP sent to ${registeredEmail}`}
           </p>
         </div>
@@ -214,6 +217,36 @@ function RegisterPageContent() {
         <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm sm:p-7">
           {step === "register" ? (
             <form onSubmit={handleRegister} className="space-y-5" noValidate>
+              <fieldset>
+                <legend className="mb-2 block text-sm font-medium text-zinc-800">
+                  Account type
+                </legend>
+                <div className="grid grid-cols-2 gap-3">
+                  {([
+                    { value: "client", title: "Client", description: "Buy products and services" },
+                    { value: "worker", title: "Worker", description: "Create a worker profile" },
+                  ] as const).map((option) => (
+                    <label
+                      key={option.value}
+                      className={`flex cursor-pointer gap-3 rounded-md border p-3 transition-colors ${selectedRole === option.value ? "border-[#1d4ed8] bg-blue-50 ring-1 ring-[#1d4ed8]" : "border-zinc-300 hover:border-zinc-400"}`}
+                    >
+                      <input
+                        type="radio"
+                        name="accountType"
+                        value={option.value}
+                        checked={selectedRole === option.value}
+                        onChange={() => setSelectedRole(option.value)}
+                        className="mt-0.5 accent-[#1d4ed8]"
+                      />
+                      <span>
+                        <span className="block text-sm font-medium text-zinc-900">{option.title}</span>
+                        <span className="mt-0.5 block text-xs text-zinc-600">{option.description}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
               <div>
                 <label
                   htmlFor="name"
