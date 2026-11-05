@@ -206,7 +206,9 @@ export default function NotificationsPage() {
 
     const isServiceNotif = isServiceNotification(n);
 
-    if (isServiceNotif && n.reference_id) {
+    if (n.reference_type === "order" && n.reference_id) {
+      router.push(`/orders/track-status/${n.reference_id}`);
+    } else if (isServiceNotif && n.reference_id) {
       router.push(`/services/tickets/${n.reference_id}`);
     } else if (n.reference_type === "product" && n.reference_id) {
       router.push(`/products`);

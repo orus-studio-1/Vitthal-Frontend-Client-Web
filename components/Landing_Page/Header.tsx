@@ -267,7 +267,9 @@ export function Header() {
                                   n.reference_type === "service" ||
                                   (n.reference_type === "quotation" && (n.title?.toLowerCase().includes("service") || n.body?.toLowerCase().includes("service")));
 
-                                if (isServiceNotif && n.reference_id) {
+                                if (n.reference_type === "order" && n.reference_id) {
+                                  router.push(`/orders/track-status/${n.reference_id}`);
+                                } else if (isServiceNotif && n.reference_id) {
                                   router.push(`/services/tickets/${n.reference_id}`);
                                 } else if (n.reference_type === "quotation" && n.reference_id) {
                                   router.push(`/quotations/${n.reference_id}`);
