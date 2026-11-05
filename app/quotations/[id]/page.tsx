@@ -883,7 +883,7 @@ export default function QuotationDetailPage() {
           </div>
 
           {/* RIGHT: Chat Panel */}
-          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden flex flex-col h-[800px] lg:h-[850px]">
+          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden flex flex-col min-h-[800px] lg:min-h-[850px]">
             {selectedQuotation ? (
               <>
                 {/* Chat Header */}
@@ -1120,7 +1120,7 @@ export default function QuotationDetailPage() {
                 {activeTab === "vendor" && renderVendorTermsSummary(selectedQuotation)}
 
                 {/* Messages Area */}
-                <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-5 py-4 bg-gradient-to-b from-zinc-50/50 to-white" style={{ minHeight: 200 }}>
+                <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-5 py-4 bg-gradient-to-b from-zinc-50/50 to-white" style={{ minHeight: 200, maxHeight: 460 }}>
                   <div className="max-w-4xl mx-auto w-full space-y-5">
                     {activeTab === "vendor" ? (
                       <>
